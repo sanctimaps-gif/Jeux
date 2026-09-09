@@ -187,7 +187,7 @@ window.G = window.G || {};
     var isRace = sp.type === 'race';
     h += '<div class="grid2" style="margin-top:10px">' +
       '<button class="btn primary" data-act="mg.play">▶️ ' +
-      (isRace ? 'Disputer la course' : 'Jouer le match') + '</button>' +
+      (isRace ? 'Jouer la course' : 'Jouer le match') + '</button>' +
       '<button class="btn" data-act="mg.sim">⏩ Simuler</button></div>';
 
     var injured = club.players.filter(function (p) { return p.injury > 0; }).length;

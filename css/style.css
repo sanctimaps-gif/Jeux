@@ -127,6 +127,8 @@ button, input, select { font-family: inherit; font-size: inherit; color: inherit
   border-radius: 10px; padding: 9px 12px; font-weight: 600;
   cursor: pointer; transition: transform .06s, filter .12s;
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  /* Un libellé qui passe à la ligne ne doit jamais déborder du bouton. */
+  text-align: center; line-height: 1.2; min-height: 38px; min-width: 0;
 }
 .btn:active { transform: scale(.97); }
 .btn[disabled] { opacity: .38; pointer-events: none; }
