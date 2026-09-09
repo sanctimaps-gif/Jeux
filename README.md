@@ -1,4 +1,7 @@
 # Empire Total
+<div align="center">
+
+<img src="logo-investir.png" width="280" alt="Logo du jeu Investir">
 
 Jeu de gestion **hors ligne**, en français, qui mélange plusieurs genres dans une
 seule partie : un empire d'entreprises façon *Business Empire* (entreprises,
