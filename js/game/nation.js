@@ -1098,6 +1098,11 @@ G.nation = (function () {
       n.monthsInTerm = 0;
       n.ind.popularite = u.clamp(n.ind.popularite + 4, 1, 99);
       journal('🗳️ Réélu pour un nouveau mandat (score ' + Math.round(score) + ').');
+      /* Bonus de réélection : récompense pour la victoire électorale. */
+      var reelectionBonus = n.gdp * 0.0001 * (Math.max(45, score) - 45) / 55;
+      if (reelectionBonus > 0) {
+        G.eco.earn(reelectionBonus, 'pays', 'Bonus de réélection');
+      }
       if (G.ui) G.ui.toast('🗳️ Réélu !', n.name + ' vous renouvelle sa confiance', 'good');
       return { won: true, score: score };
     }
@@ -1109,9 +1114,21 @@ G.nation = (function () {
   function loseCountry(reason) {
     var n = get();
     if (!n) return;
-    var golden = Math.min(n.treasury * 0.02, n.gdp * 0.0004);
+    /* Bonus de fin de mandat basé sur la performance. */
+    var performanceScore = (n.ind.popularite - 50) / 100 +
+      n.ind.croissance / 20 +
+      (50 - n.ind.chomage) / 100;
+    performanceScore = u.clamp(performanceScore, -0.5, 1);
+
+    /* Indemnité base : trésor du pays + bonus de performance. */
+    var baseIndemnity = n.treasury * 0.02;
+    var performanceBonus = n.gdp * 0.0002 * Math.max(0, performanceScore);
+    var golden = baseIndemnity + performanceBonus;
+
     G.state.nation = null;
-    if (golden > 0) G.eco.earn(golden, 'pays', 'Indemnité de fin de mandat');
+    if (golden > 0) {
+      G.eco.earn(golden, 'pays', 'Bonus de fin de mandat');
+    }
     if (G.ui) G.ui.toast('🏛️ Fin de mandat', reason, 'bad');
   }
 
