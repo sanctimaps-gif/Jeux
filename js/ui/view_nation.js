@@ -337,7 +337,10 @@ window.G = window.G || {};
     if (autoTimer) return;
     autoAdvance = true;
     autoTimer = setInterval(function () {
-      if (G.nation.get()) advance(1);
+      if (!autoAdvance || !G.nation.get()) return;
+      var modal = document.getElementById('modal');
+      if (modal && modal.style.display !== 'none') return;
+      advance(1);
     }, autoAdvanceInterval);
   }
 
