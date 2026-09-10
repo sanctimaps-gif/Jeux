@@ -9,6 +9,9 @@ window.G = window.G || {};
   var selected = null;        // code pays sélectionné sur la carte
   var view = { x: 0, y: 0, k: 1 };
   var search = '';
+  var autoAdvance = false;    // automatisation de la progression du temps
+  var autoAdvanceInterval = 6000;  // intervalle en ms entre chaque avancement (6s par défaut)
+  var autoTimer = null;       // identifiant du timer d'auto-avancement
 
   var MAP = G.DATA.mapSize;
 
@@ -329,6 +332,34 @@ window.G = window.G || {};
 
   /* ================================================== TABLEAU DE BORD ==== */
 
+  /** Lance ou arrête l'avancement automatique des mois. */
+  function startAutoAdvance() {
+    if (autoTimer) return;
+    autoAdvance = true;
+    autoTimer = setInterval(function () {
+      if (G.nation.get()) advance(1);
+    }, autoAdvanceInterval);
+  }
+
+  function stopAutoAdvance() {
+    autoAdvance = false;
+    if (autoTimer) {
+      clearInterval(autoTimer);
+      autoTimer = null;
+    }
+  }
+
+  function toggleAutoAdvance() {
+    if (autoAdvance) {
+      stopAutoAdvance();
+      ui.toast('⏸️ Pause automatique', 'Avancement du temps arrêté', 'info');
+    } else {
+      startAutoAdvance();
+      ui.toast('▶️ Avancement automatique', 'Mois : ' + G.nation.get().month, 'good');
+    }
+    ui.refresh();
+  }
+
   function renderDash(n) {
     var d = G.DATA.worldById[n.code];
     var sheet = G.nation.balanceSheet();
@@ -361,7 +392,9 @@ window.G = window.G || {};
       ui.stat('Dette / PIB', u.dec(G.nation.debtRatio(), 0) + ' %',
         G.nation.debtRatio() < 90 ? '' : 'bad') +
       ui.stat('Rang militaire', Math.round(G.nation.worldRank()) + 'e') +
-      '</div>';
+      '</div>' +
+      '<div class="mute2">Mois : ' + n.month + ' / ' + (G.nation.TERM_MONTHS) +
+      ' · Avancement automatique ' + (autoAdvance ? '✓ activé' : '✗ désactivé') + '</div>';
 
     /* Ressources. */
     h += '<div class="card"><div class="card-head">📦 Ressources<span class="sub">' +
@@ -385,10 +418,13 @@ window.G = window.G || {};
       u.fmtMoney(G.nation.spending()) + '</b></div><div class="hr"></div>' +
       '<div class="row between"><b>Solde</b><b class="' + ui.signCls(bal) + '">' +
       u.fmtSigned(bal) + '</b></div>' +
-      '<button class="btn primary full" style="margin-top:10px" data-act="nt.month">' +
-      '📅 Passer au mois suivant</button>' +
-      '<button class="btn full" style="margin-top:6px" data-act="nt.year">' +
-      '⏩ Passer 12 mois</button></div>';
+      '<div class="grid3" style="margin-top:10px">' +
+      '<button class="btn primary' + (autoAdvance ? ' active' : '') + '" data-act="nt.auto">' +
+      (autoAdvance ? '⏸️ Pause' : '▶️ Auto') + '</button>' +
+      '<button class="btn" data-act="nt.month">' +
+      '📅 Mois</button>' +
+      '<button class="btn" data-act="nt.year">' +
+      '⏩ 12 mois</button></div></div>';
 
     /* Guerres en cours. */
     if (n.wars.length) {
@@ -914,6 +950,7 @@ window.G = window.G || {};
     ui.refresh();
   }
 
+  ui.act('nt.auto', function () { toggleAutoAdvance(); });
   ui.act('nt.month', function () { advance(1); });
   ui.act('nt.year', function () { advance(12); });
   ui.act('nt.salary', function () { if (G.nation.drawSalary()) ui.refresh(); });
@@ -957,12 +994,17 @@ window.G = window.G || {};
         '" data-act="nt.sub" data-sub="' + t[0] + '">' + t[1] + '</button>';
     }).join('') + '</div>';
   }
-  ui.act('nt.sub', function (d) { sub = d.sub; ui.refresh(); });
+  ui.act('nt.sub', function (d) {
+    sub = d.sub;
+    if (sub === 'carte') stopAutoAdvance();
+    ui.refresh();
+  });
 
   G.ui.register('pays', {
     icon: '🌍', label: 'Pays',
     render: function () {
       var n = G.nation.get();
+      if (!n) stopAutoAdvance();
       var h = '<div class="view-title">' + (n ? u.esc(n.name) : 'Géopolitique') + '</div>';
       h += subTabs(n);
       if (!n || sub === 'carte') h += renderMap();
@@ -974,7 +1016,10 @@ window.G = window.G || {};
       return h;
     },
     after: function (root) {
-      if (!G.nation.get() || sub === 'carte') bindMap(root);
+      if (!G.nation.get() || sub === 'carte') {
+        bindMap(root);
+        stopAutoAdvance();
+      }
     }
   });
 })();
