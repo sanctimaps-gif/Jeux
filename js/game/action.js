@@ -1,0 +1,756 @@
+/* Mode action : on joue soi-même la rencontre.
+ *
+ * Vue de dessus, caméra qui suit le ballon, joystick virtuel à gauche et
+ * boutons d'action à droite. On contrôle le joueur le plus proche du ballon ;
+ * les coéquipiers se démarquent, les adversaires pressent, le gardien sort.
+ *
+ * Ce n'est pas un moteur 3D — c'est un jeu d'arcade lisible au doigt, où vos
+ * gestes décident réellement du score, qui alimente ensuite le championnat et
+ * les finances du club.
+ */
+window.G = window.G || {};
+
+G.action = (function () {
+  'use strict';
+  var u = G.util;
+
+  /* Terrain et rythme propres à chaque discipline. */
+  var FIELDS = {
+    football: { w: 68, h: 105, goalW: 7.3, surface: '#2e7d32', line: '#ffffff',
+      goal: 'shot', speed: 1.0, ballSpeed: 30, clock: 90, realSeconds: 200,
+      aiShoot: 0.45, aiRange: 0.19, tackle: 1.0, view: 30 },
+    rugby: { w: 70, h: 110, goalW: 5.6, surface: '#2f7a34', line: '#ffffff',
+      goal: 'tryline', speed: 0.95, ballSpeed: 24, clock: 80, realSeconds: 190,
+      aiShoot: 0, aiRange: 0, tackle: 4.2, view: 32 },
+    waterpolo: { w: 20, h: 30, goalW: 3, surface: '#1565c0', line: '#e3f2fd',
+      goal: 'shot', speed: 0.45, ballSpeed: 15, clock: 32, realSeconds: 150,
+      aiShoot: 2.4, aiRange: 0.60, tackle: 0.8, view: 20 },
+    basket: { w: 15, h: 28, goalW: 1.8, surface: '#a1622f', line: '#ffe0b2',
+      goal: 'basket', speed: 0.8, ballSpeed: 18, clock: 40, realSeconds: 160,
+      aiShoot: 1.5, aiRange: 0.45, tackle: 2.0, view: 15 },
+    handball: { w: 20, h: 40, goalW: 3, surface: '#1b5e20', line: '#c8e6c9',
+      goal: 'shot', speed: 0.85, ballSpeed: 22, clock: 60, realSeconds: 170,
+      aiShoot: 2.8, aiRange: 0.55, tackle: 0.8, view: 20 }
+  };
+
+  function fieldOf(sportId) { return FIELDS[sportId] || FIELDS.football; }
+  function supports(sportId) { return !!FIELDS[sportId]; }
+
+  /* ====================================================== CONSTRUCTION ==== */
+
+  /**
+   * Prépare une rencontre jouable.
+   * @param {object} club  club du joueur
+   * @returns {object|null} état de match, ou null si le calendrier est fini
+   */
+  function create(club) {
+    var sport = G.manager.sportDef(club.sport);
+    var fx = G.manager.nextFixture(club);
+    if (!fx) return null;
+    var F = fieldOf(club.sport);
+
+    var mine = G.manager.teamRatings(club);
+    var oppStr = fx.opp.str;
+
+    var M = {
+      club: club, sport: sport, F: F,
+      oppName: fx.opp.name, youHome: fx.youHome,
+      score: { you: 0, opp: 0 },
+      clock: 0,                      // minutes de jeu écoulées
+      running: false, done: false, paused: false,
+      players: [], ball: null,
+      cam: { x: F.w / 2, y: F.h / 2 },
+      user: null,                    // joueur contrôlé
+      input: { dx: 0, dy: 0, sprint: false },
+      feed: [],
+      stats: { youShots: 0, oppShots: 0, poss: 50, possYou: 0, possTot: 0 },
+      lastTouch: null,
+      restart: 0,                    // secondes de gel après un but
+      result: null,
+      halfDone: false
+    };
+
+    buildTeams(M, club, sport, mine, oppStr);
+    kickoff(M, 1);
+    push(M, 'Coup d\'envoi — ' + club.name + ' contre ' + fx.opp.name, 'info');
+    return M;
+  }
+
+  /** Place les deux équipes sur le terrain selon leurs postes. */
+  function buildTeams(M, club, sport, mine, oppStr) {
+    var F = M.F;
+    var line = G.manager.starters(club);
+    var n = Math.min(line.length, sport.lineupSize);
+
+    /* Formation : le gardien devant sa cage, les autres répartis par rôle. */
+    function slot(role, idx, count, side) {
+      var rows = { gk: 0.06, def: 0.26, mid: 0.5, att: 0.74 };
+      var y = rows[role] === undefined ? 0.5 : rows[role];
+      var x = count === 1 ? 0.5 : 0.18 + (idx / (count - 1)) * 0.64;
+      return {
+        x: x * F.w,
+        y: side > 0 ? y * F.h : (1 - y) * F.h
+      };
+    }
+
+    function addTeam(players, side, teamId, strength) {
+      var byRole = { gk: [], def: [], mid: [], att: [] };
+      var i;
+      for (i = 0; i < players.length; i++) {
+        var pd = G.manager.posDef(sport, players[i].pos);
+        var role = pd ? pd.role : 'mid';
+        byRole[role].push(players[i]);
+      }
+      for (var role in byRole) {
+        var group = byRole[role];
+        for (i = 0; i < group.length; i++) {
+          var pos = slot(role, i, group.length, side);
+          var ovr = teamId === 0
+            ? G.manager.effOvr(group[i], sport)
+            : u.clamp(strength + u.gauss(0, 5), 20, 95);
+          M.players.push({
+            id: group[i].id || u.uid('ai'),
+            name: group[i].name,
+            num: M.players.length + 1,
+            team: teamId, role: role, side: side,
+            home: { x: pos.x, y: pos.y },
+            x: pos.x, y: pos.y, vx: 0, vy: 0,
+            ovr: ovr,
+            speed: (3.2 + ovr / 22) * M.F.speed,
+            ref: teamId === 0 ? group[i] : null
+          });
+        }
+      }
+    }
+
+    addTeam(line.slice(0, n), 1, 0, 0);
+
+    /* Équipe adverse : miroir de la vôtre, au niveau du championnat. */
+    var oppPlayers = [];
+    for (var i = 0; i < n; i++) {
+      var src = line[i % line.length];
+      oppPlayers.push({ id: 'o' + i, name: 'Adv. ' + (i + 1), pos: src.pos });
+    }
+    addTeam(oppPlayers, -1, 1, oppStr);
+
+    M.ball = { x: F.w / 2, y: F.h / 2, vx: 0, vy: 0, owner: null, height: 0 };
+  }
+
+  function push(M, txt, type) {
+    M.feed.unshift({ min: Math.floor(M.clock), txt: txt, type: type || 'info' });
+    if (M.feed.length > 40) M.feed.length = 40;
+  }
+
+  function kickoff(M, side) {
+    var F = M.F;
+    M.ball.x = F.w / 2; M.ball.y = F.h / 2;
+    M.ball.vx = 0; M.ball.vy = 0; M.ball.owner = null;
+    for (var i = 0; i < M.players.length; i++) {
+      var p = M.players[i];
+      p.x = p.home.x; p.y = p.home.y; p.vx = 0; p.vy = 0;
+    }
+    /* Le camp qui engage récupère le ballon. */
+    var team = side > 0 ? 0 : 1;
+    var closest = nearestPlayer(M, F.w / 2, F.h / 2, team);
+    if (closest) {
+      closest.x = F.w / 2; closest.y = F.h / 2 + (team === 0 ? 1 : -1);
+      M.ball.owner = closest;
+    }
+    M.restart = 0.8;
+  }
+
+  /* ========================================================= UTILITAIRES == */
+
+  function dist(a, b) {
+    var dx = a.x - b.x, dy = a.y - b.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function nearestPlayer(M, x, y, team, exclude) {
+    var best = null, bd = 1e9;
+    for (var i = 0; i < M.players.length; i++) {
+      var p = M.players[i];
+      if (team !== undefined && p.team !== team) continue;
+      if (exclude && p === exclude) continue;
+      var d = Math.hypot(p.x - x, p.y - y);
+      if (d < bd) { bd = d; best = p; }
+    }
+    return best;
+  }
+
+  /** But visé par une équipe (l'équipe 0 attaque vers le haut du terrain). */
+  function goalOf(M, team) {
+    return { x: M.F.w / 2, y: team === 0 ? M.F.h : 0 };
+  }
+
+  function ownGoal(M, team) {
+    return { x: M.F.w / 2, y: team === 0 ? 0 : M.F.h };
+  }
+
+  /* ============================================================ LOGIQUE === */
+
+  /** Avance la simulation de `dt` secondes réelles. */
+  function update(M, dt) {
+    if (M.done || M.paused) return;
+    var F = M.F;
+
+    /* Horloge : le match complet tient en quelques minutes réelles. */
+    var minutesPerSecond = F.clock / F.realSeconds;
+    if (M.restart > 0) {
+      M.restart -= dt;
+    } else {
+      M.clock += minutesPerSecond * dt;
+    }
+
+    /* Mi-temps. */
+    if (!M.halfDone && M.clock >= F.clock / 2) {
+      M.halfDone = true;
+      push(M, 'Mi-temps — ' + M.score.you + ' - ' + M.score.opp, 'info');
+      kickoff(M, -1);
+    }
+    if (M.clock >= F.clock) { finish(M); return; }
+
+    pickUserPlayer(M);
+    for (var i = 0; i < M.players.length; i++) updatePlayer(M, M.players[i], dt);
+    updateBall(M, dt);
+    updateCamera(M, dt);
+
+    /* Statistiques de possession. */
+    M.stats.possTot += dt;
+    if (M.ball.owner && M.ball.owner.team === 0) M.stats.possYou += dt;
+    M.stats.poss = Math.round(M.stats.possYou / Math.max(0.1, M.stats.possTot) * 100);
+  }
+
+  /** Le joueur contrôle le porteur, ou le plus proche du ballon. */
+  function pickUserPlayer(M) {
+    var b = M.ball;
+    if (b.owner && b.owner.team === 0) {
+      M.user = b.owner;
+      return;
+    }
+    var target = b.owner ? b.owner : b;
+    var cand = nearestPlayer(M, target.x, target.y, 0);
+    /* Le gardien ne se fait contrôler que dans sa surface. */
+    if (cand && cand.role === 'gk' && Math.abs(cand.y - ownGoal(M, 0).y) > 18) {
+      cand = nearestPlayer(M, target.x, target.y, 0, cand);
+    }
+    M.user = cand;
+  }
+
+  function updatePlayer(M, p, dt) {
+    var F = M.F, b = M.ball;
+    var ax = 0, ay = 0;
+    var speed = p.speed;
+
+    if (p === M.user && M.restart <= 0) {
+      /* Joueur humain : direction du joystick. */
+      ax = M.input.dx;
+      ay = M.input.dy;
+      if (M.input.sprint) speed *= 1.35;
+    } else {
+      var t = aiTarget(M, p);
+      var dx = t.x - p.x, dy = t.y - p.y;
+      var d = Math.hypot(dx, dy) || 1;
+      ax = dx / d; ay = dy / d;
+      if (d < 0.6) { ax = 0; ay = 0; }
+      if (t.sprint) speed *= 1.2;
+    }
+
+    p.vx = u.lerp(p.vx, ax * speed, Math.min(1, dt * 7));
+    p.vy = u.lerp(p.vy, ay * speed, Math.min(1, dt * 7));
+    p.x = u.clamp(p.x + p.vx * dt, 0.4, F.w - 0.4);
+    p.y = u.clamp(p.y + p.vy * dt, 0.4, F.h - 0.4);
+
+    /* Duel : récupérer le ballon à l'adversaire. */
+    /* Les distances de contact suivent la taille du terrain : sur un bassin
+       de water-polo, 1,5 mètre représente bien plus qu'au football. */
+    var scale = M.F.w / 68;
+    var tackle = M.F.tackle === undefined ? 1 : M.F.tackle;
+    if (b.owner && b.owner.team !== p.team &&
+      dist(p, b.owner) < (1.2 + tackle * 0.25) * scale) {
+      var chance = 0.9 * dt * tackle * (0.5 + (p.ovr - b.owner.ovr + 20) / 60);
+      /* Le porteur qui sprinte se dégage plus facilement : c'est le rôle du
+         bouton « percer » au rugby et du sprint dans les autres sports. */
+      if (b.owner === M.user && M.input.sprint) chance *= 0.55;
+      if (u.chance(u.clamp(chance, 0.02, 0.9))) {
+        var victim = b.owner;
+        b.owner = p;
+        if (p.team === 0) push(M, p.name + ' récupère le ballon', 'good');
+        else if (victim === M.user) push(M, 'Ballon perdu !', 'warn');
+      }
+    }
+    /* Ballon libre à portée : on le prend. */
+    if (!b.owner && Math.hypot(b.x - p.x, b.y - p.y) < 1.0 * scale && b.free > 0.25) {
+      b.owner = p;
+      b.vx = 0; b.vy = 0;
+    }
+  }
+
+  /** Objectif de déplacement d'un joueur géré par l'ordinateur. */
+  function aiTarget(M, p) {
+    var b = M.ball;
+    var F = M.F;
+    var attacking = b.owner && b.owner.team === p.team;
+    var goal = goalOf(M, p.team);
+    var own = ownGoal(M, p.team);
+
+    if (p.role === 'gk') {
+      /* Le gardien reste sur sa ligne, décalé vers le ballon. */
+      var gx = u.clamp(b.x, F.w / 2 - F.goalW, F.w / 2 + F.goalW);
+      var gy = own.y + (p.team === 0 ? 2.2 : -2.2);
+      /* Sortie si le ballon approche dangereusement. */
+      if (Math.abs(b.y - own.y) < F.h * 0.13) {
+        gy = own.y + (p.team === 0 ? 4.5 : -4.5);
+      }
+      return { x: gx, y: gy };
+    }
+
+    if (b.owner === p) {
+      /* Porteur géré par l'IA : avancer vers le but en évitant les défenseurs. */
+      var opp = nearestPlayer(M, p.x, p.y, 1 - p.team);
+      var tx = goal.x, ty = goal.y;
+      if (opp && dist(p, opp) < 4) {
+        tx += (p.x - opp.x) * 1.5;
+      }
+      return { x: u.clamp(tx, 1, F.w - 1), y: ty, sprint: true };
+    }
+
+    if (attacking) {
+      /* Se démarquer devant le porteur. */
+      var carrier = b.owner;
+      var ahead = p.team === 0 ? 8 : -8;
+      return {
+        x: u.clamp(p.home.x * 0.45 + carrier.x * 0.55 + Math.sin(p.num + M.clock) * 3, 1, F.w - 1),
+        y: u.clamp(carrier.y + ahead + (p.home.y - F.h / 2) * 0.25, 1, F.h - 1)
+      };
+    }
+
+    /* Phase défensive : le plus proche presse, les autres tiennent le bloc. */
+    var chaser = nearestPlayer(M, b.x, b.y, p.team);
+    if (chaser === p) {
+      var t = b.owner || b;
+      return { x: t.x, y: t.y, sprint: true };
+    }
+    return {
+      x: u.clamp(p.home.x * 0.6 + b.x * 0.4, 1, F.w - 1),
+      y: u.clamp(p.home.y * 0.55 + b.y * 0.45, 1, F.h - 1)
+    };
+  }
+
+  function updateBall(M, dt) {
+    var b = M.ball, F = M.F;
+    b.free = (b.free || 0) + dt;
+
+    if (b.owner) {
+      b.free = 0;
+      /* Le ballon colle au porteur, légèrement devant lui. */
+      var sp = Math.hypot(b.owner.vx, b.owner.vy) || 1;
+      b.x = b.owner.x + b.owner.vx / sp * 0.7;
+      b.y = b.owner.y + b.owner.vy / sp * 0.7;
+      b.vx = 0; b.vy = 0;
+      /* L'IA adverse tire ou passe quand elle est en position. */
+      if (b.owner.team === 1) aiDecision(M, b.owner, dt);
+      /* Indispensable au rugby : l'essai se marque ballon en main. */
+      checkGoal(M);
+      return;
+    }
+
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    var damp = Math.pow(0.45, dt);
+    b.vx *= damp; b.vy *= damp;
+
+    /* Rebonds sur les touches. */
+    if (b.x < 0.3) { b.x = 0.3; b.vx = Math.abs(b.vx) * 0.6; }
+    if (b.x > F.w - 0.3) { b.x = F.w - 0.3; b.vx = -Math.abs(b.vx) * 0.6; }
+
+    /* Sortie derrière la ligne de but : remise en jeu. */
+    if (b.y < -0.5 || b.y > F.h + 0.5) {
+      var team = b.y > F.h / 2 ? 1 : 0;   // l'équipe qui défend ce côté relance
+      b.y = u.clamp(b.y, 1.5, F.h - 1.5);
+      b.vx = 0; b.vy = 0;
+      var gk = null;
+      for (var i = 0; i < M.players.length; i++) {
+        if (M.players[i].team === team && M.players[i].role === 'gk') gk = M.players[i];
+      }
+      b.owner = gk || nearestPlayer(M, b.x, b.y, team);
+    }
+
+    checkGoal(M);
+  }
+
+  /** Tir ou passe automatique pour l'équipe adverse. */
+  function aiDecision(M, p, dt) {
+    var goal = goalOf(M, p.team);
+    var d = Math.hypot(p.x - goal.x, p.y - goal.y);
+    var F = M.F;
+    var range = F.aiRange === undefined ? 0.19 : F.aiRange;
+    var freq = F.aiShoot === undefined ? 0.45 : F.aiShoot;
+    if (freq > 0 && d < F.h * range && u.chance(dt * freq)) {
+      shoot(M, p);
+      return;
+    }
+    if (u.chance(dt * 0.5)) {
+      var mate = nearestPlayer(M, goal.x, goal.y, p.team, p);
+      if (mate) passTo(M, p, mate);
+    }
+  }
+
+  /* ========================================================== ACTIONS ===== */
+
+  function shoot(M, p, power) {
+    var b = M.ball;
+    if (b.owner !== p) return;
+    var F = M.F;
+    var goal = goalOf(M, p.team);
+    var d = Math.hypot(p.x - goal.x, p.y - goal.y);
+
+    /* Précision : dépend du niveau du tireur et de la distance. */
+    var acc = u.clamp((p.ovr - 40) / 60, 0.05, 0.95);
+    /* La dispersion est proportionnelle au terrain : un but de water-polo est
+       petit, mais on tire de beaucoup plus près qu'au football. */
+    var spread = ((1 - acc) * 0.10 + d / F.h * 0.16) * F.w;
+    var tx = goal.x + u.gauss(0, spread);
+    var ty = goal.y + (p.team === 0 ? 1 : -1);
+
+    var dx = tx - p.x, dy = ty - p.y;
+    var len = Math.hypot(dx, dy) || 1;
+    var sp = F.ballSpeed * (0.75 + (power === undefined ? 0.6 : power) * 0.6);
+    b.owner = null;
+    b.free = 0;
+    b.vx = dx / len * sp;
+    b.vy = dy / len * sp;
+    b.shooter = p;
+
+    if (p.team === 0) {
+      M.stats.youShots++;
+      push(M, p.name + ' tente sa chance', 'info');
+    } else {
+      M.stats.oppShots++;
+    }
+  }
+
+  function passTo(M, p, mate) {
+    var b = M.ball;
+    if (b.owner !== p || !mate) return;
+    var dx = mate.x - p.x, dy = mate.y - p.y;
+    var len = Math.hypot(dx, dy) || 1;
+    var sp = Math.min(M.F.ballSpeed * 0.75, len * 2.4 + 4);
+    b.owner = null;
+    b.free = 0;
+    b.vx = dx / len * sp;
+    b.vy = dy / len * sp;
+    b.passTarget = mate;
+    /* Une passe ratée part de travers. */
+    if (u.chance(u.clamp(0.35 - p.ovr / 250, 0.03, 0.3))) {
+      var ang = u.rfloat(-0.35, 0.35);
+      var cos = Math.cos(ang), sin = Math.sin(ang);
+      var nvx = b.vx * cos - b.vy * sin;
+      b.vy = b.vx * sin + b.vy * cos;
+      b.vx = nvx;
+    }
+  }
+
+  /** Passe du joueur humain : vers le coéquipier le mieux placé dans l'axe visé. */
+  function userPass(M) {
+    var p = M.user, b = M.ball;
+    if (!p || b.owner !== p) return;
+    var dirX = M.input.dx, dirY = M.input.dy;
+    var best = null, bestScore = -1e9;
+    for (var i = 0; i < M.players.length; i++) {
+      var m = M.players[i];
+      if (m.team !== 0 || m === p) continue;
+      var dx = m.x - p.x, dy = m.y - p.y;
+      var len = Math.hypot(dx, dy) || 1;
+      if (len > 35) continue;
+      var align = (dirX || dirY) ? (dx / len * dirX + dy / len * dirY) : (dy / len);
+      var forward = (m.y - p.y) / 20;
+      var score = align * 2 + forward - len / 60;
+      if (score > bestScore) { bestScore = score; best = m; }
+    }
+    if (best) passTo(M, p, best);
+  }
+
+  function userShoot(M, power) {
+    var p = M.user, b = M.ball;
+    if (!p || b.owner !== p) return;
+    if (M.F.goal === 'tryline') {
+      /* Au rugby on ne tire pas : on accélère vers la ligne. */
+      M.input.sprint = true;
+      return;
+    }
+    shoot(M, p, power);
+  }
+
+  /* ============================================================= BUTS ===== */
+
+  function checkGoal(M) {
+    var b = M.ball, F = M.F;
+    if (M.restart > 0) return;
+
+    if (F.goal === 'tryline') {
+      /* Rugby : il faut porter le ballon derrière la ligne. */
+      if (b.owner) {
+        var team = b.owner.team;
+        var goal = goalOf(M, team);
+        if ((team === 0 && b.y >= F.h - 0.6) || (team === 1 && b.y <= 0.6)) {
+          scoreGoal(M, team, 5 + (u.chance(0.74) ? 2 : 0), 'Essai');
+        }
+      }
+      return;
+    }
+
+    /* Le ballon doit franchir la ligne entre les poteaux. */
+    var inX = Math.abs(b.x - F.w / 2) < F.goalW / 2 + 0.6;
+    if (!inX) return;
+
+    var scorerTeam = null;
+    if (b.y >= F.h - 0.4) scorerTeam = 0;
+    else if (b.y <= 0.4) scorerTeam = 1;
+    if (scorerTeam === null) return;
+
+    /* Arrêt du gardien : il faut qu'il soit proche de la trajectoire. */
+    var gk = null;
+    for (var i = 0; i < M.players.length; i++) {
+      var p = M.players[i];
+      if (p.team !== scorerTeam && p.role === 'gk') gk = p;
+    }
+    if (gk && Math.abs(gk.x - b.x) < (2.2 + gk.ovr / 70) * (F.w / 68)) {
+      var saveChance = u.clamp(0.42 + gk.ovr / 130, 0.3, 0.88);
+      if (u.chance(saveChance)) {
+        b.vx = u.rfloat(-6, 6); b.vy = (scorerTeam === 0 ? -1 : 1) * 12;
+        b.y = gk.y;
+        b.owner = null;
+        if (scorerTeam === 0) push(M, 'Arrêt du gardien !', 'warn');
+        return;
+      }
+    }
+
+    var pts = 1;
+    if (F.goal === 'basket') {
+      var goal = goalOf(M, scorerTeam);
+      var d = Math.hypot((b.shooter ? b.shooter.x : b.x) - goal.x,
+        (b.shooter ? b.shooter.y : b.y) - goal.y);
+      pts = d > 7 ? 3 : 2;
+    }
+    scoreGoal(M, scorerTeam, pts, F.goal === 'basket' ? 'Panier' : 'But');
+  }
+
+  function scoreGoal(M, team, pts, label) {
+    if (team === 0) {
+      M.score.you += pts;
+      var who = M.ball.shooter || M.ball.owner || M.user;
+      push(M, '⚽ ' + label + ' ! ' + (who ? who.name : '') + ' — ' +
+        M.score.you + '-' + M.score.opp, 'good');
+      if (who && who.ref) {
+        who.ref.seasonScored = (who.ref.seasonScored || 0) + 1;
+        who.ref.scored = (who.ref.scored || 0) + 1;
+      }
+    } else {
+      M.score.opp += pts;
+      push(M, '🔴 ' + label + ' adverse — ' + M.score.you + '-' + M.score.opp, 'bad');
+    }
+    M.ball.shooter = null;
+    kickoff(M, team === 0 ? -1 : 1);
+  }
+
+  /* ============================================================== FIN ===== */
+
+  function finish(M) {
+    if (M.done) return M;
+    M.done = true;
+    M.running = false;
+    push(M, 'Coup de sifflet final — ' + M.score.you + '-' + M.score.opp,
+      M.score.you > M.score.opp ? 'good' : M.score.you === M.score.opp ? 'info' : 'bad');
+    M.result = G.manager.finishMatch(M.club, {
+      you: M.score.you, opp: M.score.opp, oppName: M.oppName
+    });
+    return M;
+  }
+
+  /** Termine la rencontre en simulant le temps restant. */
+  function skipToEnd(M) {
+    if (M.done) return M;
+    var F = M.F;
+    var remaining = Math.max(0, F.clock - M.clock);
+    var sport = M.sport;
+    /* Le temps restant est joué par l'ordinateur, au prorata. */
+    var share = remaining / F.clock;
+    var mine = G.manager.teamRatings(M.club);
+    var extraYou = G.manager.simScore(mine.att, 55, sport) * share;
+    var extraOpp = G.manager.simScore(55, mine.def, sport) * share;
+    M.score.you += Math.round(extraYou);
+    M.score.opp += Math.round(extraOpp);
+    M.clock = F.clock;
+    return finish(M);
+  }
+
+  /* ============================================================ CAMÉRA ==== */
+
+  function updateCamera(M, dt) {
+    var b = M.ball;
+    var tx = b.x, ty = b.y;
+    M.cam.x = u.lerp(M.cam.x, tx, Math.min(1, dt * 3.5));
+    M.cam.y = u.lerp(M.cam.y, ty, Math.min(1, dt * 3.5));
+  }
+
+  /* ============================================================= RENDU ==== */
+
+  /**
+   * Dessine la scène.
+   * @param {object} M
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {number} cw largeur du canvas en pixels
+   * @param {number} ch hauteur
+   */
+  function draw(M, ctx, cw, ch) {
+    var F = M.F;
+    /* Caméra rapprochée : on suit l'action de près, comme dans un jeu de
+       sport mobile, plutôt que de regarder tout le terrain de loin. */
+    var visibleW = Math.min(F.w, F.view || F.w * 0.5);
+    var scale = cw / visibleW;
+    var visibleH = ch / scale;
+
+    var camX = u.clamp(M.cam.x, visibleW / 2, F.w - visibleW / 2);
+    var camY = u.clamp(M.cam.y, visibleH / 2, F.h - visibleH / 2);
+    if (visibleH >= F.h) camY = F.h / 2;
+
+    function sx(x) { return (x - camX) * scale + cw / 2; }
+    function sy(y) { return ch / 2 - (y - camY) * scale; }   // y croît vers le haut
+
+    ctx.clearRect(0, 0, cw, ch);
+
+    /* --- pelouse --- */
+    ctx.fillStyle = F.surface;
+    ctx.fillRect(0, 0, cw, ch);
+
+    /* Bandes de tonte. */
+    ctx.globalAlpha = 0.10;
+    ctx.fillStyle = '#ffffff';
+    var stripe = F.h / 14;
+    for (var s = 0; s < 15; s++) {
+      if (s % 2) continue;
+      var y0 = sy(s * stripe), y1 = sy((s + 1) * stripe);
+      ctx.fillRect(0, y1, cw, y0 - y1);
+    }
+    ctx.globalAlpha = 1;
+
+    /* --- lignes --- */
+    ctx.strokeStyle = F.line;
+    ctx.lineWidth = Math.max(1.5, scale * 0.12);
+    ctx.strokeRect(sx(0), sy(F.h), F.w * scale, F.h * scale);
+
+    ctx.beginPath();
+    ctx.moveTo(sx(0), sy(F.h / 2));
+    ctx.lineTo(sx(F.w), sy(F.h / 2));
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(sx(F.w / 2), sy(F.h / 2), F.w * 0.13 * scale, 0, Math.PI * 2);
+    ctx.stroke();
+
+    /* Surfaces et buts. */
+    var boxW = F.w * 0.55, boxH = F.h * 0.15;
+    [0, 1].forEach(function (side) {
+      var y = side ? F.h - boxH : 0;
+      ctx.strokeRect(sx(F.w / 2 - boxW / 2), sy(y + boxH), boxW * scale, boxH * scale);
+    });
+
+    ctx.lineWidth = Math.max(2, scale * 0.22);
+    ctx.strokeStyle = '#ffffff';
+    [0, F.h].forEach(function (gy) {
+      ctx.beginPath();
+      ctx.moveTo(sx(F.w / 2 - F.goalW / 2), sy(gy));
+      ctx.lineTo(sx(F.w / 2 + F.goalW / 2), sy(gy));
+      ctx.stroke();
+    });
+
+    /* --- joueurs --- */
+    /* Les petits terrains ne doivent pas produire des joueurs géants. */
+    var r = u.clamp(scale * 0.72, 7, 15);
+    for (var i = 0; i < M.players.length; i++) {
+      var p = M.players[i];
+      var px = sx(p.x), py = sy(p.y);
+      if (px < -40 || px > cw + 40 || py < -40 || py > ch + 40) continue;
+
+      /* Ombre. */
+      ctx.fillStyle = 'rgba(0,0,0,.28)';
+      ctx.beginPath();
+      ctx.ellipse(px + r * 0.25, py + r * 0.35, r * 0.9, r * 0.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      /* Halo et repère de direction du joueur contrôlé. */
+      if (p === M.user) {
+        ctx.strokeStyle = '#ffd166';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(px, py, r * 1.6, 0, Math.PI * 2);
+        ctx.stroke();
+        var sp2 = Math.hypot(p.vx, p.vy);
+        if (sp2 > 0.4) {
+          ctx.beginPath();
+          ctx.moveTo(px, py);
+          ctx.lineTo(px + p.vx / sp2 * r * 2.6, py - p.vy / sp2 * r * 2.6);
+          ctx.stroke();
+        }
+      }
+
+      ctx.fillStyle = p.team === 0 ? '#f0b429' : '#e8eef7';
+      if (p.role === 'gk') ctx.fillStyle = p.team === 0 ? '#3ddc97' : '#b197fc';
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = p.team === 0 ? '#5a3d00' : '#39465c';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = p.team === 0 ? '#3a2a00' : '#1b2433';
+      ctx.font = 'bold ' + Math.round(r * 0.9) + 'px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(p.num), px, py);
+
+      /* Nom du joueur que l'on dirige, pour s'y retrouver d'un coup d'œil. */
+      if (p === M.user) {
+        ctx.fillStyle = 'rgba(255,209,102,.95)';
+        ctx.font = 'bold 12px system-ui, sans-serif';
+        ctx.fillText(p.name.split(' ').pop(), px, py - r * 2.2);
+      }
+    }
+
+    /* --- ballon --- */
+    var b = M.ball;
+    var bx = sx(b.x), by = sy(b.y);
+    ctx.fillStyle = 'rgba(0,0,0,.3)';
+    ctx.beginPath();
+    ctx.ellipse(bx + 2, by + 3, r * 0.42, r * 0.28, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(bx, by, r * 0.42, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    /* --- flèche vers le but adverse --- */
+    var goal = goalOf(M, 0);
+    var gy = sy(goal.y);
+    if (gy < 0) {
+      ctx.fillStyle = 'rgba(255,209,102,.85)';
+      ctx.beginPath();
+      ctx.moveTo(cw / 2, 8);
+      ctx.lineTo(cw / 2 - 9, 22);
+      ctx.lineTo(cw / 2 + 9, 22);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  return {
+    FIELDS: FIELDS, fieldOf: fieldOf, supports: supports,
+    create: create, update: update, draw: draw,
+    userPass: userPass, userShoot: userShoot, shoot: shoot, passTo: passTo,
+    finish: finish, skipToEnd: skipToEnd, push: push
+  };
+})();

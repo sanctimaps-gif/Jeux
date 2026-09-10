@@ -8,29 +8,35 @@ window.G = window.G || {};
   /* -------------------------------------------------------------- guide - */
 
   var GUIDE = [
-    ['🏢', 'Bâtir un empire',
-      'Achetez des entreprises, montez-les en niveau, recrutez un directeur pour ' +
-      'qu\'elles encaissent toutes seules. Chaque palier de niveau double le rendement.'],
-    ['📈', 'Placer en Bourse',
-      'Seize valeurs cotées évoluent en continu, avec dividendes et actualités. ' +
-      'Posséder des entreprises dans un secteur soutient discrètement les titres ' +
-      'de ce secteur.'],
+    ['🏢', 'Fonder ses entreprises',
+      'Choisissez un type d\'entreprise dans le catalogue, donnez-lui le nom que ' +
+      'vous voulez, puis touchez-la pour investir palier par palier. Les revenus ' +
+      'sont versés automatiquement sur votre compte toutes les minutes.'],
+    ['📈', 'Placer son argent',
+      'Actions cotées, immobilier dans douze villes et cryptomonnaies très ' +
+      'volatiles. Les collections d\'objets de prestige donnent en plus des bonus ' +
+      'permanents à tout le reste du jeu.'],
     ['🏟️', 'Diriger des clubs',
-      'Football, rugby, water-polo, basket, handball, sport automobile : achetez un ' +
-      'club, gérez l\'effectif, les transferts, la tactique et les installations — ' +
-      'puis jouez vos matchs, décision après décision.'],
+      'Achetez un club dans le pays de votre choix — vous démarrez en division 3 ' +
+      'et visez l\'élite. Plusieurs clubs sont possibles, même dans le même sport, ' +
+      'et vous pouvez les renommer.'],
+    ['🎮', 'Jouer les matchs vous-même',
+      'Football, rugby, water-polo, basket, handball : joystick à gauche, tirer ' +
+      'et passer à droite, la caméra suit le ballon. En sport automobile, vous ' +
+      'pilotez la voiture. Vous pouvez aussi rester sur le banc et donner les ' +
+      'consignes, ou simuler la rencontre.'],
+    ['🌍', 'Prendre le pouvoir',
+      '194 pays réels sur une mappemonde interactive. Impôts, budgets, ressources, ' +
+      'usines, centrales, armée, guerres, annexions, ONU, technologies, merveilles ' +
+      'du monde : vous gouvernez vraiment.'],
     ['🎰', 'Tenter le casino',
       'Blackjack, Texas hold\'em, roulette et machines à sous. La maison garde ' +
       'l\'avantage, mais une bonne série finance un transfert.'],
-    ['🏛️', 'Prendre le pouvoir',
-      'Avec assez de fortune, financez une campagne et dirigez un pays : impôts, ' +
-      'budgets, lois, élections. L\'économie nationale se répercute sur vos ' +
-      'entreprises et sur les marchés.'],
     ['♻️', 'Et surtout : tout communique',
       'Un seul portefeuille pour tout le jeu. La prime touchée après une victoire ' +
-      'au rugby ou un gros pot au poker peut être replacée immédiatement sur une ' +
-      'action — le bandeau vert en haut de l\'écran vous le propose, et le jeu ' +
-      'garde la trace de l\'origine de chaque capital investi.']
+      'au rugby ou un gros pot au poker peut être replacée immédiatement en Bourse, ' +
+      'en immobilier ou en crypto — le bandeau vert en haut de l\'écran vous le ' +
+      'propose, et le jeu garde la trace de l\'origine de chaque capital investi.']
   ];
 
   function showGuide() {

@@ -11,13 +11,34 @@ G.loop = (function () {
   var last = 0;
   var lastDay = 0;
 
+  /** Tout ce qui se passe au changement de séance. */
   function onNewDays(n) {
-    /* Revalorisation des collections + repos des effectifs. */
-    for (var i = 0; i < Math.min(n, 60); i++) G.collections.onNewDay();
-    var clubs = G.state.manager.clubs;
-    for (var sid in clubs) {
-      for (var d = 0; d < Math.min(n, 30); d++) G.manager.restDay(clubs[sid]);
+    var steps = Math.min(n, 90);
+    for (var i = 0; i < steps; i++) {
+      G.collections.onNewDay();
+      G.realestate.onNewDay();
+      G.crypto.onNewDay();
     }
+    G.realestate.recordHistory();
+
+    var clubs = G.state.manager.clubs;
+    for (var c = 0; c < clubs.length; c++) {
+      for (var d = 0; d < Math.min(n, 30); d++) G.manager.restDay(clubs[c]);
+    }
+  }
+
+  /** Versement des revenus passifs (entreprises + loyers), toutes les minutes. */
+  function payroll(dt, silent) {
+    var biz = G.business.tick(dt, true);
+    var rent = G.realestate.tick(dt);
+    var total = biz + rent;
+    if (total > 0 && !silent && G.ui && G.ui.toast) {
+      var detail = rent > 0
+        ? u.fmtMoney(biz) + ' d\'entreprises · ' + u.fmtMoney(rent) + ' de loyers'
+        : 'Salaires des entreprises';
+      G.ui.toast('💼 +' + u.fmtMoney(total), detail, 'good');
+    }
+    return total;
   }
 
   function tick() {
@@ -28,7 +49,7 @@ G.loop = (function () {
     if (dt > 5) dt = 5;               // onglet en arrière-plan : on lisse
 
     G.state.playTime += dt;
-    G.business.tick(dt);
+    payroll(dt, false);
     G.market.tick(dt);
 
     if (G.state.market.day !== lastDay) {
@@ -50,7 +71,7 @@ G.loop = (function () {
     var before = s.money;
     var dayBefore = s.market.day;
 
-    G.business.tick(capped, true);
+    payroll(capped, true);
     G.market.tick(capped);
 
     var days = s.market.day - dayBefore;
@@ -60,7 +81,6 @@ G.loop = (function () {
     return {
       seconds: elapsed, capped: capped,
       earned: s.money - before,
-      pending: G.business.readyTotal(),
       days: days
     };
   }
@@ -72,11 +92,8 @@ G.loop = (function () {
     timer = setInterval(tick, TICK_MS);
 
     document.addEventListener('visibilitychange', function () {
-      if (document.hidden) {
-        G.save.write();
-      } else {
-        last = Date.now();
-      }
+      if (document.hidden) G.save.write();
+      else last = Date.now();
     });
     window.addEventListener('beforeunload', function () { G.save.write(); });
   }
@@ -87,7 +104,7 @@ G.loop = (function () {
   }
 
   return {
-    start: start, stop: stop, tick: tick,
+    start: start, stop: stop, tick: tick, payroll: payroll,
     offlineProgress: offlineProgress, MAX_OFFLINE: MAX_OFFLINE
   };
 })();

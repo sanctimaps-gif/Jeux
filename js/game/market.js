@@ -30,14 +30,8 @@ G.market = (function () {
 
   /** Soutien apporté à un secteur par les entreprises que l'on possède. */
   function sectorSupport(sector) {
-    var s = G.state, support = 0;
-    for (var i = 0; i < G.DATA.businesses.length; i++) {
-      var b = G.DATA.businesses[i];
-      if (b.sector !== sector) continue;
-      var o = s.biz.owned[b.id];
-      if (o && o.lvl > 0) support += Math.min(0.0012, 0.00008 * Math.sqrt(o.lvl));
-    }
-    return support;
+    var w = G.business ? G.business.sectorWeight(sector) : 0;
+    return Math.min(0.0022, w * 0.00012);
   }
 
   /** Coup de pouce temporaire sur un titre (résultat sportif, loi, casino…). */
@@ -64,11 +58,11 @@ G.market = (function () {
 
     /* Humeur générale : marche aléatoire à retour à la moyenne. */
     var macro = 0;
-    if (G.country && G.country.marketEffect) macro = G.country.marketEffect();
+    if (G.nation && G.nation.marketEffect) macro = G.nation.marketEffect();
     m.mood = u.clamp(m.mood * 0.90 + u.gauss(macro * 0.5, 0.10), -1.2, 1.2);
 
     var volGlobal = 1;
-    if (s.country && s.country.laws && s.country.laws['derégulation']) volGlobal += 0.35;
+    if (s.nation && s.nation.laws && s.nation.laws['derégulation']) volGlobal += 0.35;
 
     /* Actualité macro occasionnelle. */
     if (u.chance(0.05)) {

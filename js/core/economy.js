@@ -18,9 +18,12 @@ G.eco = (function () {
     'business': { label: 'Entreprises', icon: '🏢' },
     'bourse': { label: 'Bourse', icon: '📈' },
     'dividende': { label: 'Dividendes', icon: '💸' },
+    'immobilier': { label: 'Immobilier', icon: '🏘️' },
+    'crypto': { label: 'Cryptomonnaies', icon: '🪙' },
     'collection': { label: 'Collections', icon: '🖼️' },
     'casino': { label: 'Casino', icon: '🎰' },
     'pays': { label: 'Gouvernement', icon: '🏛️' },
+    'guerre': { label: 'Guerre & butin', icon: '⚔️' },
     'divers': { label: 'Divers', icon: '✨' }
   };
 
@@ -170,15 +173,17 @@ G.eco = (function () {
       var set = G.DATA.collectionSets[i];
       if (s.coll.sets[set.id] && set.setBonus.type === type) total += set.setBonus.value;
     }
-    /* Lois en vigueur */
-    if (s.country && s.country.laws) {
+    /* Lois en vigueur dans le pays que l'on dirige */
+    if (s.nation && s.nation.laws) {
       for (i = 0; i < G.DATA.laws.length; i++) {
         var law = G.DATA.laws[i];
-        if (!s.country.laws[law.id]) continue;
-        if (type === 'biz' && law.effects.bizBonus) total += law.effects.bizBonus;
-        if (type === 'biz' && law.effects.bizCost) total -= law.effects.bizCost;
-        if (type === 'sponsor' && law.effects.sponsor) total += law.effects.sponsor;
-        if (type === 'luck' && law.effects.casino) total += law.effects.casino;
+        if (!s.nation.laws[law.id]) continue;
+        var e = law.effects;
+        if (type === 'biz' && e.bizBonus) total += e.bizBonus;
+        if (type === 'biz' && e.bizCost) total -= e.bizCost;
+        if (type === 'sponsor' && e.sponsor) total += e.sponsor;
+        if (type === 'luck' && e.casino) total += e.casino;
+        if (type === 'rent' && e.rent) total += e.rent;
       }
     }
     return total;
@@ -187,16 +192,7 @@ G.eco = (function () {
   /* --------------------------------------------------- valeur du patrimoine */
 
   function bizValue() {
-    var s = G.state, total = 0;
-    for (var i = 0; i < G.DATA.businesses.length; i++) {
-      var b = G.DATA.businesses[i];
-      var o = s.biz.owned[b.id];
-      if (!o) continue;
-      /* Valeur de revente estimée : 60 % du coût cumulé des niveaux. */
-      total += 0.6 * b.cost * (Math.pow(b.growth, o.lvl) - 1) / (b.growth - 1);
-      if (o.mgr) total += b.managerCost * 0.4;
-    }
-    return total;
+    return G.business ? G.business.totalValue() : 0;
   }
 
   function portfolioValue() {
@@ -215,21 +211,33 @@ G.eco = (function () {
   }
 
   function clubsValue() {
-    var s = G.state, total = 0;
-    for (var sid in s.manager.clubs) {
-      var c = s.manager.clubs[sid];
-      total += G.manager.clubValue(c);
-    }
+    var list = G.state.manager.clubs, total = 0;
+    if (!list || !list.length) return 0;
+    for (var i = 0; i < list.length; i++) total += G.manager.clubValue(list[i]);
     return total;
   }
 
-  function netWorth() {
-    return G.state.money + bizValue() + portfolioValue() + collectionValue() + clubsValue();
+  function realEstateValue() {
+    return G.realestate ? G.realestate.totalValue() : 0;
   }
 
-  /* Revenu passif par seconde (entreprises avec directeur). */
+  function cryptoValue() {
+    return G.crypto ? G.crypto.totalValue() : 0;
+  }
+
+  function netWorth() {
+    var w = G.state.money + bizValue() + portfolioValue() + collectionValue() +
+      clubsValue() + realEstateValue() + cryptoValue();
+    if (w > G.state.stats.peakWorth) G.state.stats.peakWorth = w;
+    return w;
+  }
+
+  /* Revenu passif par seconde (entreprises + loyers). */
   function passiveIncome() {
-    return G.business ? G.business.incomePerSec() : 0;
+    var v = 0;
+    if (G.business) v += G.business.perSecond();
+    if (G.realestate) v += G.realestate.totalHourly() / 3600;
+    return v;
   }
 
   return {
@@ -238,6 +246,7 @@ G.eco = (function () {
     consumePending: consumePending, topPending: topPending,
     bizValue: bizValue, portfolioValue: portfolioValue,
     collectionValue: collectionValue, clubsValue: clubsValue,
+    realEstateValue: realEstateValue, cryptoValue: cryptoValue,
     netWorth: netWorth, passiveIncome: passiveIncome,
     SOURCE_META: SOURCE_META
   };

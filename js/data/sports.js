@@ -44,7 +44,9 @@ G.DATA.sports = [
       prizeWin: 2.4e6, prizeDraw: 1.2e6, prizeLoss: 4.0e5,
       wageBase: 120000, valueMul: 1.0, tvSeason: 4.5e7
     },
-    leagueSize: 12, leagueName: 'Ligue Continentale'
+    leagueSize: 12,
+    countries: ['ESP', 'GBR', 'DEU', 'ITA', 'FRA', 'BRA', 'PRT', 'NLD', 'ARG',
+      'BEL', 'TUR', 'MEX', 'USA', 'SAU', 'JPN', 'MAR', 'GRC', 'CHE', 'AUT', 'POL']
   },
 
   /* ------------------------------------------------------------ RUGBY --- */
@@ -82,7 +84,9 @@ G.DATA.sports = [
       prizeWin: 6.2e5, prizeDraw: 3.5e5, prizeLoss: 1.2e5,
       wageBase: 38000, valueMul: 0.35, tvSeason: 1.1e7
     },
-    leagueSize: 12, leagueName: 'Championnat Élite'
+    leagueSize: 12,
+    countries: ['NZL', 'ZAF', 'FRA', 'IRL', 'GBR', 'AUS', 'ARG', 'ITA', 'JPN',
+      'GEO', 'FJI', 'URY', 'ROU', 'ESP', 'USA']
   },
 
   /* ------------------------------------------------------- WATER-POLO --- */
@@ -112,7 +116,9 @@ G.DATA.sports = [
       prizeWin: 9.0e4, prizeDraw: 5.0e4, prizeLoss: 1.8e4,
       wageBase: 9000, valueMul: 0.07, tvSeason: 1.2e6
     },
-    leagueSize: 10, leagueName: 'Ligue Nationale Aquatique'
+    leagueSize: 10,
+    countries: ['HRV', 'SRB', 'HUN', 'ITA', 'ESP', 'GRC', 'MNE', 'FRA', 'USA',
+      'AUS', 'JPN', 'ROU', 'DEU', 'NLD']
   },
 
   /* ----------------------------------------------------------- BASKET --- */
@@ -146,7 +152,9 @@ G.DATA.sports = [
       prizeWin: 9.5e5, prizeDraw: 0, prizeLoss: 2.0e5,
       wageBase: 75000, valueMul: 0.55, tvSeason: 1.8e7
     },
-    leagueSize: 12, leagueName: 'Conférence Élite'
+    leagueSize: 12,
+    countries: ['USA', 'ESP', 'GRC', 'TUR', 'ITA', 'FRA', 'DEU', 'SRB', 'LTU',
+      'ISR', 'AUS', 'CHN', 'ARG', 'BRA', 'PHL']
   },
 
   /* -------------------------------------------------------- HANDBALL --- */
@@ -178,7 +186,9 @@ G.DATA.sports = [
       prizeWin: 2.5e5, prizeDraw: 1.4e5, prizeLoss: 5.0e4,
       wageBase: 20000, valueMul: 0.18, tvSeason: 4.0e6
     },
-    leagueSize: 12, leagueName: 'Starligue Continentale'
+    leagueSize: 12,
+    countries: ['FRA', 'DEU', 'ESP', 'DNK', 'HUN', 'POL', 'HRV', 'NOR', 'SWE',
+      'SVN', 'PRT', 'QAT', 'EGY', 'ISL']
   },
 
   /* --------------------------------------------------- SPORT AUTOMOBILE - */
@@ -220,7 +230,9 @@ G.DATA.sports = [
       prizePerPoint: 4.2e5,
       wageBase: 1.2e6, valueMul: 2.4, tvSeason: 6.0e7
     },
-    leagueSize: 7, leagueName: 'Championnat du Monde'
+    leagueSize: 7,
+    countries: ['GBR', 'ITA', 'DEU', 'FRA', 'AUT', 'CHE', 'USA', 'JPN', 'ESP',
+      'NLD', 'ARE', 'BRA']
   }
 ];
 

@@ -1,55 +1,62 @@
-/* Empire d'entreprises : achat, montée en niveau, directeurs, revenus. */
+/* Empire d'entreprises.
+ *
+ * On fonde une entreprise en choisissant son type dans le catalogue et en lui
+ * donnant un nom. On l'ouvre ensuite pour investir dedans, palier par palier.
+ * Les revenus s'accumulent en continu et sont **versés automatiquement toutes
+ * les minutes** sur le compte en banque.
+ */
 window.G = window.G || {};
 
 G.business = (function () {
   'use strict';
   var u = G.util;
 
-  function def(id) {
-    for (var i = 0; i < G.DATA.businesses.length; i++) {
-      if (G.DATA.businesses[i].id === id) return G.DATA.businesses[i];
-    }
+  var PAYOUT_SECONDS = 60;          // versement des salaires toutes les minutes
+
+  function typeDef(id) { return G.DATA.companyById[id] || null; }
+
+  function all() { return G.state.biz.companies; }
+
+  function byUid(uid) {
+    var list = all();
+    for (var i = 0; i < list.length; i++) if (list[i].uid === uid) return list[i];
     return null;
   }
 
-  function owned(id) { return G.state.biz.owned[id] || null; }
+  function count() { return all().length; }
 
-  /* --------------------------------------------------------- économie --- */
+  /* ------------------------------------------------------ emplacements -- */
 
-  /** Prix du prochain niveau. */
-  function levelCost(b, lvl) {
-    return b.cost * Math.pow(b.growth, lvl);
+  function slots() { return G.state.biz.slots; }
+
+  function slotCost() {
+    var n = G.state.biz.slots - G.DATA.slotBase;
+    return 25000 * Math.pow(6.2, n);
   }
 
-  /** Prix de `n` niveaux à partir du niveau courant. */
-  function bulkCost(b, lvl, n) {
-    var r = b.growth;
-    return b.cost * Math.pow(r, lvl) * (Math.pow(r, n) - 1) / (r - 1);
+  function buySlot() {
+    if (G.state.biz.slots >= G.DATA.slotMax) return false;
+    var cost = slotCost();
+    if (!G.eco.spend(cost, 'business', 'Nouvel emplacement commercial')) return false;
+    G.state.biz.slots++;
+    return true;
   }
 
-  /** Nombre de niveaux achetables avec la trésorerie disponible. */
-  function maxAffordable(b, lvl, cash) {
-    var r = b.growth;
-    var base = b.cost * Math.pow(r, lvl);
-    if (cash < base) return 0;
-    var n = Math.floor(Math.log(cash * (r - 1) / base + 1) / Math.log(r));
-    return Math.max(0, n);
-  }
+  /* ---------------------------------------------------------- revenus --- */
 
-  /** Multiplicateur issu des paliers de niveau (x2 à chaque palier franchi). */
+  /** Multiplicateur de palier (×2 tous les 10 niveaux). */
   function milestoneMult(lvl) {
     var m = 1;
-    for (var i = 0; i < G.DATA.businessMilestones.length; i++) {
-      if (lvl >= G.DATA.businessMilestones[i]) m *= 2;
+    for (var i = 0; i < G.DATA.companyMilestones.length; i++) {
+      if (lvl >= G.DATA.companyMilestones[i]) m *= 2;
     }
     return m;
   }
 
-  /** Prochain palier et niveaux restants. */
   function nextMilestone(lvl) {
-    for (var i = 0; i < G.DATA.businessMilestones.length; i++) {
-      if (lvl < G.DATA.businessMilestones[i]) {
-        return { at: G.DATA.businessMilestones[i], left: G.DATA.businessMilestones[i] - lvl };
+    for (var i = 0; i < G.DATA.companyMilestones.length; i++) {
+      if (lvl < G.DATA.companyMilestones[i]) {
+        return { at: G.DATA.companyMilestones[i], left: G.DATA.companyMilestones[i] - lvl };
       }
     }
     return null;
@@ -58,167 +65,265 @@ G.business = (function () {
   /** Multiplicateur global : collections, lois, conjoncture nationale. */
   function globalMult() {
     var m = 1 + G.eco.bonus('biz');
-    if (G.country && G.country.bizMultiplier) m *= G.country.bizMultiplier();
+    if (G.nation && G.nation.bizMultiplier) m *= G.nation.bizMultiplier();
     return Math.max(0.1, m);
   }
 
-  /** Revenu d'un cycle complet pour une entreprise possédée. */
-  function cycleRevenue(b, o) {
-    if (!o || o.lvl <= 0) return 0;
-    return b.rev * o.lvl * milestoneMult(o.lvl) * globalMult();
+  /** Revenu horaire d'une entreprise. */
+  function hourly(c) {
+    var t = typeDef(c.type);
+    if (!t) return 0;
+    return t.rev * c.lvl * milestoneMult(c.lvl) * (c.merged || 1) * globalMult();
   }
 
-  function revenuePerSec(b, o) {
-    return cycleRevenue(b, o) / b.cycle;
+  /** Revenu horaire total de l'empire. */
+  function totalHourly() {
+    var list = all(), total = 0;
+    for (var i = 0; i < list.length; i++) total += hourly(list[i]);
+    return total;
   }
 
-  /** Revenu passif total (seulement les entreprises dirigées). */
-  function incomePerSec() {
-    var s = G.state, total = 0;
-    for (var i = 0; i < G.DATA.businesses.length; i++) {
-      var b = G.DATA.businesses[i];
-      var o = s.biz.owned[b.id];
-      if (o && o.mgr) total += revenuePerSec(b, o);
+  function perSecond() { return totalHourly() / 3600; }
+
+  /* --------------------------------------------------- investissement --- */
+
+  /** Coût du prochain palier d'investissement. */
+  function upgradeCost(c) {
+    var t = typeDef(c.type);
+    if (!t) return Infinity;
+    return t.cost * t.up * Math.pow(1.11, c.lvl - 1);
+  }
+
+  function bulkUpgradeCost(c, n) {
+    var t = typeDef(c.type), total = 0;
+    for (var i = 0; i < n; i++) {
+      total += t.cost * t.up * Math.pow(1.11, c.lvl - 1 + i);
     }
     return total;
   }
 
-  /** Revenu maximal théorique (tout encaissé à la main sans temps mort). */
-  function potentialPerSec() {
-    var s = G.state, total = 0;
-    for (var i = 0; i < G.DATA.businesses.length; i++) {
-      var b = G.DATA.businesses[i];
-      var o = s.biz.owned[b.id];
-      if (o) total += revenuePerSec(b, o);
+  function maxUpgrades(c, cash) {
+    var t = typeDef(c.type);
+    var n = 0, total = 0;
+    var room = t.maxLvl - c.lvl;
+    while (n < room) {
+      var next = t.cost * t.up * Math.pow(1.11, c.lvl - 1 + n);
+      if (total + next > cash) break;
+      total += next;
+      n++;
     }
-    return total;
+    return n;
   }
 
-  /* Sans directeur, on peut stocker jusqu'à 4 cycles avant saturation. */
-  var MAX_STORED_CYCLES = 4;
+  /** Investit `n` paliers dans une entreprise. */
+  function invest(uid, n) {
+    var c = byUid(uid);
+    if (!c) return false;
+    var t = typeDef(c.type);
+    n = Math.max(1, Math.min(n || 1, t.maxLvl - c.lvl));
+    if (n <= 0) return false;
 
-  /* ------------------------------------------------------------ tick ---- */
+    var cost = bulkUpgradeCost(c, n);
+    if (!G.eco.spend(cost, 'business', 'Investissement · ' + c.name, true)) return false;
 
-  /**
-   * Fait tourner les entreprises pendant `dt` secondes.
-   * @param {boolean} offline true pour un rattrapage hors ligne (pas de toasts)
-   */
-  function tick(dt, offline) {
-    var s = G.state, gained = 0;
-    for (var i = 0; i < G.DATA.businesses.length; i++) {
-      var b = G.DATA.businesses[i];
-      var o = s.biz.owned[b.id];
-      if (!o || o.lvl <= 0) continue;
+    var before = c.lvl;
+    c.lvl += n;
+    c.invested += cost;
 
-      o.prog += dt;
-      if (o.prog < b.cycle) continue;
+    var ms = nextMilestone(before);
+    if (ms && c.lvl >= ms.at && G.ui) {
+      G.ui.toast('⭐ Palier atteint', c.name + ' niveau ' + ms.at + ' : rendement doublé', 'good');
+    }
+    return true;
+  }
 
-      var cycles = Math.floor(o.prog / b.cycle);
-      o.prog -= cycles * b.cycle;
-      var amount = cycles * cycleRevenue(b, o);
+  /* -------------------------------------------------------- fondation --- */
 
-      if (o.mgr) {
-        gained += amount;
-      } else {
-        var cap = MAX_STORED_CYCLES * cycleRevenue(b, o);
-        o.ready = Math.min(cap, (o.ready || 0) + amount);
+  function suggestName(type) {
+    var p = G.DATA.nameParts;
+    return u.pick(p.pre) + ' ' + u.pick(p.post);
+  }
+
+  function canFound(typeId) {
+    var t = typeDef(typeId);
+    if (!t) return false;
+    return count() < slots() && G.state.money >= t.cost;
+  }
+
+  /** Fonde une entreprise du type choisi, avec le nom voulu. */
+  function found(typeId, name) {
+    var t = typeDef(typeId);
+    if (!t) return null;
+    if (count() >= slots()) {
+      if (G.ui) G.ui.toast('🏢 Aucun emplacement libre', 'Achetez un emplacement commercial', 'bad');
+      return null;
+    }
+    if (!G.eco.spend(t.cost, 'business', 'Fondation · ' + (name || t.name))) return null;
+
+    var c = {
+      uid: u.uid('c'),
+      type: typeId,
+      name: (name || suggestName(typeId)).slice(0, 28),
+      lvl: 1,
+      invested: t.cost,
+      merged: 1,
+      founded: G.state.market.day
+    };
+    all().push(c);
+    return c;
+  }
+
+  function rename(uid, name) {
+    var c = byUid(uid);
+    if (!c || !name) return false;
+    c.name = String(name).slice(0, 28);
+    return true;
+  }
+
+  /** Valeur de revente d'une entreprise (70 % du capital investi). */
+  function saleValue(c) {
+    return c.invested * 0.7 * (c.merged || 1);
+  }
+
+  function sell(uid) {
+    var c = byUid(uid);
+    if (!c) return false;
+    var v = saleValue(c);
+    var list = all();
+    list.splice(list.indexOf(c), 1);
+    G.eco.earn(v, 'business', 'Cession · ' + c.name);
+    return true;
+  }
+
+  /* ---------------------------------------------------------- fusions --- */
+
+  /** Entreprises fusionnables avec celle-ci : même type, toutes deux au max. */
+  function mergeCandidates(c) {
+    var t = typeDef(c.type);
+    return all().filter(function (o) {
+      return o.uid !== c.uid && o.type === c.type &&
+        o.lvl >= typeDef(o.type).maxLvl && c.lvl >= t.maxLvl;
+    });
+  }
+
+  function canMergeAny() {
+    var list = all();
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].lvl >= typeDef(list[i].type).maxLvl && mergeCandidates(list[i]).length) {
+        return true;
       }
     }
-    if (gained > 0) {
-      G.eco.earn(gained, 'business', null, true);
-      s.biz.totalCollected += gained;
-    }
-    return gained;
+    return false;
   }
 
-  /* --------------------------------------------------------- actions ---- */
+  /**
+   * Fusionne deux entreprises identiques arrivées au niveau maximum :
+   * une seule subsiste, avec un multiplicateur de rendement, et un
+   * emplacement se libère.
+   */
+  function merge(uidA, uidB) {
+    var a = byUid(uidA), b = byUid(uidB);
+    if (!a || !b || a.uid === b.uid || a.type !== b.type) return false;
+    var t = typeDef(a.type);
+    if (a.lvl < t.maxLvl || b.lvl < t.maxLvl) return false;
 
-  /** Encaisse la caisse en attente d'une entreprise sans directeur. */
-  function collect(id) {
-    var s = G.state, o = s.biz.owned[id];
-    if (!o || !o.ready || o.ready <= 0) return 0;
-    var amount = o.ready;
-    o.ready = 0;
-    s.stats.clicks++;
-    s.biz.totalCollected += amount;
-    G.eco.earn(amount, 'business', def(id).name, true);
+    a.merged = (a.merged || 1) + (b.merged || 1) * 0.75;
+    a.invested += b.invested;
+    a.name = a.name;
+    var list = all();
+    list.splice(list.indexOf(b), 1);
+    if (G.ui) {
+      G.ui.toast('🤝 Fusion réalisée', a.name + ' — rendement ×' +
+        u.dec(a.merged, 2), 'good');
+    }
+    return true;
+  }
+
+  /* ------------------------------------------------------------ paie ---- */
+
+  /**
+   * Fait tourner les entreprises. Les revenus s'accumulent et sont versés
+   * par tranches d'une minute.
+   * @returns {number} montant versé pendant cet appel
+   */
+  function tick(dt, silent) {
+    var s = G.state;
+    var rate = totalHourly() / 3600;
+    s.biz.accrued += rate * dt;
+    s.biz.timer += dt;
+
+    var paid = 0;
+    if (s.biz.timer >= PAYOUT_SECONDS) {
+      var periods = Math.floor(s.biz.timer / PAYOUT_SECONDS);
+      s.biz.timer -= periods * PAYOUT_SECONDS;
+      paid = s.biz.accrued;
+      s.biz.accrued = 0;
+      if (paid > 0) {
+        G.eco.earn(paid, 'business', 'Salaires des entreprises', silent);
+        s.biz.totalPaid += paid;
+        s.biz.lastPayout = paid;
+        if (!silent && G.ui && G.ui.toast) {
+          G.ui.toast('🏢 +' + u.fmtMoney(paid), 'Versement des entreprises', 'good');
+        }
+      }
+    }
+    return paid;
+  }
+
+  /** Secondes restantes avant le prochain versement. */
+  function nextPayoutIn() {
+    return Math.max(0, PAYOUT_SECONDS - G.state.biz.timer);
+  }
+
+  /** Encaisse immédiatement ce qui est accumulé (sans attendre la minute). */
+  function collectNow() {
+    var s = G.state;
+    var amount = s.biz.accrued;
+    if (amount <= 0) return 0;
+    s.biz.accrued = 0;
+    s.biz.timer = 0;
+    s.biz.totalPaid += amount;
+    G.eco.earn(amount, 'business', 'Encaissement anticipé', true);
     return amount;
   }
 
-  /** Encaisse toutes les caisses disponibles d'un coup. */
-  function collectAll() {
-    var s = G.state, total = 0;
-    for (var id in s.biz.owned) {
-      var o = s.biz.owned[id];
-      if (o.ready > 0) { total += o.ready; o.ready = 0; }
+  /** Nombre d'entreprises possédées dans un secteur (synergie boursière). */
+  function sectorWeight(sector) {
+    var list = all(), w = 0;
+    for (var i = 0; i < list.length; i++) {
+      var t = typeDef(list[i].type);
+      if (t && t.sector === sector) w += Math.sqrt(list[i].lvl);
     }
-    if (total > 0) {
-      s.biz.totalCollected += total;
-      G.eco.earn(total, 'business', 'Encaissement général', true);
-    }
+    return w;
+  }
+
+  function totalValue() {
+    var list = all(), total = 0;
+    for (var i = 0; i < list.length; i++) total += saleValue(list[i]);
     return total;
   }
 
-  function readyTotal() {
-    var total = 0;
-    for (var id in G.state.biz.owned) total += G.state.biz.owned[id].ready || 0;
-    return total;
-  }
-
-  /** Achète `n` niveaux (le premier niveau vaut acquisition de l'entreprise). */
-  function buy(id, n) {
-    var b = def(id);
-    if (!b) return false;
-    var s = G.state;
-    var o = s.biz.owned[id];
-    var lvl = o ? o.lvl : 0;
-    n = Math.max(1, Math.floor(n || 1));
-
-    var cost = bulkCost(b, lvl, n);
-    if (!G.eco.spend(cost, 'business', b.name + ' ×' + n, true)) return false;
-
-    if (!o) {
-      o = s.biz.owned[id] = { lvl: 0, mgr: false, prog: 0, ready: 0 };
-    }
-    var before = o.lvl;
-    o.lvl += n;
-
-    var ms = nextMilestone(before);
-    if (ms && o.lvl >= ms.at && G.ui) {
-      G.ui.toast('⭐ Palier atteint !', b.name + ' niveau ' + ms.at + ' : rendement doublé', 'good');
-    }
-    return true;
-  }
-
-  /** Recrute un directeur : les encaissements deviennent automatiques. */
-  function hireManager(id) {
-    var b = def(id), o = owned(id);
-    if (!b || !o || o.mgr) return false;
-    if (!G.eco.spend(b.managerCost, 'business', 'Directeur · ' + b.name)) return false;
-    o.mgr = true;
-    if (o.ready > 0) collect(id);
-    return true;
-  }
-
-  /** Entreprises débloquées : la suivante apparaît dès qu'on possède la précédente. */
-  function isVisible(b, index) {
-    var s = G.state;
-    if (s.biz.owned[b.id]) return true;
-    if (index === 0) return true;
-    var prev = G.DATA.businesses[index - 1];
-    if (s.biz.owned[prev.id]) return true;
-    /* Ou si on peut déjà se l'offrir à 40 % près (pour les gros retours). */
-    return s.money >= b.cost * 0.4;
+  /** Types disponibles à la fondation (débloqués par la fortune atteinte). */
+  function catalog() {
+    var reach = Math.max(G.state.money, G.state.stats.earned * 0.25);
+    return G.DATA.companyTypes.filter(function (t, i) {
+      return i < 3 || reach >= t.cost * 0.25;
+    });
   }
 
   return {
-    def: def, owned: owned,
-    levelCost: levelCost, bulkCost: bulkCost, maxAffordable: maxAffordable,
+    PAYOUT_SECONDS: PAYOUT_SECONDS,
+    typeDef: typeDef, all: all, byUid: byUid, count: count,
+    slots: slots, slotCost: slotCost, buySlot: buySlot,
     milestoneMult: milestoneMult, nextMilestone: nextMilestone,
-    cycleRevenue: cycleRevenue, revenuePerSec: revenuePerSec,
-    incomePerSec: incomePerSec, potentialPerSec: potentialPerSec,
-    globalMult: globalMult, MAX_STORED_CYCLES: MAX_STORED_CYCLES,
-    tick: tick, collect: collect, collectAll: collectAll, readyTotal: readyTotal,
-    buy: buy, hireManager: hireManager, isVisible: isVisible
+    globalMult: globalMult, hourly: hourly, totalHourly: totalHourly,
+    perSecond: perSecond,
+    upgradeCost: upgradeCost, bulkUpgradeCost: bulkUpgradeCost,
+    maxUpgrades: maxUpgrades, invest: invest,
+    suggestName: suggestName, canFound: canFound, found: found, rename: rename,
+    saleValue: saleValue, sell: sell,
+    mergeCandidates: mergeCandidates, canMergeAny: canMergeAny, merge: merge,
+    tick: tick, nextPayoutIn: nextPayoutIn, collectNow: collectNow,
+    sectorWeight: sectorWeight, totalValue: totalValue, catalog: catalog
   };
 })();

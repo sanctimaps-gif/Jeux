@@ -30,6 +30,9 @@ G.ui = (function () {
 
   function act(name, fn) { actions[name] = fn; }
 
+  /** Récupère une action enregistrée (pour l'appeler depuis un autre module). */
+  function actionOf(name) { return actions[name]; }
+
   /* ------------------------------------------------------------- rendu -- */
 
   function render() {
@@ -76,16 +79,17 @@ G.ui = (function () {
   function updateHeader() {
     var s = G.state;
     el.money.textContent = u.fmtMoney(s.money);
-    var rate = G.business.incomePerSec();
-    el.rate.textContent = rate > 0 ? '+' + u.fmtMoney(rate) + ' /s' : 'aucun revenu passif';
+    var hourly = G.business.totalHourly() + G.realestate.totalHourly();
+    el.rate.textContent = hourly > 0
+      ? '+' + u.fmtMoney(hourly) + ' /h · versement dans ' +
+        Math.ceil(G.business.nextPayoutIn()) + ' s'
+      : 'aucun revenu passif';
 
     el.net.textContent = u.fmtMoney(G.eco.netWorth());
     el.day.textContent = u.fmtDay(s.market.day);
 
-    var pnl = G.market.totalPnl();
-    el.pf.innerHTML = u.fmtMoney(G.eco.portfolioValue()) +
-      (pnl.cost > 0 ? ' <span class="' + (pnl.abs >= 0 ? 'good' : 'bad') +
-        '">' + u.fmtPct(pnl.pct) + '</span>' : '');
+    var invest = G.eco.portfolioValue() + G.eco.cryptoValue() + G.eco.realEstateValue();
+    el.pf.textContent = u.fmtMoney(invest);
 
     /* Bandeau « gains à replacer » : le lien direct sport/casino -> Bourse. */
     var top = G.eco.topPending();
@@ -304,7 +308,8 @@ G.ui = (function () {
   }
 
   return {
-    register: register, act: act, init: init, render: render, refresh: refresh,
+    register: register, act: act, actionOf: actionOf, init: init,
+    render: render, refresh: refresh,
     setTab: setTab, currentTab: currentTab, onTick: onTick,
     toast: toast, modal: modal, modalUpdate: modalUpdate, closeModal: closeModal,
     isModalOpen: isModalOpen, confirm: confirm, headerDirty: headerDirty,

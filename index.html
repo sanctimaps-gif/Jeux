@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#0d1117">
-<meta name="description" content="Empire Total — jeu de gestion hors ligne : entreprises, Bourse, collections, clubs multisports jouables, casino et gouvernement, avec un portefeuille unique.">
+<meta name="description" content="Empire Total — jeu de gestion hors ligne : entreprises, Bourse, immobilier, crypto, clubs multisports jouables, casino et gouvernement d'un pays réel.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Empire Total">
@@ -25,7 +25,7 @@
   </div>
   <div class="hud-grid">
     <div class="hud-cell"><div class="l">Patrimoine</div><div class="v" id="hud-net">—</div></div>
-    <div class="hud-cell"><div class="l">Portefeuille</div><div class="v" id="hud-pf">—</div></div>
+    <div class="hud-cell"><div class="l">Placements</div><div class="v" id="hud-pf">—</div></div>
     <div class="hud-cell"><div class="l">Séance</div><div class="v" id="hud-day">—</div></div>
   </div>
   <div class="reinvest-bar" id="reinvest" data-act="ui.reinvest" style="display:none"></div>
@@ -47,16 +47,32 @@
   </div>
 </div>
 
+<!-- Écran de jeu plein format (match joué, Grand Prix piloté) -->
+<div class="play hidden" id="play">
+  <canvas id="play-canvas"></canvas>
+  <div class="play-top" id="play-top"></div>
+  <div class="play-feed" id="play-feed"></div>
+  <button class="play-quit play-ui" data-act="pl.close" aria-label="Quitter">✕</button>
+  <button class="play-skip play-ui" data-act="pl.skip">⏩ Terminer</button>
+  <div id="play-pad"><div id="play-knob"></div></div>
+  <div class="play-btns play-ui" id="play-btns"></div>
+  <div class="play-end" id="play-end"></div>
+</div>
+
 <!-- Outils -->
 <script src="js/core/util.js"></script>
 
 <!-- Données du jeu -->
-<script src="js/data/businesses.js"></script>
+<script src="js/data/companies.js"></script>
 <script src="js/data/stocks.js"></script>
+<script src="js/data/assets.js"></script>
 <script src="js/data/collections.js"></script>
 <script src="js/data/names.js"></script>
 <script src="js/data/sports.js"></script>
-<script src="js/data/country.js"></script>
+<script src="js/data/laws.js"></script>
+<script src="js/data/nation.js"></script>
+<script src="js/data/world.js"></script>
+<script src="js/data/worldmap.js"></script>
 
 <!-- Noyau -->
 <script src="js/core/state.js"></script>
@@ -66,20 +82,26 @@
 <!-- Règles du jeu -->
 <script src="js/game/business.js"></script>
 <script src="js/game/market.js"></script>
+<script src="js/game/realestate.js"></script>
+<script src="js/game/crypto.js"></script>
 <script src="js/game/collections.js"></script>
 <script src="js/game/manager.js"></script>
 <script src="js/game/match.js"></script>
 <script src="js/game/race.js"></script>
+<script src="js/game/action.js"></script>
+<script src="js/game/drive.js"></script>
 <script src="js/game/casino.js"></script>
-<script src="js/game/country.js"></script>
+<script src="js/game/nation.js"></script>
 <script src="js/core/loop.js"></script>
 
 <!-- Interface -->
 <script src="js/ui/ui.js"></script>
-<script src="js/ui/view_empire.js"></script>
+<script src="js/ui/play.js"></script>
+<script src="js/ui/view_business.js"></script>
+<script src="js/ui/view_invest.js"></script>
 <script src="js/ui/view_manager.js"></script>
 <script src="js/ui/view_casino.js"></script>
-<script src="js/ui/view_country.js"></script>
+<script src="js/ui/view_nation.js"></script>
 <script src="js/ui/view_profile.js"></script>
 
 <script src="js/main.js"></script>

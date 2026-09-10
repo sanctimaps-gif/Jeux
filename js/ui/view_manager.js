@@ -1,4 +1,4 @@
-/* Onglet Manager : gestion des clubs et matchs jouables. */
+/* Onglet Manager : plusieurs clubs, choix du pays, montée de division 3 à 1. */
 window.G = window.G || {};
 
 (function () {
@@ -6,83 +6,146 @@ window.G = window.G || {};
   var u = G.util, ui = G.ui;
 
   var sub = 'club';
-  var live = null;        // match ou course en cours
+  var shopMode = false;           // affiche la boutique même si on a déjà un club
+  var shop = { sport: null, country: null };
+  var live = null;        // rencontre en mode « coach »
   var timer = null;
   var paused = false;
 
-  function clubs() { return G.state.manager.clubs; }
-  function activeClub() {
-    var a = G.state.manager.active;
-    return a ? clubs()[a] : null;
-  }
+  function clubs() { return G.manager.clubs(); }
+  function activeClub() { return G.manager.activeClub(); }
 
   /* ==================================================== ACQUISITION ====== */
 
   function renderShop() {
-    var h = '<div class="card"><div class="card-head">🏅 Devenir propriétaire</div>' +
-      '<div class="mute2">Rachetez un club et prenez les commandes : effectif, ' +
-      'transferts, tactique, installations… et les matchs, que vous jouez ' +
-      'vous-même. Tout ce que le club encaisse arrive sur votre compte, ' +
-      'prêt à être réinvesti ailleurs.</div></div>';
+    var h = '<div class="card"><div class="card-head">🏅 Racheter un club</div>' +
+      '<div class="mute2">Choisissez une discipline puis un pays. Vous démarrez ' +
+      'toujours en <b>division 3</b> : à vous de faire monter le club jusqu\'à ' +
+      'l\'élite. Vous pouvez posséder plusieurs clubs, y compris dans le même ' +
+      'sport et le même pays.</div></div>';
 
+    /* Étape 1 : la discipline. */
+    h += '<div class="card-head">1 · Discipline</div><div class="sub-tabs">';
     for (var i = 0; i < G.DATA.sports.length; i++) {
       var sp = G.DATA.sports[i];
-      if (clubs()[sp.id]) continue;
-      var cost = sp.economy.clubCost;
-      var can = G.state.money >= cost;
-      h += '<div class="card"><div class="row">' +
-        '<div class="item-icon" style="font-size:30px">' + sp.icon + '</div>' +
-        '<div class="item-main"><div class="t">' + sp.name + '</div>' +
-        '<div class="s">' + sp.leagueName + ' · ' + sp.leagueSize + ' équipes · ' +
-        (sp.type === 'race' ? '2 pilotes' : sp.lineupSize + ' titulaires, effectif de ' +
-          sp.squadSize) + '</div></div>' +
-        '<div class="item-side"><button class="btn sm ' + (can ? 'primary' : '') +
-        '" data-act="mg.buyclub" data-id="' + sp.id + '"' + (can ? '' : ' disabled') + '>' +
-        u.fmtMoney(cost) + '</button></div></div>' +
-        '<div class="mute2" style="margin-top:6px">Recettes indicatives par rencontre : ' +
-        u.fmtMoney(sp.economy.gateBase + sp.economy.sponsorBase) +
-        ' · masse salariale de départ ' + u.fmtMoney(sp.economy.wageBase * sp.squadSize * 0.6) +
-        '</div></div>';
+      h += '<button class="sub' + (shop.sport === sp.id ? ' active' : '') +
+        '" data-act="mg.shopsport" data-id="' + sp.id + '">' + sp.icon + ' ' +
+        sp.name + '</button>';
+    }
+    h += '</div>';
+
+    if (!shop.sport) return h;
+
+    var sport = G.DATA.sportById[shop.sport];
+
+    /* Étape 2 : le pays. */
+    h += '<div class="card-head" style="margin-top:12px">2 · Pays</div>';
+    h += '<div class="card tight"><div class="mute2">Plus le championnat est ' +
+      'relevé, plus le club coûte cher — mais plus les recettes et les primes ' +
+      'sont élevées une fois en division 1.</div></div>';
+
+    for (var c = 0; c < sport.countries.length; c++) {
+      var code = sport.countries[c];
+      var nation = G.DATA.worldById[code];
+      if (!nation) continue;
+      var price = G.manager.clubPrice(shop.sport, code);
+      var coef = G.manager.countryCoef(sport, code);
+      var can = G.state.money >= price;
+      h += '<div class="item' + (shop.country === code ? ' sel' : '') +
+        '" data-act="mg.shopcountry" data-id="' + code + '">' +
+        '<div class="item-icon">' + nation.f + '</div>' +
+        '<div class="item-main"><div class="t">' + u.esc(nation.n) + '</div>' +
+        '<div class="s">Niveau du championnat : ' + stars(coef) + '</div></div>' +
+        '<div class="item-side"><div class="' + (can ? 'good' : 'bad') + '">' +
+        u.fmtMoney(price) + '</div>' +
+        '<div class="mute2">division 3</div></div></div>';
     }
     return h;
   }
 
-  ui.act('mg.buyclub', function (d) {
-    var sp = G.DATA.sportById[d.id];
-    ui.confirm('Racheter un club de ' + sp.name + ' ?',
-      'Coût : ' + u.fmtMoney(sp.economy.clubCost) + '. Vous héritez d\'un effectif ' +
-      'moyen, d\'installations de base et d\'une place en ' + sp.leagueName + '.',
-      function () {
-        if (G.manager.buyClub(d.id)) {
-          G.state.manager.active = d.id;
-          sub = 'club';
-          ui.toast('🏟️ Club acquis !', clubs()[d.id].name, 'good');
-        }
-        ui.refresh();
-      }, 'Racheter');
+  function stars(coef) {
+    var n = u.clamp(Math.round(coef * 3), 1, 5);
+    return '★'.repeat(n) + '☆'.repeat(5 - n);
+  }
+
+  ui.act('mg.shopsport', function (d) { shop.sport = d.id; shop.country = null; ui.refresh(); });
+
+  ui.act('mg.shopcountry', function (d) {
+    shop.country = d.id;
+    var sport = G.DATA.sportById[shop.sport];
+    var nation = G.DATA.worldById[d.id];
+    var price = G.manager.clubPrice(shop.sport, d.id);
+    var suggested = G.manager.clubNameFor(shop.sport, d.id);
+
+    var h = '<div class="row" style="gap:10px;margin-bottom:10px">' +
+      '<div style="font-size:32px">' + sport.icon + '</div><div>' +
+      '<div style="font-weight:800">' + sport.name + '</div>' +
+      '<div class="mute2">' + nation.f + ' ' + nation.n + ' · division 3</div></div></div>';
+
+    h += '<label class="field">Nom du club</label>' +
+      '<input type="text" id="mg-name" maxlength="30" value="' + u.esc(suggested) + '">' +
+      '<button class="btn xs" style="margin-top:6px" data-act="mg.shopname">' +
+      '🎲 Autre proposition</button>';
+
+    h += '<div class="grid2" style="margin-top:12px">' +
+      ui.stat('Prix du club', u.fmtMoney(price)) +
+      ui.stat('Recettes par match', u.fmtMoney(
+        (sport.economy.gateBase + sport.economy.sponsorBase) *
+        G.manager.countryCoef(sport, d.id) * G.manager.divisionCoef(3)), 'good') +
+      '</div>';
+
+    h += '<div class="mute2" style="margin-top:8px">Deux montées vous séparent de ' +
+      'l\'élite : les deux premiers de chaque championnat montent, les deux ' +
+      'derniers descendent.</div>';
+
+    h += '<button class="btn primary full" style="margin-top:12px" data-act="mg.dobuy">' +
+      'Racheter le club</button>';
+    ui.modal('Acquisition d\'un club', h, {});
+  });
+
+  ui.act('mg.shopname', function () {
+    var input = document.getElementById('mg-name');
+    if (input) input.value = G.manager.clubNameFor(shop.sport, shop.country);
+  });
+
+  ui.act('mg.dobuy', function () {
+    var input = document.getElementById('mg-name');
+    var name = input ? input.value.trim() : '';
+    var club = G.manager.buyClub(shop.sport, shop.country, name);
+    if (club) {
+      ui.closeModal();
+      sub = 'club';
+      shopMode = false;
+      ui.toast('🏟️ Club acquis !', club.name, 'good');
+      ui.refresh();
+    }
   });
 
   /* ====================================================== SÉLECTEUR ====== */
 
   function clubSelector() {
-    var ids = Object.keys(clubs());
-    if (!ids.length) return '';
+    var l = clubs();
+    if (!l.length) return '';
+    var active = G.state.manager.active;
     var h = '<div class="sub-tabs">';
-    for (var i = 0; i < ids.length; i++) {
-      var c = clubs()[ids[i]];
-      var sp = G.DATA.sportById[ids[i]];
-      h += '<button class="sub' + (G.state.manager.active === ids[i] ? ' active' : '') +
-        '" data-act="mg.select" data-id="' + ids[i] + '">' + sp.icon + ' ' +
-        u.esc(c.name) + '</button>';
+    for (var i = 0; i < l.length; i++) {
+      var c = l[i];
+      var sp = G.DATA.sportById[c.sport];
+      var nation = G.DATA.worldById[c.country];
+      h += '<button class="sub' + (active === c.uid ? ' active' : '') +
+        '" data-act="mg.select" data-uid="' + c.uid + '">' + sp.icon +
+        (nation ? ' ' + nation.f : '') + ' ' + u.esc(c.name) +
+        ' <span class="divtag">D' + c.division + '</span></button>';
     }
     h += '<button class="sub" data-act="mg.shop">➕ Nouveau club</button></div>';
     return h;
   }
 
-  function sectionTabs() {
-    var sp = G.DATA.sportById[G.state.manager.active];
+  function sectionTabs(club) {
+    var sp = G.DATA.sportById[club.sport];
     var tabs = [['club', '🏟️ Club'], ['effectif', '👥 Effectif'],
-    ['transferts', '💱 Transferts'], ['tactique', sp && sp.type === 'race' ? '🔧 Voiture' : '📋 Tactique'],
+    ['transferts', '💱 Transferts'],
+    ['tactique', sp.type === 'race' ? '🔧 Voiture' : '📋 Tactique'],
     ['infra', '🏗️ Structure'], ['palmares', '🏆 Palmarès']];
     return '<div class="sub-tabs">' + tabs.map(function (t) {
       return '<button class="sub' + (sub === t[0] ? ' active' : '') +
@@ -91,28 +154,44 @@ window.G = window.G || {};
   }
 
   ui.act('mg.select', function (d) {
-    G.state.manager.active = d.id; sub = 'club'; ui.refresh();
+    G.state.manager.active = d.uid; sub = 'club'; shopMode = false; ui.refresh();
   });
-  ui.act('mg.shop', function () { G.state.manager.active = null; ui.refresh(); });
+  ui.act('mg.shop', function () {
+    shopMode = true; shop.sport = null; shop.country = null; ui.refresh();
+  });
   ui.act('mg.sub', function (d) { sub = d.sub; ui.refresh(); });
 
   /* ========================================================= APERÇU ====== */
 
   function renderClub(club) {
     var sp = G.DATA.sportById[club.sport];
+    var nation = G.DATA.worldById[club.country];
     var r = G.manager.teamRatings(club);
     var h = '';
 
     h += '<div class="card"><div class="row">' +
       '<div class="item-icon" style="font-size:30px">' + sp.icon + '</div>' +
-      '<div class="item-main"><div class="t">' + u.esc(club.name) + '</div>' +
-      '<div class="s">' + sp.leagueName + ' · saison ' + club.season +
-      ' · ' + (club.league.isRace ? 'GP ' + Math.min(club.league.round + 1,
-        club.league.fixtures.length) + '/' + club.league.fixtures.length
-        : 'journée ' + Math.min(club.league.round + 1, club.league.fixtures.length) +
-        '/' + club.league.fixtures.length) + '</div></div>' +
+      '<div class="item-main">' +
+      '<div class="t">' + u.esc(club.name) +
+      ' <button class="btn xs" data-act="mg.rename" data-uid="' + club.uid + '">✏️</button>' +
+      '</div>' +
+      '<div class="s">' + (nation ? nation.f + ' ' + nation.n : '') + ' · ' +
+      G.manager.divisionName(sp, club.division) + ' · saison ' + club.season + '</div>' +
+      '<div class="mute2">' + (club.league.isRace
+        ? 'Grand Prix ' + Math.min(club.league.round + 1, club.league.fixtures.length) +
+          '/' + club.league.fixtures.length
+        : 'Journée ' + Math.min(club.league.round + 1, club.league.fixtures.length) +
+          '/' + club.league.fixtures.length) + '</div></div>' +
       '<div class="item-side"><div class="ov ' + ui.ovrClass(r.ovr) + '">' +
       Math.round(r.ovr) + '</div></div></div>';
+
+    /* Échelle des divisions. */
+    h += '<div class="divbar">';
+    for (var d = 3; d >= 1; d--) {
+      h += '<div class="divstep' + (club.division === d ? ' on' : '') +
+        (club.division < d ? ' done' : '') + '">D' + d + '</div>';
+    }
+    h += '</div>';
 
     h += '<div class="grid4" style="margin-top:8px">' +
       ui.stat('Attaque', Math.round(r.att)) +
@@ -121,19 +200,15 @@ window.G = window.G || {};
       ui.stat('Classement', G.manager.rankOf(club) + 'e') +
       '</div></div>';
 
-    /* Prochaine rencontre */
     h += nextMatchCard(club, sp);
 
-    /* Finances */
     var last = club.finances.last;
     h += '<div class="card"><div class="card-head">💶 Finances<span class="sub">saison ' +
-      club.season + '</span></div>' +
-      '<div class="grid3">' +
+      club.season + '</span></div><div class="grid3">' +
       ui.stat('Recettes', u.fmtMoney(club.finances.seasonIn), 'good') +
       ui.stat('Salaires', u.fmtMoney(club.finances.seasonOut), 'bad') +
       ui.stat('Solde', u.fmtSigned(club.finances.seasonIn - club.finances.seasonOut),
-        ui.signCls(club.finances.seasonIn - club.finances.seasonOut)) +
-      '</div>';
+        ui.signCls(club.finances.seasonIn - club.finances.seasonOut)) + '</div>';
     if (last) {
       h += '<div class="mute2" style="margin-top:7px">Dernière rencontre : ' +
         'billetterie ' + u.fmtMoney(last.gate) + ' · sponsors ' + u.fmtMoney(last.sponsor) +
@@ -143,16 +218,14 @@ window.G = window.G || {};
     h += '<div class="mute2" style="margin-top:4px">Masse salariale par rencontre : ' +
       u.fmtMoney(G.manager.wageBill(club)) + '</div></div>';
 
-    /* Classement */
     h += standingsCard(club);
 
-    /* Derniers résultats */
     if (club.results.length) {
       h += '<div class="card"><div class="card-head">📊 Derniers résultats</div><div class="feed">';
       for (var i = 0; i < Math.min(8, club.results.length); i++) {
         var res = club.results[i];
-        var cls = res.race ? (res.you > 0 ? 'good' : '') :
-          (res.you > res.opp ? 'good' : res.you === res.opp ? '' : 'bad');
+        var cls = res.race ? (res.you > 0 ? 'good' : '')
+          : (res.you > res.opp ? 'good' : res.you === res.opp ? '' : 'bad');
         h += '<div class="entry ' + cls + '"><span class="m">J' + res.round + '</span>' +
           '<span>' + (res.race ? res.you + ' pts · ' + u.esc(res.oppName)
             : (res.home ? '' : '(ext.) ') + res.you + ' - ' + res.opp + ' vs ' +
@@ -166,13 +239,14 @@ window.G = window.G || {};
 
   function nextMatchCard(club, sp) {
     var h = '<div class="card">';
+    var playable = sp.type === 'race' || G.action.supports(club.sport);
+
     if (sp.type === 'race') {
       var evt = G.race.nextRace(club);
       if (!evt) return h + '<div class="muted">Saison terminée.</div></div>';
       h += '<div class="card-head">🏁 Prochain Grand Prix</div>' +
-        '<div class="t" style="font-size:16px;font-weight:700">' + u.esc(evt.circuit) + '</div>' +
-        '<div class="mute2">Course ' + evt.round + ' sur ' + evt.total + ' · ' +
-        sp.race.laps + ' tours · ' + sp.race.grid + ' voitures</div>';
+        '<div style="font-size:16px;font-weight:700">' + u.esc(evt.circuit) + '</div>' +
+        '<div class="mute2">Course ' + evt.round + ' sur ' + evt.total + '</div>';
     } else {
       var fx = G.manager.nextFixture(club);
       if (!fx) return h + '<div class="muted">Saison terminée.</div></div>';
@@ -184,11 +258,22 @@ window.G = window.G || {};
         '<div class="mute2">Adversaire évalué à ' + Math.round(fx.opp.str) +
         ' · votre équipe à ' + Math.round(G.manager.teamRatings(club).ovr) + '</div>';
     }
-    var isRace = sp.type === 'race';
-    h += '<div class="grid2" style="margin-top:10px">' +
-      '<button class="btn primary" data-act="mg.play">▶️ ' +
-      (isRace ? 'Jouer la course' : 'Jouer le match') + '</button>' +
-      '<button class="btn" data-act="mg.sim">⏩ Simuler</button></div>';
+
+    h += '<div class="grid2" style="margin-top:10px">';
+    if (playable) {
+      h += '<button class="btn primary" data-act="mg.action">🎮 ' +
+        (sp.type === 'race' ? 'Piloter' : 'Jouer le match') + '</button>';
+    }
+    h += '<button class="btn" data-act="mg.coach">📋 Diriger depuis le banc</button>' +
+      '</div>' +
+      '<button class="btn sm full" style="margin-top:6px" data-act="mg.sim">' +
+      '⏩ Simuler la rencontre</button>';
+
+    if (playable) {
+      h += '<div class="mute2" style="margin-top:6px">🎮 Vous jouez vous-même : ' +
+        'joystick à gauche, actions à droite. 📋 Vous restez sur le banc et ' +
+        'donnez les consignes aux moments clés.</div>';
+    }
 
     var injured = club.players.filter(function (p) { return p.injury > 0; }).length;
     var tired = club.players.filter(function (p) { return p.starter && p.energy < 45; }).length;
@@ -203,31 +288,60 @@ window.G = window.G || {};
   function standingsCard(club) {
     var st = G.manager.standings(club);
     var isRace = !!club.league.isRace;
+    var n = st.length;
     var h = '<div class="card"><div class="card-head">🏆 ' +
       (isRace ? 'Championnat constructeurs' : 'Classement') + '</div>' +
       '<div class="scroll-x"><table class="table"><tr><th>#</th><th>Équipe</th>' +
       '<th class="num">J</th>' + (isRace ? '' :
         '<th class="num">V</th><th class="num">N</th><th class="num">D</th>' +
         '<th class="num">+/-</th>') + '<th class="num">Pts</th></tr>';
-    for (var i = 0; i < st.length; i++) {
+    for (var i = 0; i < n; i++) {
       var t = st[i].t;
-      h += '<tr class="' + (st[i].i === 0 ? 'you' : '') + '"><td>' + (i + 1) + '</td>' +
+      var zone = '';
+      if (!isRace) {
+        if (i < 2 && club.division > 1) zone = ' promo';
+        else if (i >= n - 2 && club.division < 3) zone = ' releg';
+      }
+      h += '<tr class="' + (st[i].i === 0 ? 'you' : '') + zone + '"><td>' + (i + 1) + '</td>' +
         '<td>' + u.esc(t.name) + '</td><td class="num">' + t.played + '</td>' +
         (isRace ? '' : '<td class="num">' + t.w + '</td><td class="num">' + t.d +
           '</td><td class="num">' + t.l + '</td><td class="num">' +
           (t.sf - t.sa > 0 ? '+' : '') + (t.sf - t.sa) + '</td>') +
         '<td class="num"><b>' + t.pts + '</b></td></tr>';
     }
-    return h + '</table></div></div>';
+    h += '</table></div>';
+    if (!isRace) {
+      h += '<div class="mute2" style="margin-top:6px">' +
+        (club.division > 1 ? '<span class="promo-dot"></span> montée · ' : '') +
+        (club.division < 3 ? '<span class="releg-dot"></span> relégation' : '') + '</div>';
+    }
+    return h + '</div>';
   }
+
+  ui.act('mg.rename', function (d) {
+    var c = G.manager.byUid(d.uid);
+    if (!c) return;
+    ui.modal('✏️ Renommer le club',
+      '<label class="field">Nouveau nom</label>' +
+      '<input type="text" id="mg-newname" maxlength="30" value="' + u.esc(c.name) + '">' +
+      '<button class="btn primary full" style="margin-top:12px" data-act="mg.dorename" ' +
+      'data-uid="' + d.uid + '">Valider</button>', {});
+  });
+  ui.act('mg.dorename', function (d) {
+    var input = document.getElementById('mg-newname');
+    if (input && input.value.trim()) {
+      G.manager.renameClub(d.uid, input.value.trim());
+      ui.closeModal();
+    }
+  });
 
   /* ======================================================== EFFECTIF ===== */
 
-  function playerRow(club, p, opts) {
+  function playerRow(club, p) {
     var sp = G.DATA.sportById[club.sport];
     var o = G.manager.ovr(p, sp);
     var pd = G.manager.posDef(sp, p.pos);
-    var h = '<div class="pl' + (p.starter ? ' start' : '') + '" data-act="mg.player" data-id="' +
+    return '<div class="pl' + (p.starter ? ' start' : '') + '" data-act="mg.player" data-id="' +
       p.id + '">' +
       '<div class="pos">' + p.pos + '</div>' +
       '<div class="nm"><div class="n">' + u.esc(p.name) +
@@ -237,11 +351,8 @@ window.G = window.G || {};
       ' · ' + u.fmtMoney(p.value) + ' · ' + u.fmtMoney(p.wage) + '/match</div>' +
       '<div class="row" style="gap:4px;margin-top:3px">' +
       '<span class="mute2">Forme</span>' + miniBar(p.form) +
-      '<span class="mute2">Jus</span>' + miniBar(p.energy) +
-      '</div></div>' +
-      '<div class="ov ' + ui.ovrClass(o) + '">' + o + '</div>';
-    if (opts && opts.action) h += opts.action(p);
-    return h + '</div>';
+      '<span class="mute2">Jus</span>' + miniBar(p.energy) + '</div></div>' +
+      '<div class="ov ' + ui.ovrClass(o) + '">' + o + '</div></div>';
   }
 
   function miniBar(v) {
@@ -260,8 +371,8 @@ window.G = window.G || {};
     var h = '<div class="card"><div class="row between" style="margin-bottom:6px">' +
       '<div><b>' + club.players.length + ' joueurs</b> <span class="mute2">· ' +
       G.manager.starters(club).length + '/' + sp.lineupSize + ' titulaires</span></div>' +
-      '<button class="btn xs" data-act="mg.auto">🔄 Composition auto</button></div>';
-    h += '<div class="mute2">Touchez un joueur pour le faire entrer dans le onze, ' +
+      '<button class="btn xs" data-act="mg.auto">🔄 Composition auto</button></div>' +
+      '<div class="mute2">Touchez un joueur pour le faire entrer dans le onze, ' +
       'consulter sa fiche ou le vendre.</div></div>';
 
     h += '<div class="card">';
@@ -279,7 +390,9 @@ window.G = window.G || {};
     var club = activeClub();
     var sp = G.DATA.sportById[club.sport];
     var p = null;
-    for (var i = 0; i < club.players.length; i++) if (club.players[i].id === d.id) p = club.players[i];
+    for (var i = 0; i < club.players.length; i++) {
+      if (club.players[i].id === d.id) p = club.players[i];
+    }
     if (!p) return;
     var o = G.manager.ovr(p, sp);
 
@@ -329,11 +442,10 @@ window.G = window.G || {};
     for (var i = 0; i < club.players.length; i++) {
       if (club.players[i].id !== d.id) continue;
       var p = club.players[i];
-      if (p.starter) { p.starter = false; }
+      if (p.starter) p.starter = false;
       else {
         if (p.injury) { ui.toast('🚑 Joueur blessé', 'Il ne peut pas jouer', 'bad'); return; }
-        var n = G.manager.starters(club).length;
-        if (n >= sp.lineupSize) {
+        if (G.manager.starters(club).length >= sp.lineupSize) {
           ui.toast('👥 Onze complet', 'Sortez d\'abord un titulaire', 'bad');
           return;
         }
@@ -344,8 +456,7 @@ window.G = window.G || {};
   });
 
   ui.act('mg.sell', function (d) {
-    var club = activeClub();
-    if (G.manager.sellPlayer(club, d.id)) ui.closeModal();
+    if (G.manager.sellPlayer(activeClub(), d.id)) ui.closeModal();
   });
 
   /* ======================================================= TRANSFERTS ==== */
@@ -354,8 +465,9 @@ window.G = window.G || {};
     var sp = G.DATA.sportById[club.sport];
     var list = G.manager.refreshTransfers(club);
     var h = '<div class="card"><div class="row between">' +
-      '<div><b>Joueurs disponibles</b><div class="mute2">Liste renouvelée par vos ' +
-      'recruteurs (niveau ' + club.staff.scout + ')</div></div>' +
+      '<div><b>Joueurs disponibles</b><div class="mute2">Recruteurs niveau ' +
+      club.staff.scout + ' · plus votre division est haute, meilleurs sont les ' +
+      'joueurs proposés</div></div>' +
       '<button class="btn xs" data-act="mg.scoutnow">🔍 Prospecter</button></div></div>';
 
     h += '<div class="card">';
@@ -363,8 +475,7 @@ window.G = window.G || {};
       var p = list[i];
       var o = G.manager.ovr(p, sp);
       var can = G.state.money >= p.askPrice;
-      h += '<div class="pl">' +
-        '<div class="pos">' + p.pos + '</div>' +
+      h += '<div class="pl"><div class="pos">' + p.pos + '</div>' +
         '<div class="nm"><div class="n">' + u.esc(p.name) + '</div>' +
         '<div class="d">' + p.age + ' ans · potentiel ' + p.pot + ' · salaire ' +
         u.fmtMoney(p.wage) + '/match</div></div>' +
@@ -395,8 +506,7 @@ window.G = window.G || {};
     ui.refresh();
   });
   ui.act('mg.sign', function (d) {
-    var club = activeClub();
-    if (G.manager.signPlayer(club, d.id)) {
+    if (G.manager.signPlayer(activeClub(), d.id)) {
       ui.toast('✍️ Transfert bouclé', 'Bienvenue au club', 'good');
     }
     ui.refresh();
@@ -425,7 +535,8 @@ window.G = window.G || {};
       h += '</div>';
     }
 
-    var groups = [['mentality', 'Approche'], ['pressing', 'Organisation'], ['style', 'Style de jeu']];
+    var groups = [['mentality', 'Approche'], ['pressing', 'Organisation'],
+    ['style', 'Style de jeu']];
     h += '<div class="card"><div class="card-head">📋 Consignes</div>';
     for (var g = 0; g < groups.length; g++) {
       var key = groups[g][0];
@@ -442,15 +553,14 @@ window.G = window.G || {};
     var r = G.manager.teamRatings(club);
     h += '<div class="grid2">' + ui.stat('Puissance offensive', Math.round(r.att)) +
       ui.stat('Solidité défensive', Math.round(r.def)) + '</div>';
-    h += '<div class="mute2" style="margin-top:6px">Une approche offensive augmente ' +
-      'votre production mais découvre votre défense. Les consignes se règlent aussi ' +
-      'en direct pendant le match.</div></div>';
+    h += '<div class="mute2" style="margin-top:6px">Ces consignes s\'appliquent aussi ' +
+      'quand vous jouez vous-même : elles règlent le comportement de vos ' +
+      'coéquipiers gérés par l\'ordinateur.</div></div>';
     return h;
   }
 
   ui.act('mg.tac', function (d) {
-    var club = activeClub();
-    club.tactics[d.k] = parseInt(d.v, 10);
+    activeClub().tactics[d.k] = parseInt(d.v, 10);
     ui.refresh();
   });
   ui.act('mg.car', function (d) {
@@ -498,8 +608,8 @@ window.G = window.G || {};
     h += '<div class="card"><div class="card-head">⚠️ Céder le club</div>' +
       '<div class="mute2">Valeur estimée : ' + u.fmtMoney(G.manager.clubValue(club)) +
       ' (revente à 85 %).</div>' +
-      '<button class="btn danger full" style="margin-top:8px" data-act="mg.sellclub">' +
-      'Vendre ' + u.esc(club.name) + '</button></div>';
+      '<button class="btn danger full" style="margin-top:8px" data-act="mg.sellclub" ' +
+      'data-uid="' + club.uid + '">Vendre ' + u.esc(club.name) + '</button></div>';
     return h;
   }
 
@@ -515,12 +625,12 @@ window.G = window.G || {};
     }
     ui.refresh();
   });
-  ui.act('mg.sellclub', function () {
-    var club = activeClub();
+  ui.act('mg.sellclub', function (d) {
+    var club = G.manager.byUid(d.uid);
     ui.confirm('Vendre ' + u.esc(club.name) + ' ?',
       'Vous récupérez ' + u.fmtMoney(G.manager.clubValue(club) * 0.85) +
-      ' mais perdez l\'effectif, les installations et le palmarès en cours.',
-      function () { G.manager.sellClub(club.sport); ui.refresh(); }, 'Vendre');
+      ' mais perdez l\'effectif, les installations et la place en championnat.',
+      function () { G.manager.sellClub(d.uid); ui.refresh(); }, 'Vendre');
   });
 
   /* ========================================================= PALMARÈS ==== */
@@ -531,27 +641,31 @@ window.G = window.G || {};
     if (!t.length) h += '<div class="mute2">Aucun titre pour l\'instant. Ça viendra.</div>';
     for (var i = 0; i < t.length; i++) {
       var sp = G.DATA.sportById[t[i].sport];
+      var nation = t[i].country ? G.DATA.worldById[t[i].country] : null;
       h += '<div class="item"><div class="item-icon">' + (sp ? sp.icon : '🏆') + '</div>' +
-        '<div class="item-main"><div class="t">' + u.esc(t[i].name) + '</div>' +
-        '<div class="s">' + u.esc(t[i].club) + ' · saison ' + t[i].season + '</div></div></div>';
+        '<div class="item-main"><div class="t">' + u.esc(t[i].name || 'Championnat') + '</div>' +
+        '<div class="s">' + u.esc(t[i].club) + ' · saison ' + t[i].season +
+        (nation ? ' · ' + nation.f : '') + '</div></div></div>';
     }
     h += '</div>';
 
     h += '<div class="card"><div class="card-head">📚 Historique du club</div>';
     if (!club.history.length) h += '<div class="mute2">Première saison en cours.</div>';
     else {
-      h += '<div class="scroll-x"><table class="table"><tr><th>Saison</th><th class="num">Place</th>' +
-        '<th class="num">Pts</th><th class="num">Recettes</th><th class="num">Salaires</th></tr>';
+      h += '<div class="scroll-x"><table class="table"><tr><th>Saison</th>' +
+        '<th class="num">Div.</th><th class="num">Place</th><th class="num">Pts</th>' +
+        '<th class="num">Solde</th></tr>';
       for (var j = club.history.length - 1; j >= 0; j--) {
         var hh = club.history[j];
-        h += '<tr><td>' + hh.season + '</td><td class="num">' + hh.rank + 'e</td>' +
-          '<td class="num">' + hh.pts + '</td><td class="num">' + u.fmtMoney(hh.in) +
-          '</td><td class="num">' + u.fmtMoney(hh.out) + '</td></tr>';
+        h += '<tr><td>' + hh.season + (hh.promoted ? ' ⬆️' : hh.relegated ? ' ⬇️' : '') +
+          '</td><td class="num">D' + (hh.division || '?') + '</td>' +
+          '<td class="num">' + hh.rank + 'e</td><td class="num">' + hh.pts + '</td>' +
+          '<td class="num ' + ui.signCls(hh.in - hh.out) + '">' +
+          u.fmtSigned(hh.in - hh.out) + '</td></tr>';
       }
       h += '</table></div>';
     }
 
-    var sp2 = G.DATA.sportById[club.sport];
     var scorers = u.sortBy(club.players.filter(function (p) { return (p.scored || 0) > 0; }),
       function (p) { return p.scored; }, true).slice(0, 6);
     if (scorers.length) {
@@ -564,25 +678,32 @@ window.G = window.G || {};
     return h + '</div>';
   }
 
-  /* ==================================================== MATCH JOUABLE ==== */
+  /* ============================================ RENCONTRE DEPUIS LE BANC == */
 
-  function stopTimer() {
-    if (timer) { clearInterval(timer); timer = null; }
-  }
+  function stopTimer() { if (timer) { clearInterval(timer); timer = null; } }
 
-  function startMatch(quick) {
+  ui.act('mg.action', function () {
     var club = activeClub();
     if (!club) return;
     var sp = G.DATA.sportById[club.sport];
+    if (sp.type === 'race') G.play.startRace(club);
+    else G.play.startMatch(club);
+  });
+
+  ui.act('mg.sim', function () {
+    var club = activeClub();
+    var sp = G.DATA.sportById[club.sport];
+    var M = sp.type === 'race' ? G.race.quickSim(club) : G.match.quickSim(club);
+    if (!M) { ui.toast('📅 Saison terminée', 'Le calendrier est bouclé', 'bad'); return; }
+    live = M;
+    ui.modal(sp.type === 'race' ? '🏁 Résultat du Grand Prix' : '📋 Résultat',
+      matchHtml(M, sp.type === 'race'), { onClose: function () { live = null; } });
+  });
+
+  ui.act('mg.coach', function () {
+    var club = activeClub();
+    var sp = G.DATA.sportById[club.sport];
     var isRace = sp.type === 'race';
-
-    if (quick) {
-      var M = isRace ? G.race.quickSim(club) : G.match.quickSim(club);
-      if (!M) { ui.toast('📅 Saison terminée', 'Le calendrier est bouclé', 'bad'); return; }
-      showResult(M, isRace);
-      return;
-    }
-
     live = isRace ? G.race.create(club) : G.match.create(club);
     if (!live) { ui.toast('📅 Saison terminée', 'Le calendrier est bouclé', 'bad'); return; }
     paused = false;
@@ -591,21 +712,18 @@ window.G = window.G || {};
       onClose: function () {
         stopTimer();
         if (live && !live.done) {
-          /* On ne laisse pas un match en plan : l'adjoint le termine. */
           var guard = 0;
           while (!live.done && guard++ < 400) {
             if (live.decision) (isRace ? G.race : G.match).decide(live, 1);
             else (isRace ? G.race : G.match).step(live);
           }
           if (!live.done) (isRace ? G.race : G.match).finish(live);
-          ui.toast('⏱️ Rencontre terminée sans vous',
-            isRace ? 'Résultat du Grand Prix enregistré' : G.match.scoreLine(live));
         }
         live = null;
       }
     });
     tickMatch(isRace);
-  }
+  });
 
   function tickMatch(isRace) {
     stopTimer();
@@ -613,7 +731,7 @@ window.G = window.G || {};
     timer = setInterval(function () {
       if (!live) { stopTimer(); return; }
       if (paused || live.decision || live.done) {
-        if (live.done) { stopTimer(); }
+        if (live.done) stopTimer();
         return;
       }
       engine.step(live);
@@ -627,8 +745,7 @@ window.G = window.G || {};
   }
 
   function teamMatchHtml(M) {
-    var h = '';
-    h += '<div class="scorebar">' +
+    var h = '<div class="scorebar">' +
       '<div class="team">' + u.esc(M.club.name) + '</div>' +
       '<div><div class="sc">' + M.score.you + ' - ' + M.score.opp + '</div>' +
       '<div class="min">' + u.fmtClock(M.minute) + ' / ' + M.sport.duration + "'</div></div>" +
@@ -640,8 +757,7 @@ window.G = window.G || {};
       ui.stat('Possession', M.stats.poss + ' %') +
       ui.stat('Occasions', M.stats.youShots + ' - ' + M.stats.oppShots) +
       ui.stat('Dynamique', M.mom > 0.15 ? 'Pour vous' : M.mom < -0.15 ? 'Contre vous' : 'Neutre',
-        M.mom > 0.15 ? 'good' : M.mom < -0.15 ? 'bad' : '') +
-      '</div>';
+        M.mom > 0.15 ? 'good' : M.mom < -0.15 ? 'bad' : '') + '</div>';
 
     if (M.decision) h += decisionHtml(M.decision);
     else if (!M.done) {
@@ -651,7 +767,6 @@ window.G = window.G || {};
         '<button class="btn sm" data-act="mg.step">⏭️ Séquence</button>' +
         '<button class="btn sm" data-act="mg.rush">⏩ Fin du match</button></div>';
     }
-
     if (M.done) h += resultBlock(M, false);
 
     h += '<div class="card tight"><div class="feed">';
@@ -663,11 +778,8 @@ window.G = window.G || {};
   }
 
   function raceHtml(R) {
-    var lead = G.race.myLead(R);
     var mine = G.race.myCars(R);
-    var h = '';
-
-    h += '<div class="scorebar"><div class="team">' + u.esc(R.club.name) + '</div>' +
+    var h = '<div class="scorebar"><div class="team">' + u.esc(R.club.name) + '</div>' +
       '<div><div class="sc">' + R.lap + '/' + R.laps + '</div>' +
       '<div class="min">tours · ' + (R.rain ? '🌧️ pluie' : '☀️ sec') +
       (R.safety > 0 ? ' · 🟡 SC' : '') + '</div></div>' +
@@ -687,17 +799,6 @@ window.G = window.G || {};
     }
     h += '</table></div>';
 
-    /* Cinq premiers en piste. */
-    var top = u.sortBy(R.cars.filter(function (x) { return !x.out; }),
-      function (x) { return x.pos; }).slice(0, 5);
-    h += '<div class="card tight"><div class="card-head">Classement en piste</div>';
-    for (var j = 0; j < top.length; j++) {
-      h += '<div class="row between small" style="padding:2px 0"><span>' +
-        'P' + top[j].pos + ' ' + u.esc(top[j].driver) + '</span><span class="mute2">' +
-        u.esc(top[j].team) + '</span></div>';
-    }
-    h += '</div>';
-
     if (R.decision) h += decisionHtml(R.decision);
     else if (!R.done) {
       h += '<div class="grid3" style="margin-bottom:9px">' +
@@ -706,7 +807,6 @@ window.G = window.G || {};
         '<button class="btn sm" data-act="mg.step">⏭️ Un tour</button>' +
         '<button class="btn sm" data-act="mg.rush">⏩ Arrivée</button></div>';
     }
-
     if (R.done) h += resultBlock(R, true);
 
     h += '<div class="card tight"><div class="feed">';
@@ -731,8 +831,7 @@ window.G = window.G || {};
   function resultBlock(M, isRace) {
     var res = M.result || {};
     var inc = res.income || {};
-    var won = isRace ? (M.result && M.result.income.prize > 0)
-      : M.score.you > M.score.opp;
+    var won = isRace ? (inc.prize > 0) : M.score.you > M.score.opp;
     var h = '<div class="card" style="border-color:' +
       (won ? 'rgba(61,220,151,.45)' : 'var(--line)') + '">' +
       '<div class="card-head">' + (isRace ? '🏁 Arrivée' :
@@ -745,9 +844,6 @@ window.G = window.G || {};
       ui.stat(isRace ? 'Solde du week-end' : 'Solde du match',
         u.fmtSigned(res.net || 0), ui.signCls(res.net || 0)) +
       ui.stat('Trésorerie', u.fmtMoney(G.state.money)) + '</div>';
-    h += '<div class="mute2" style="margin-top:6px">Billetterie ' +
-      u.fmtMoney(inc.gate || 0) + ' · sponsors ' + u.fmtMoney(inc.sponsor || 0) +
-      ' · primes ' + u.fmtMoney(inc.prize || 0) + '</div>';
 
     var srcKey = 'manager:' + M.club.sport;
     var pend = G.state.pending[srcKey] || 0;
@@ -759,14 +855,6 @@ window.G = window.G || {};
     return h + '</div>';
   }
 
-  function showResult(M, isRace) {
-    live = M;
-    ui.modal(isRace ? '🏁 Résultat du Grand Prix' : '📋 Résultat',
-      matchHtml(M, isRace), { onClose: function () { live = null; } });
-  }
-
-  ui.act('mg.play', function () { startMatch(false); });
-  ui.act('mg.sim', function () { startMatch(true); });
   ui.act('mg.pause', function () {
     paused = !paused;
     ui.modalUpdate(matchHtml(live, live.sport.type === 'race'));
@@ -790,8 +878,7 @@ window.G = window.G || {};
   ui.act('mg.decide', function (d) {
     if (!live || !live.decision) return;
     var isRace = live.sport.type === 'race';
-    var engine = isRace ? G.race : G.match;
-    engine.decide(live, parseInt(d.i, 10));
+    (isRace ? G.race : G.match).decide(live, parseInt(d.i, 10));
     ui.modalUpdate(matchHtml(live, isRace));
     if (!live.done) tickMatch(isRace);
   });
@@ -803,9 +890,9 @@ window.G = window.G || {};
     render: function () {
       var h = '<div class="view-title">Manager</div>';
       var club = activeClub();
-      if (!club) return h + clubSelector() + renderShop();
+      if (shopMode || !club) return h + clubSelector() + renderShop();
 
-      h += clubSelector() + sectionTabs();
+      h += clubSelector() + sectionTabs(club);
       if (sub === 'club') h += renderClub(club);
       else if (sub === 'effectif') h += renderSquad(club);
       else if (sub === 'transferts') h += renderTransfers(club);
