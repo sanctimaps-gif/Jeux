@@ -18,19 +18,19 @@ G.action = (function () {
   var FIELDS = {
     football: { w: 68, h: 105, goalW: 7.3, surface: '#2e7d32', line: '#ffffff',
       goal: 'shot', speed: 1.0, ballSpeed: 30, clock: 90, realSeconds: 200,
-      aiShoot: 0.45, aiRange: 0.19, tackle: 1.0, view: 30 },
+      aiShoot: 0.45, aiRange: 0.19, tackle: 1.0, view: 50 },
     rugby: { w: 70, h: 110, goalW: 5.6, surface: '#2f7a34', line: '#ffffff',
       goal: 'tryline', speed: 0.95, ballSpeed: 24, clock: 80, realSeconds: 190,
-      aiShoot: 0, aiRange: 0, tackle: 4.2, view: 32 },
+      aiShoot: 0, aiRange: 0, tackle: 4.2, view: 55 },
     waterpolo: { w: 20, h: 30, goalW: 3, surface: '#1565c0', line: '#e3f2fd',
       goal: 'shot', speed: 0.45, ballSpeed: 15, clock: 32, realSeconds: 150,
-      aiShoot: 2.4, aiRange: 0.60, tackle: 0.8, view: 20 },
+      aiShoot: 2.4, aiRange: 0.60, tackle: 0.8, view: 32 },
     basket: { w: 15, h: 28, goalW: 1.8, surface: '#a1622f', line: '#ffe0b2',
       goal: 'basket', speed: 0.8, ballSpeed: 18, clock: 40, realSeconds: 160,
-      aiShoot: 1.5, aiRange: 0.45, tackle: 2.0, view: 15 },
+      aiShoot: 1.5, aiRange: 0.45, tackle: 2.0, view: 28 },
     handball: { w: 20, h: 40, goalW: 3, surface: '#1b5e20', line: '#c8e6c9',
       goal: 'shot', speed: 0.85, ballSpeed: 22, clock: 60, realSeconds: 170,
-      aiShoot: 2.8, aiRange: 0.55, tackle: 0.8, view: 20 }
+      aiShoot: 2.8, aiRange: 0.55, tackle: 0.8, view: 35 }
   };
 
   function fieldOf(sportId) { return FIELDS[sportId] || FIELDS.football; }
@@ -482,6 +482,26 @@ G.action = (function () {
     shoot(M, p, power);
   }
 
+  function hasPossession(M) {
+    var b = M.ball;
+    var p = M.user;
+    if (!p) return false;
+    return b.owner === p;
+  }
+
+  function userDefend(M) {
+    var p = M.user, b = M.ball;
+    if (!p || b.owner === p || b.owner === null) return;
+    for (var i = 0; i < M.players.length; i++) {
+      var opp = M.players[i];
+      if (opp.team === p.team) continue;
+      if (Math.hypot(opp.x - p.x, opp.y - p.y) > 15) continue;
+      p.vx = (opp.x - p.x) * 0.5;
+      p.vy = (opp.y - p.y) * 0.5;
+      break;
+    }
+  }
+
   /* ============================================================= BUTS ===== */
 
   function checkGoal(M) {
@@ -709,13 +729,6 @@ G.action = (function () {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(String(p.num), px, py);
-
-      /* Nom du joueur que l'on dirige, pour s'y retrouver d'un coup d'œil. */
-      if (p === M.user) {
-        ctx.fillStyle = 'rgba(255,209,102,.95)';
-        ctx.font = 'bold 12px system-ui, sans-serif';
-        ctx.fillText(p.name.split(' ').pop(), px, py - r * 2.2);
-      }
     }
 
     /* --- ballon --- */
@@ -751,6 +764,7 @@ G.action = (function () {
     FIELDS: FIELDS, fieldOf: fieldOf, supports: supports,
     create: create, update: update, draw: draw,
     userPass: userPass, userShoot: userShoot, shoot: shoot, passTo: passTo,
-    finish: finish, skipToEnd: skipToEnd, push: push
+    finish: finish, skipToEnd: skipToEnd, push: push,
+    hasPossession: hasPossession, userDefend: userDefend
   };
 })();

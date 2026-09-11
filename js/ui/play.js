@@ -126,14 +126,28 @@ G.play = (function () {
 
   function primary() {
     if (!M || M.done) return;
-    if (mode === 'match') G.action.userShoot(M, 1);
-    else M.input.boost = true;
+    if (mode === 'match') {
+      if (G.action.hasPossession(M)) {
+        G.action.userShoot(M, 1);
+      } else {
+        G.action.userDefend(M);
+      }
+    } else {
+      M.input.boost = true;
+    }
   }
 
   function secondary() {
     if (!M || M.done) return;
-    if (mode === 'match') G.action.userPass(M);
-    else G.drive.pit(M);
+    if (mode === 'match') {
+      if (G.action.hasPossession(M)) {
+        G.action.userPass(M);
+      } else {
+        G.action.userDefend(M);
+      }
+    } else {
+      G.drive.pit(M);
+    }
   }
 
   ui.act('pl.primary', function () { primary(); });
@@ -173,6 +187,8 @@ G.play = (function () {
     el.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
+  var lastPossession = null;
+
   function frame(ts) {
     if (!M) return;
     var dt = last ? Math.min(0.05, (ts - last) / 1000) : 0.016;
@@ -181,6 +197,12 @@ G.play = (function () {
     if (mode === 'match') {
       G.action.update(M, dt);
       G.action.draw(M, el.ctx, el.canvas.clientWidth, el.canvas.clientHeight);
+      /* Mettre à jour les boutons si la possession change. */
+      var hasPoss = G.action.hasPossession(M);
+      if (hasPoss !== lastPossession) {
+        lastPossession = hasPoss;
+        el.btns.innerHTML = controlsHtml(M.club.sport);
+      }
     } else {
       G.drive.update(M, dt);
       G.drive.draw(M, el.ctx, el.canvas.clientWidth, el.canvas.clientHeight);
@@ -298,12 +320,19 @@ G.play = (function () {
     var labels;
     if (mode === 'race') {
       labels = { p: '🚀 DRS', s: '🔧 STAND', h: '🛑 FREIN' };
-    } else if (sportId === 'rugby') {
-      labels = { p: '💨 PERCER', s: '🤝 PASSER', h: '⚡ SPRINT' };
-    } else if (sportId === 'basket') {
-      labels = { p: '🏀 TIRER', s: '🤝 PASSER', h: '⚡ SPRINT' };
     } else {
-      labels = { p: '⚽ TIRER', s: '🤝 PASSER', h: '⚡ SPRINT' };
+      var hasPoss = M && G.action.hasPossession(M);
+      if (hasPoss) {
+        if (sportId === 'rugby') {
+          labels = { p: '💨 PERCER', s: '🤝 PASSER', h: '⚡ SPRINT' };
+        } else if (sportId === 'basket') {
+          labels = { p: '🏀 TIRER', s: '🤝 PASSER', h: '⚡ SPRINT' };
+        } else {
+          labels = { p: '⚽ TIRER', s: '🤝 PASSER', h: '⚡ SPRINT' };
+        }
+      } else {
+        labels = { p: '🛡️ TACLER', s: '🏃 INTERCEPTER', h: '⚡ SPRINT' };
+      }
     }
     return '<button class="pl-btn big" data-act="pl.primary">' + labels.p + '</button>' +
       '<button class="pl-btn" data-act="pl.secondary">' + labels.s + '</button>' +
