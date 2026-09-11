@@ -744,6 +744,18 @@ G.action = (function () {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(String(p.num), px, py);
+
+      /* Afficher les cartons. */
+      var card = M.cards[p.id];
+      if (card) {
+        var cardColor = card.type === 'yellow' ? '#FFD700' : '#FF4444';
+        var cardW = r * 0.6, cardH = r * 0.8;
+        ctx.fillStyle = cardColor;
+        ctx.fillRect(px + r * 0.8 - cardW / 2, py - r * 0.6 - cardH / 2, cardW, cardH);
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(px + r * 0.8 - cardW / 2, py - r * 0.6 - cardH / 2, cardW, cardH);
+      }
     }
 
     /* --- ballon --- */
