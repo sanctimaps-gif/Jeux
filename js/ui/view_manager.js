@@ -260,20 +260,10 @@ window.G = window.G || {};
     }
 
     h += '<div class="grid2" style="margin-top:10px">';
-    if (playable) {
-      h += '<button class="btn primary" data-act="mg.action">🎮 ' +
-        (sp.type === 'race' ? 'Piloter' : 'Jouer le match') + '</button>';
-    }
     h += '<button class="btn" data-act="mg.coach">📋 Diriger depuis le banc</button>' +
       '</div>' +
       '<button class="btn sm full" style="margin-top:6px" data-act="mg.sim">' +
       '⏩ Simuler la rencontre</button>';
-
-    if (playable) {
-      h += '<div class="mute2" style="margin-top:6px">🎮 Vous jouez vous-même : ' +
-        'joystick à gauche, actions à droite. 📋 Vous restez sur le banc et ' +
-        'donnez les consignes aux moments clés.</div>';
-    }
 
     var injured = club.players.filter(function (p) { return p.injury > 0; }).length;
     var tired = club.players.filter(function (p) { return p.starter && p.energy < 45; }).length;
