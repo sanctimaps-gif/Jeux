@@ -249,11 +249,12 @@ button, input, select { font-family: inherit; font-size: inherit; color: inherit
 @keyframes slideUp { from { transform: translateY(24px); opacity: .6; } to { transform: none; opacity: 1; } }
 .modal-head {
   display: flex; align-items: center; gap: 8px;
-  padding: 12px 14px; border-bottom: 1px solid var(--line); font-weight: 700;
+  padding: 10px 14px 8px; border-bottom: 1px solid var(--line); font-weight: 700;
 }
 .modal-head .x {
   margin-left: auto; background: var(--card); border: 1px solid var(--line);
-  border-radius: 8px; width: 30px; height: 30px; cursor: pointer; color: var(--txt-dim);
+  border-radius: 8px; width: 32px; height: 32px; cursor: pointer; color: var(--txt-dim);
+  display: flex; align-items: center; justify-content: center;
 }
 .modal-body { padding: 12px 14px calc(16px + var(--safe-b)); overflow-y: auto; }
 
