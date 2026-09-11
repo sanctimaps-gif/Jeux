@@ -636,8 +636,36 @@ window.G = window.G || {};
   });
   ui.act('nt.repay', function () {
     var n = G.nation.get();
-    G.nation.repay(Math.min(n.treasury * 0.5, n.debt));
-    ui.refresh();
+    var max = Math.min(G.state.money, n.debt);
+    if (max <= 0) {
+      ui.toast('💸 Fonds insuffisants', 'Vous n\'avez pas assez d\'argent', 'bad');
+      return;
+    }
+    ui.modal('📉 Rembourser la dette publique',
+      '<p class="muted">Versez une partie de votre fortune personnelle pour rembourser ' +
+      'la dette. Votre capital : ' + u.fmtMoney(G.state.money) + '</p>' +
+      '<label class="field">Montant à verser</label>' +
+      '<input type="number" id="nt-repay" min="0" max="' + Math.round(max) + '" value="' +
+      Math.round(max * 0.5) + '">' +
+      '<button class="btn primary full" style="margin-top:12px" data-act="nt.dorepay">' +
+      'Rembourser</button>', {});
+  });
+  ui.act('nt.dorepay', function () {
+    var input = document.getElementById('nt-repay');
+    var amount = input ? parseFloat(input.value) : 0;
+    var n = G.nation.get();
+    if (amount <= 0 || !n) {
+      ui.closeModal();
+      return;
+    }
+    if (G.eco.spend(amount, 'pays', 'Remboursement de la dette publique')) {
+      n.debt = Math.max(0, n.debt - amount);
+      ui.toast('💚 Merci !', 'Vous avez remboursé ' + u.fmtMoney(amount) +
+        ' de la dette. Nouvelle dette : ' + u.fmtMoney(n.debt), 'good');
+    } else {
+      ui.toast('❌ Erreur', 'Fonds insuffisants', 'bad');
+    }
+    ui.closeModal();
   });
 
   /* ============================================================ ARMÉE ==== */
