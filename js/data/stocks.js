@@ -10,22 +10,22 @@ window.G = window.G || {};
 G.DATA = G.DATA || {};
 
 G.DATA.stocks = [
-  { id: 'NVX', name: 'Novatek Systems', sector: 'tech', p0: 42, drift: 0.0016, vol: 0.031, beta: 1.35, div: 0.005 },
-  { id: 'ORB', name: 'Orbitum Space', sector: 'tech', p0: 88, drift: 0.0020, vol: 0.045, beta: 1.60, div: 0.000 },
-  { id: 'GLD', name: 'Goldbrand Finance', sector: 'finance', p0: 130, drift: 0.0009, vol: 0.019, beta: 1.10, div: 0.038 },
-  { id: 'HEL', name: 'Helvia Assurances', sector: 'finance', p0: 61, drift: 0.0007, vol: 0.014, beta: 0.80, div: 0.045 },
-  { id: 'VLT', name: 'Voltera Énergie', sector: 'energie', p0: 27, drift: 0.0012, vol: 0.026, beta: 1.05, div: 0.022 },
-  { id: 'PTR', name: 'Petrolia Group', sector: 'energie', p0: 74, drift: 0.0005, vol: 0.030, beta: 0.95, div: 0.052 },
-  { id: 'MDS', name: 'Medisan Pharma', sector: 'sante', p0: 155, drift: 0.0011, vol: 0.021, beta: 0.75, div: 0.018 },
-  { id: 'AGR', name: 'Agrivista Foods', sector: 'conso', p0: 19, drift: 0.0006, vol: 0.016, beta: 0.60, div: 0.030 },
-  { id: 'LXR', name: 'Luxora Maison', sector: 'conso', p0: 240, drift: 0.0013, vol: 0.024, beta: 1.20, div: 0.014 },
-  { id: 'FRT', name: 'Ferrotech Industries', sector: 'indus', p0: 53, drift: 0.0008, vol: 0.023, beta: 1.15, div: 0.026 },
-  { id: 'TRV', name: 'Transvia Logistique', sector: 'transport', p0: 36, drift: 0.0009, vol: 0.025, beta: 1.25, div: 0.020 },
-  { id: 'IMB', name: 'Immobrix Foncière', sector: 'immo', p0: 96, drift: 0.0007, vol: 0.017, beta: 0.90, div: 0.041 },
-  { id: 'MDA', name: 'Mediarc Broadcast', sector: 'media', p0: 31, drift: 0.0010, vol: 0.028, beta: 1.30, div: 0.012 },
-  { id: 'SPT', name: 'Sportiva Équipement', sector: 'sport', p0: 47, drift: 0.0014, vol: 0.029, beta: 1.40, div: 0.010 },
-  { id: 'ARN', name: 'Arena Holding', sector: 'sport', p0: 112, drift: 0.0011, vol: 0.027, beta: 1.25, div: 0.016 },
-  { id: 'CSN', name: 'Casinova Resorts', sector: 'loisir', p0: 68, drift: 0.0010, vol: 0.034, beta: 1.45, div: 0.024 }
+  { id: 'NVX', name: 'Nvdia Systems', sector: 'tech', p0: 42, drift: 0.0016, vol: 0.031, beta: 1.35, div: 0.005 },
+  { id: 'ORB', name: 'Spacex Orbit', sector: 'tech', p0: 88, drift: 0.0020, vol: 0.045, beta: 1.60, div: 0.000 },
+  { id: 'GLD', name: 'Googlr Finance', sector: 'finance', p0: 130, drift: 0.0009, vol: 0.019, beta: 1.10, div: 0.038 },
+  { id: 'HEL', name: 'Allstate Assurance', sector: 'finance', p0: 61, drift: 0.0007, vol: 0.014, beta: 0.80, div: 0.045 },
+  { id: 'VLT', name: 'Volta Energy', sector: 'energie', p0: 27, drift: 0.0012, vol: 0.026, beta: 1.05, div: 0.022 },
+  { id: 'PTR', name: 'Shel Petroleum', sector: 'energie', p0: 74, drift: 0.0005, vol: 0.030, beta: 0.95, div: 0.052 },
+  { id: 'MDS', name: 'Moderna Pharma', sector: 'sante', p0: 155, drift: 0.0011, vol: 0.021, beta: 0.75, div: 0.018 },
+  { id: 'AGR', name: 'Neston Foods', sector: 'conso', p0: 19, drift: 0.0006, vol: 0.016, beta: 0.60, div: 0.030 },
+  { id: 'LXR', name: 'Luigo Maison', sector: 'conso', p0: 240, drift: 0.0013, vol: 0.024, beta: 1.20, div: 0.014 },
+  { id: 'FRT', name: 'Siemens Industries', sector: 'indus', p0: 53, drift: 0.0008, vol: 0.023, beta: 1.15, div: 0.026 },
+  { id: 'TRV', name: 'DHL Logistique', sector: 'transport', p0: 36, drift: 0.0009, vol: 0.025, beta: 1.25, div: 0.020 },
+  { id: 'IMB', name: 'Reit Foncière', sector: 'immo', p0: 96, drift: 0.0007, vol: 0.017, beta: 0.90, div: 0.041 },
+  { id: 'MDA', name: 'Netflox Broadcast', sector: 'media', p0: 31, drift: 0.0010, vol: 0.028, beta: 1.30, div: 0.012 },
+  { id: 'SPT', name: 'Nike Équipement', sector: 'sport', p0: 47, drift: 0.0014, vol: 0.029, beta: 1.40, div: 0.010 },
+  { id: 'ARN', name: 'Adidas Holding', sector: 'sport', p0: 112, drift: 0.0011, vol: 0.027, beta: 1.25, div: 0.016 },
+  { id: 'CSN', name: 'Caesars Resorts', sector: 'loisir', p0: 68, drift: 0.0010, vol: 0.034, beta: 1.45, div: 0.024 }
 ];
 
 /* Secteurs supplémentaires propres à la cote. */

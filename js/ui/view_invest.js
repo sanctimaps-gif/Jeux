@@ -579,7 +579,7 @@ window.G = window.G || {};
     var price = G.collections.price(it);
     var can = G.state.money >= price;
 
-    var h = '<div class="item"><div class="item-icon">' + it.icon + '</div>' +
+    var h = '<div class="item"><div class="item-icon">' + (it.photo || it.icon) + '</div>' +
       '<div class="item-main"><div class="t">' + u.esc(it.name) + '</div>' +
       '<div class="s">' + u.fmtPct(it.bonus.value * 100) + ' ' +
       G.DATA.bonusLabels[it.bonus.type] +
