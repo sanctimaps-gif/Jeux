@@ -599,7 +599,18 @@ body.playing #hud, body.playing #tabs { display: none; }
 .play-feed.good { border-color: var(--green); color: var(--green); }
 .play-feed.bad { border-color: var(--red); color: var(--red); }
 .play-feed.warn { border-color: var(--gold); color: var(--gold); }
+.play-feed.goal {
+  border-color: #ffd166; color: #ffd166; font-weight: 800; font-size: 14px;
+  box-shadow: 0 0 16px rgba(255, 209, 102, 0.4);
+}
+.play-feed.event { border-color: var(--blue); color: var(--blue); }
 .play-feed:empty { display: none; }
+
+@keyframes pulse {
+  0% { transform: translateX(-50%) scale(1); }
+  50% { transform: translateX(-50%) scale(1.1); }
+  100% { transform: translateX(-50%) scale(1); }
+}
 
 #play-pad {
   position: absolute; width: 120px; height: 120px; border-radius: 50%;

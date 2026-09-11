@@ -264,6 +264,13 @@ G.play = (function () {
     el.feed.dataset.k = f.txt;
     el.feed.className = 'play-feed ' + (f.type || '');
     el.feed.textContent = f.txt;
+    /* Animation pour les événements importants. */
+    if (f.type === 'goal') {
+      el.feed.style.animation = 'none';
+      setTimeout(function () {
+        el.feed.style.animation = 'pulse 0.5s ease-in-out';
+      }, 10);
+    }
   }
 
   /* ============================================================== FIN ==== */

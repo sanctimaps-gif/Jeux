@@ -67,7 +67,9 @@ G.action = (function () {
       lastTouch: null,
       restart: 0,                    // secondes de gel après un but
       result: null,
-      halfDone: false
+      halfDone: false,
+      cards: {},                     // cartons par joueur {playerId: {type, time}}
+      subs: { you: [], opp: [] }     // remplacements effectués
     };
 
     buildTeams(M, club, sport, mine, oppStr);
@@ -285,6 +287,10 @@ G.action = (function () {
         b.owner = p;
         if (p.team === 0) push(M, p.name + ' récupère le ballon', 'good');
         else if (victim === M.user) push(M, 'Ballon perdu !', 'warn');
+        /* Carton pour tackle violent. */
+        if (u.chance(0.08) && chance > 0.3) {
+          giveCard(M, p.id, 'yellow');
+        }
       }
     }
     /* Ballon libre à portée : on le prend. */
@@ -769,11 +775,58 @@ G.action = (function () {
     }
   }
 
+  /** Donner un carton à un joueur. */
+  function giveCard(M, playerId, cardType) {
+    if (M.cards[playerId] && M.cards[playerId].type === 'red') return;
+    var player = null;
+    for (var i = 0; i < M.players.length; i++) {
+      if (M.players[i].id === playerId) { player = M.players[i]; break; }
+    }
+    if (!player) return;
+    if (cardType === 'red' || (M.cards[playerId] && M.cards[playerId].type === 'yellow')) {
+      M.cards[playerId] = { type: 'red', time: Math.floor(M.clock) };
+      push(M, '🔴 Carton rouge pour ' + player.name, 'event');
+      removePlayer(M, player);
+    } else {
+      M.cards[playerId] = { type: 'yellow', time: Math.floor(M.clock) };
+      push(M, '🟨 Carton jaune pour ' + player.name, 'event');
+    }
+  }
+
+  /** Remplacer un joueur. */
+  function substitute(M, playerId, replacementId, team) {
+    var player = null, replacement = null;
+    for (var i = 0; i < M.players.length; i++) {
+      if (M.players[i].id === playerId) player = M.players[i];
+      if (M.players[i].id === replacementId) replacement = M.players[i];
+    }
+    if (!player || !replacement) return;
+    removePlayer(M, player);
+    replacement.role = player.role;
+    replacement.side = player.side;
+    replacement.x = player.x;
+    replacement.y = player.y;
+    replacement.vx = 0;
+    replacement.vy = 0;
+    var idx = team === 0 ? M.subs.you.length : M.subs.opp.length;
+    if (team === 0) M.subs.you.push({ out: player.name, in: replacement.name, time: Math.floor(M.clock) });
+    else M.subs.opp.push({ out: player.name, in: replacement.name, time: Math.floor(M.clock) });
+    push(M, '🔄 ' + player.name + ' remplacé par ' + replacement.name, 'event');
+  }
+
+  /** Retirer un joueur du terrain. */
+  function removePlayer(M, player) {
+    var idx = M.players.indexOf(player);
+    if (idx >= 0) M.players.splice(idx, 1);
+    if (M.user === player) M.user = null;
+  }
+
   return {
     FIELDS: FIELDS, fieldOf: fieldOf, supports: supports,
     create: create, update: update, draw: draw,
     userPass: userPass, userShoot: userShoot, shoot: shoot, passTo: passTo,
     finish: finish, skipToEnd: skipToEnd, push: push,
-    hasPossession: hasPossession, userDefend: userDefend
+    hasPossession: hasPossession, userDefend: userDefend,
+    giveCard: giveCard, substitute: substitute
   };
 })();
