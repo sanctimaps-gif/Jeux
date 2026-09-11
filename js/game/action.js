@@ -194,6 +194,13 @@ G.action = (function () {
     if (M.done || M.paused) return;
     var F = M.F;
 
+    /* Appliquer les tactiques si changement. */
+    if (M.tactics && M.tactics.style) {
+      var style = M.tactics.style;
+      M.F.aiShootMult = style === 'att' ? 1.4 : style === 'def' ? 0.6 : 1.0;
+      M.F.tackleMult = style === 'def' ? 1.3 : style === 'att' ? 0.8 : 1.0;
+    }
+
     /* Horloge : le match complet tient en quelques minutes réelles. */
     var minutesPerSecond = F.clock / F.realSeconds;
     if (M.restart > 0) {
@@ -266,9 +273,10 @@ G.action = (function () {
        de water-polo, 1,5 mètre représente bien plus qu'au football. */
     var scale = M.F.w / 68;
     var tackle = M.F.tackle === undefined ? 1 : M.F.tackle;
+    var tackleMult = M.F.tackleMult || 1.0;
     if (b.owner && b.owner.team !== p.team &&
       dist(p, b.owner) < (1.2 + tackle * 0.25) * scale) {
-      var chance = 0.9 * dt * tackle * (0.5 + (p.ovr - b.owner.ovr + 20) / 60);
+      var chance = 0.9 * dt * tackle * tackleMult * (0.5 + (p.ovr - b.owner.ovr + 20) / 60);
       /* Le porteur qui sprinte se dégage plus facilement : c'est le rôle du
          bouton « percer » au rugby et du sprint dans les autres sports. */
       if (b.owner === M.user && M.input.sprint) chance *= 0.55;
@@ -386,7 +394,8 @@ G.action = (function () {
     var F = M.F;
     var range = F.aiRange === undefined ? 0.19 : F.aiRange;
     var freq = F.aiShoot === undefined ? 0.45 : F.aiShoot;
-    if (freq > 0 && d < F.h * range && u.chance(dt * freq)) {
+    var shootMult = F.aiShootMult || 1.0;
+    if (freq > 0 && d < F.h * range && u.chance(dt * freq * shootMult)) {
       shoot(M, p);
       return;
     }
