@@ -260,6 +260,10 @@ window.G = window.G || {};
     }
 
     h += '<div class="grid2" style="margin-top:10px">';
+    if (playable) {
+      h += '<button class="btn primary" data-act="mg.action">🎮 ' +
+        (sp.type === 'race' ? 'Piloter' : 'Jouer le match') + '</button>';
+    }
     h += '<button class="btn" data-act="mg.coach">📋 Diriger depuis le banc</button>' +
       '</div>' +
       '<button class="btn sm full" style="margin-top:6px" data-act="mg.sim">' +

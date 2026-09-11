@@ -167,6 +167,12 @@ G.play = (function () {
     M.paused = !M.paused;
     renderTop();
   });
+  ui.act('pl.tactics', function (d) {
+    if (!M || !d.style) return;
+    M.tactics = M.tactics || {};
+    M.tactics.style = d.style;
+    renderTop();
+  });
   ui.act('pl.skip', function () {
     if (!M || M.done) return;
     if (mode === 'match') G.action.skipToEnd(M);
@@ -219,12 +225,22 @@ G.play = (function () {
   function renderTop() {
     if (mode === 'match') {
       var mins = Math.floor(M.clock);
+      var hasPoss = G.action.hasPossession(M);
       el.top.innerHTML =
         '<div class="pl-score"><span class="pl-team">' + u.esc(shortName(M.club.name)) +
         '</span><b>' + M.score.you + ' - ' + M.score.opp + '</b><span class="pl-team">' +
         u.esc(shortName(M.oppName)) + '</span></div>' +
         '<div class="pl-sub">' + mins + "' / " + M.F.clock + "' · possession " +
-        M.stats.poss + ' %</div>';
+        M.stats.poss + ' % · tirs ' + M.stats.youShots + '-' + M.stats.oppShots +
+        ' · ' + (hasPoss ? '⚪ ATTAQUE' : '⚫ DÉFENSE') + '</div>' +
+        '<div class="pl-tactics">' +
+        '<button class="pl-tac-btn ' + (M.tactics && M.tactics.style === 'att' ? 'active' : '') +
+        '" data-act="pl.tactics" data-style="att">🚀 Attaque</button>' +
+        '<button class="pl-tac-btn ' + (M.tactics && M.tactics.style === 'bal' ? 'active' : '') +
+        '" data-act="pl.tactics" data-style="bal">⚖️ Équilibré</button>' +
+        '<button class="pl-tac-btn ' + (M.tactics && M.tactics.style === 'def' ? 'active' : '') +
+        '" data-act="pl.tactics" data-style="def">🛡️ Défense</button>' +
+        '</div>';
     } else {
       var c = M.user;
       el.top.innerHTML =
