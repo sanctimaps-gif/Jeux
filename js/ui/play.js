@@ -180,6 +180,25 @@ G.play = (function () {
     showEnd();
   });
   ui.act('pl.close', function () { close(); });
+  ui.act('pl.info', function () {
+    if (!M) return;
+    var h = '<div class="match-info">';
+    if (M.feed && M.feed.length) {
+      h += '<div class="info-section">📋 Événements</div>';
+      for (var i = Math.min(M.feed.length - 1, 9); i >= 0; i--) {
+        h += '<div class="info-event">' + u.esc(M.feed[i].txt) + '</div>';
+      }
+    }
+    if (M.subs && (M.subs.you.length || M.subs.opp.length)) {
+      h += '<div class="info-section" style="margin-top:8px">🔄 Remplacements</div>';
+      for (var j = 0; j < M.subs.you.length; j++) {
+        h += '<div class="info-event">(' + M.subs.you[j].time + '\') ' + u.esc(M.subs.you[j].out) +
+          ' → ' + u.esc(M.subs.you[j].in) + '</div>';
+      }
+    }
+    h += '</div>';
+    ui.modal('📊 Événements du match', h);
+  });
 
   /* ============================================================= BOUCLE == */
 
