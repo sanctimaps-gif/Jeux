@@ -67,6 +67,7 @@ window.G = window.G || {};
     var sector = G.DATA.sectors[t.sector] || { name: '', icon: '' };
     var maxed = c.lvl >= t.maxLvl;
     var can = G.state.money >= G.business.upgradeCost(c);
+    var upgrading = G.business.isUpgrading(c);
 
     return '<div class="co-card" data-act="bz.open" data-uid="' + c.uid + '">' +
       '<div class="co-icon">' + t.icon + '</div>' +
@@ -77,11 +78,16 @@ window.G = window.G || {};
       '📊 ' + c.lvl + ' sur ' + t.maxLvl +
       (c.merged > 1 ? ' · fusion ×' + u.dec(c.merged, 2) : '') + '</div>' +
       ui.bar(c.lvl / t.maxLvl * 100, maxed ? 'green' : '') +
-      '<div class="co-rev">' + u.fmtMoney(G.business.hourly(c)) +
-      ' <span class="mute2">par heure</span></div>' +
+      (upgrading
+        ? '<div class="mute2" style="margin-top:3px">🔨 Chantier · niveau ' +
+          c.upgrade.toLvl + ' dans ' + u.fmtDuration(G.business.upgradeRemaining(c) * 1000) +
+          '</div>' + ui.bar(G.business.upgradeProgress(c) * 100)
+        : '<div class="co-rev">' + u.fmtMoney(G.business.hourly(c)) +
+          ' <span class="mute2">par heure</span></div>') +
       '</div>' +
       '<div class="item-side">' +
-      (maxed ? '<span class="pill green">max</span>'
+      (upgrading ? '<span class="pill gold">🔨</span>' :
+        maxed ? '<span class="pill green">max</span>'
         : '<span class="co-badge' + (can ? ' on' : '') + '">+</span>') +
       '</div></div>';
   }
@@ -171,14 +177,13 @@ window.G = window.G || {};
 
   /* ==================================================== FICHE ENTREPRISE == */
 
-  function openCompany(uid) {
-    openUid = uid;
+  function companyDetailHtml(uid) {
     var c = G.business.byUid(uid);
-    if (!c) return;
+    if (!c) return '';
     var t = G.business.typeDef(c.type);
     var sector = G.DATA.sectors[t.sector];
     var maxed = c.lvl >= t.maxLvl;
-    var cost = G.business.upgradeCost(c);
+    var upgrading = G.business.isUpgrading(c);
     var max10 = Math.min(10, t.maxLvl - c.lvl);
     var maxAll = G.business.maxUpgrades(c, G.state.money);
 
@@ -212,14 +217,23 @@ window.G = window.G || {};
       h += '<div class="mute2">Bonus de fusion : ×' + u.dec(c.merged, 2) + '</div>';
     }
 
-    if (!maxed) {
+    if (upgrading) {
+      h += '<div class="card-head" style="margin-top:14px">🔨 Chantier en cours</div>';
+      h += '<div class="mute2" style="margin-bottom:6px">Niveau ' + c.lvl + ' → ' +
+        c.upgrade.toLvl + ' · prêt dans ' +
+        u.fmtDuration(G.business.upgradeRemaining(c) * 1000) + '</div>';
+      h += ui.bar(G.business.upgradeProgress(c) * 100);
+    } else if (!maxed) {
       h += '<div class="card-head" style="margin-top:14px">💵 Investir</div>';
       h += '<div class="mute2" style="margin-bottom:6px">Chaque investissement ' +
-        'ajoute un palier et augmente le revenu horaire.</div>';
+        'lance un chantier : le palier n\'est acquis qu\'une fois les travaux ' +
+        'terminés, plus longs pour les investissements plus importants.</div>';
       h += '<div class="grid3" style="gap:6px">' +
-        upBtn(uid, 1, G.business.bulkUpgradeCost(c, 1)) +
-        (max10 > 1 ? upBtn(uid, max10, G.business.bulkUpgradeCost(c, max10)) : '') +
-        (maxAll > 0 ? upBtn(uid, maxAll, G.business.bulkUpgradeCost(c, maxAll), 'MAX') : '') +
+        upBtn(uid, 1, G.business.bulkUpgradeCost(c, 1), null, G.business.upgradeDuration(c, 1)) +
+        (max10 > 1 ? upBtn(uid, max10, G.business.bulkUpgradeCost(c, max10), null,
+          G.business.upgradeDuration(c, max10)) : '') +
+        (maxAll > 0 ? upBtn(uid, maxAll, G.business.bulkUpgradeCost(c, maxAll), 'MAX',
+          G.business.upgradeDuration(c, maxAll)) : '') +
         '</div>';
     } else {
       h += '<div class="card tight good" style="margin-top:12px">' +
@@ -244,15 +258,34 @@ window.G = window.G || {};
       '<button class="btn danger" data-act="bz.sell" data-uid="' + uid + '">' +
       '💱 Vendre (' + u.fmtMoney(G.business.saleValue(c)) + ')</button></div>';
 
-    ui.modal(t.icon + ' ' + u.esc(c.name), h, {});
+    return h;
   }
 
-  function upBtn(uid, n, cost, label) {
+  function openCompany(uid) {
+    openUid = uid;
+    var c = G.business.byUid(uid);
+    if (!c) return;
+    var t = G.business.typeDef(c.type);
+    var sinceTick = 0;
+    ui.modal(t.icon + ' ' + u.esc(c.name), companyDetailHtml(uid), {
+      tick: function (dt) {
+        if (!G.business.isUpgrading(c)) return;
+        sinceTick += dt;
+        if (sinceTick < 1) return;
+        sinceTick = 0;
+        if (openUid === uid) ui.modalUpdate(companyDetailHtml(uid));
+      }
+    });
+  }
+
+  function upBtn(uid, n, cost, label, duration) {
     var can = G.state.money >= cost;
     return '<button class="btn ' + (can ? 'primary' : '') + '" data-act="bz.invest" ' +
       'data-uid="' + uid + '" data-n="' + n + '"' + (can ? '' : ' disabled') + '>' +
       '<span class="btn-col"><span>' + (label || '+' + n) + '</span>' +
-      '<span class="k">' + u.fmtMoney(cost) + '</span></span></button>';
+      '<span class="k">' + u.fmtMoney(cost) + '</span>' +
+      (duration ? '<span class="k">⏱ ' + u.fmtDuration(duration * 1000) + '</span>' : '') +
+      '</span></button>';
   }
 
   ui.act('bz.open', function (d) { openCompany(d.uid); });
