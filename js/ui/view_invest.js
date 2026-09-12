@@ -11,7 +11,7 @@ window.G = window.G || {};
   var reCity = 'paris';
 
   function subTabs() {
-    var tabs = [['actions', 'Actions'], ['immobilier', 'Immobilier'],
+    var tabs = [['portefeuille', 'Portefeuille'], ['actions', 'Actions'], ['immobilier', 'Immobilier'],
     ['crypto', 'Cryptomonnaie'], ['collections', 'Collections']];
     return '<div class="sub-tabs">' + tabs.map(function (t) {
       return '<button class="sub' + (sub === t[0] ? ' active' : '') +
@@ -48,26 +48,96 @@ window.G = window.G || {};
     return h + '</div>';
   }
 
+  /* ======================================================= PORTEFEUILLE === */
+
+  function renderPortfolio() {
+    var h = '';
+    var pnl = G.market.totalPnl();
+    var reVal = G.realestate.totalValue();
+    var reGain = G.realestate.totalGain();
+    var total = G.eco.portfolioValue() + reVal;
+
+    h += '<div class="card portfolio">' +
+      '<div class="row between"><b>💼 Mon portefeuille</b></div>' +
+      '<div class="pf-v">' + u.fmtMoney(total) + '</div>' +
+      '<div class="mute2">Actions ' + u.fmtMoney(G.eco.portfolioValue()) +
+      ' · Immobilier ' + u.fmtMoney(reVal) + '</div></div>';
+
+    h += pendingCard();
+
+    /* Actions détenues. */
+    var ownedStocks = G.DATA.stocks.filter(function (st) {
+      return G.market.hold(st.id).qty > 0;
+    });
+    h += '<div class="card"><div class="card-head">📈 Actions détenues' +
+      (ownedStocks.length ? '<span class="sub">' + ownedStocks.length + '</span>' : '') +
+      '</div>';
+    if (ownedStocks.length) {
+      h += (pnl.cost > 0
+        ? '<div class="row between small" style="padding:2px 0 8px"><span class="mute2">' +
+          'Résultat total</span><b class="' + ui.signCls(pnl.abs) + '">' +
+          u.fmtSigned(pnl.abs) + ' (' + u.fmtPct(pnl.pct) + ')</b></div>' : '');
+      for (var j = 0; j < ownedStocks.length; j++) h += stockRow(ownedStocks[j]);
+    } else {
+      h += '<div class="mute2">Aucune action détenue pour l\'instant. ' +
+        '<span data-act="iv.sub" data-sub="actions" style="text-decoration:underline;' +
+        'cursor:pointer">Direction la Bourse →</span></div>';
+    }
+    h += '</div>';
+
+    /* Biens immobiliers détenus. */
+    var props = G.realestate.owned();
+    h += '<div class="card"><div class="card-head">🏘️ Biens immobiliers' +
+      (props.length ? '<span class="sub">' + props.length + '</span>' : '') + '</div>';
+    if (props.length) {
+      h += '<div class="row between small" style="padding:2px 0 8px"><span class="mute2">' +
+        'Plus-value · loyers</span><b class="' + ui.signCls(reGain) + '">' +
+        u.fmtSigned(reGain) + '</b><b class="good">' +
+        u.fmtMoney(G.realestate.totalHourly()) + '/h</b></div>';
+      for (var i = 0; i < props.length; i++) {
+        var p = props[i];
+        var t = G.realestate.typeDef(p.type);
+        var city = G.realestate.cityDef(p.city);
+        var diff = p.value - p.paid;
+        h += '<div class="item" data-act="re.open" data-uid="' + p.uid + '">' +
+          '<div class="item-icon">' + t.icon + '</div>' +
+          '<div class="item-main"><div class="t">' + t.name + ' <span class="mute2">' +
+          city.flag + ' ' + city.name + '</span></div>' +
+          '<div class="s">Niveau ' + p.lvl + '/' + t.maxLvl + ' · loyer ' +
+          u.fmtMoney(G.realestate.hourly(p)) + '/h</div></div>' +
+          '<div class="item-side"><div>' + u.fmtMoney(p.value) + '</div>' +
+          '<div class="small ' + ui.signCls(diff) + '">' + u.fmtSigned(diff) + '</div></div>' +
+          '</div>';
+      }
+    } else {
+      h += '<div class="mute2">Aucun bien détenu pour l\'instant. ' +
+        '<span data-act="iv.sub" data-sub="immobilier" style="text-decoration:underline;' +
+        'cursor:pointer">Direction l\'immobilier →</span></div>';
+    }
+    h += '</div>';
+
+    return h;
+  }
+
   /* ========================================================== ACTIONS ===== */
 
   function renderStocks() {
     var m = G.state.market;
-    var pnl = G.market.totalPnl();
     var h = '';
 
-    h += '<div class="card portfolio">' +
-      '<div class="row between"><b>💼 Mon portefeuille d\'actions</b></div>' +
-      '<div class="pf-v">' + u.fmtMoney(G.eco.portfolioValue()) + '</div>' +
-      (pnl.cost > 0
-        ? '<div class="' + ui.signCls(pnl.abs) + '">' + u.fmtSigned(pnl.abs) +
-          ' (' + u.fmtPct(pnl.pct) + ') depuis toujours</div>'
-        : '<div class="mute2">Aucune position ouverte</div>') +
-      '<div class="row between" style="margin-top:8px">' +
-      '<span class="mute2">Humeur du marché</span><b class="' +
-      (m.mood >= 0 ? 'good' : 'bad') + '">' + moodLabel(m.mood) + '</b></div>' +
-      '</div>';
-
     h += pendingCard();
+
+    var pnl = G.market.totalPnl();
+    if (pnl.cost > 0) {
+      h += '<div class="card tight row between" data-act="iv.sub" data-sub="portefeuille" ' +
+        'style="cursor:pointer">' +
+        '<span>💼 Portefeuille : ' + u.fmtMoney(G.eco.portfolioValue()) + '</span>' +
+        '<span class="mute2">Voir le portefeuille →</span></div>';
+    }
+
+    h += '<div class="card"><div class="row between">' +
+      '<span class="mute2">Humeur du marché</span><b class="' +
+      (m.mood >= 0 ? 'good' : 'bad') + '">' + moodLabel(m.mood) + '</b></div></div>';
 
     h += '<div class="card"><div class="card-head">📈 Cotation' +
       '<span class="sub">séance ' + u.fmtDay(m.day) + '</span></div>';
@@ -262,40 +332,16 @@ window.G = window.G || {};
 
   function renderRealEstate() {
     var h = '';
-    var val = G.realestate.totalValue();
-    var gain = G.realestate.totalGain();
-
-    h += '<div class="card portfolio">' +
-      '<div class="row between"><b>🏘️ Mon patrimoine immobilier</b></div>' +
-      '<div class="pf-v">' + u.fmtMoney(val) + '</div>' +
-      '<div class="' + ui.signCls(gain) + '">' + u.fmtSigned(gain) + ' de plus-value</div>' +
-      '<div class="row between" style="margin-top:8px">' +
-      '<span class="mute2">Loyers</span><b class="good">' +
-      u.fmtMoney(G.realestate.totalHourly()) + ' / heure</b></div></div>';
 
     h += pendingCard();
 
-    /* Mes biens. */
-    var props = G.realestate.owned();
-    if (props.length) {
-      h += '<div class="card"><div class="card-head">🔑 Mes biens<span class="sub">' +
-        props.length + '</span></div>';
-      for (var i = 0; i < props.length; i++) {
-        var p = props[i];
-        var t = G.realestate.typeDef(p.type);
-        var city = G.realestate.cityDef(p.city);
-        var diff = p.value - p.paid;
-        h += '<div class="item" data-act="re.open" data-uid="' + p.uid + '">' +
-          '<div class="item-icon">' + t.icon + '</div>' +
-          '<div class="item-main"><div class="t">' + t.name + ' <span class="mute2">' +
-          city.flag + ' ' + city.name + '</span></div>' +
-          '<div class="s">Niveau ' + p.lvl + '/' + t.maxLvl + ' · loyer ' +
-          u.fmtMoney(G.realestate.hourly(p)) + '/h</div></div>' +
-          '<div class="item-side"><div>' + u.fmtMoney(p.value) + '</div>' +
-          '<div class="small ' + ui.signCls(diff) + '">' + u.fmtSigned(diff) + '</div></div>' +
-          '</div>';
-      }
-      h += '</div>';
+    var owned = G.realestate.owned();
+    if (owned.length) {
+      h += '<div class="card tight row between" data-act="iv.sub" data-sub="portefeuille" ' +
+        'style="cursor:pointer">' +
+        '<span>🔑 ' + owned.length + ' bien(s) détenu(s) · ' +
+        u.fmtMoney(G.realestate.totalValue()) + '</span>' +
+        '<span class="mute2">Voir le portefeuille →</span></div>';
     }
 
     /* Marché : choix de la ville. */
@@ -629,7 +675,8 @@ window.G = window.G || {};
     live: true, liveEvery: 1.6,
     render: function () {
       var h = '<div class="view-title">Investissement</div>' + subTabs();
-      if (sub === 'actions') h += renderStocks();
+      if (sub === 'portefeuille') h += renderPortfolio();
+      else if (sub === 'actions') h += renderStocks();
       else if (sub === 'immobilier') h += renderRealEstate();
       else if (sub === 'crypto') h += renderCrypto();
       else h += renderCollections();
