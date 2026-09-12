@@ -161,8 +161,12 @@ window.G = window.G || {};
       ui.stat('Soutien', '+' + u.dec(G.market.sectorSupport(st.sector) * 1000, 2) + '‰', 'blue') +
       '</div>';
 
+    var left = G.market.sharesLeft(id);
+    html += '<div class="mute2" style="margin-bottom:6px">Flottant disponible : ' +
+      u.fmtNum(left) + ' / ' + u.fmtNum(st.shares) + ' titres</div>';
+
     html += '<label class="field">Quantité</label>' +
-      '<input type="number" id="mk-qty" min="1" step="1" value="' +
+      '<input type="number" id="mk-qty" min="1" max="' + Math.max(1, maxBuy) + '" step="1" value="' +
       Math.max(1, Math.min(10, maxBuy)) + '">';
     html += '<div class="grid4" style="margin:8px 0">' +
       '<button class="btn xs" data-act="mk.setqty" data-v="1">1</button>' +
@@ -170,7 +174,8 @@ window.G = window.G || {};
       '<button class="btn xs" data-act="mk.setqty" data-v="100">100</button>' +
       '<button class="btn xs" data-act="mk.setqty" data-v="max">MAX</button></div>';
     html += '<div class="grid2">' +
-      '<button class="btn green" data-act="mk.buy" data-id="' + id + '">Acheter</button>' +
+      '<button class="btn green" data-act="mk.buy" data-id="' + id + '"' +
+      (maxBuy > 0 ? '' : ' disabled') + '>Acheter</button>' +
       '<button class="btn danger" data-act="mk.sell" data-id="' + id + '"' +
       (h.qty > 0 ? '' : ' disabled') + '>Vendre</button></div>';
     html += '<div class="mute2" style="margin-top:6px">Frais de courtage ' +

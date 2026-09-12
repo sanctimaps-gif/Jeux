@@ -145,10 +145,23 @@ G.market = (function () {
 
   /* ------------------------------------------------------------ ordres -- */
 
+  function sharesLeft(id) {
+    var st = def(id), h = hold(id);
+    if (!st || !h) return 0;
+    return Math.max(0, (st.shares || Infinity) - h.qty);
+  }
+
   function buy(id, qty) {
     var st = def(id), h = hold(id);
     if (!st || !h || qty <= 0) return false;
     qty = Math.floor(qty);
+    var left = sharesLeft(id);
+    if (qty > left) {
+      qty = left;
+      if (G.ui) G.ui.toast('📊 Flottant limité', 'Il ne reste que ' + u.fmtNum(left) +
+        ' titres ' + st.id + ' disponibles', 'bad');
+    }
+    if (qty <= 0) return false;
     var gross = h.p * qty;
     var cost = gross * (1 + FEE);
     if (!G.eco.spend(cost, 'bourse', 'Achat ' + qty + ' × ' + st.id, true)) return false;
@@ -182,7 +195,8 @@ G.market = (function () {
   function maxBuyable(id) {
     var h = hold(id);
     if (!h) return 0;
-    return Math.floor(G.state.money / (h.p * (1 + FEE)));
+    var byMoney = Math.floor(G.state.money / (h.p * (1 + FEE)));
+    return Math.max(0, Math.min(byMoney, sharesLeft(id)));
   }
 
   /* ----------------------------------------------------------- lecture -- */
@@ -247,7 +261,7 @@ G.market = (function () {
   return {
     DAY_SECONDS: DAY_SECONDS, FEE: FEE,
     def: def, hold: hold, tick: tick, newDay: newDay,
-    buy: buy, sell: sell, maxBuyable: maxBuyable,
+    buy: buy, sell: sell, maxBuyable: maxBuyable, sharesLeft: sharesLeft,
     dayChange: dayChange, trend: trend, positionValue: positionValue,
     positionPnl: positionPnl, totalPnl: totalPnl, sparkline: sparkline,
     addBoost: addBoost, pushNews: pushNews, sectorSupport: sectorSupport,
