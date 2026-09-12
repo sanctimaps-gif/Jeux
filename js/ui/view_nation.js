@@ -292,7 +292,8 @@ window.G = window.G || {};
     ui.modal('🎁 Aide financière',
       '<p class="muted">Un versement au budget de ' +
       u.esc(G.DATA.worldById[d.code].n) + ' réchauffe durablement les relations.</p>' +
-      '<label class="field">Montant (depuis le Trésor : ' + u.fmtMoney(n.treasury) + ')</label>' +
+      '<label class="field">Montant (Trésor : ' + u.fmtMoney(n.treasury) +
+      ' · complété par votre fortune si besoin)</label>' +
       '<input type="number" id="nt-amt" value="' + suggest + '">' +
       '<button class="btn primary full" style="margin-top:12px" data-act="nt.dogift" ' +
       'data-code="' + d.code + '">Verser</button>', {});
@@ -562,7 +563,7 @@ window.G = window.G || {};
       var cost = G.nation.buildCost(bd);
       var locked = (bd.tech && !n.techs[bd.tech]) ||
         (bd.sea && G.DATA.worldById[n.code].lock);
-      var can = !locked && n.treasury >= cost;
+      var can = !locked && G.nation.canAffordTreasury(cost);
       h += '<div class="card tight"><div class="row">' +
         '<div class="item-icon">' + bd.icon + '</div>' +
         '<div class="item-main"><div class="t">' + bd.name +
@@ -685,7 +686,7 @@ window.G = window.G || {};
       var cost = G.nation.unitCost(un);
       var locked = (un.tech && !n.techs[un.tech]) ||
         (un.sea && G.DATA.worldById[n.code].lock);
-      var can = !locked && n.treasury >= cost;
+      var can = !locked && G.nation.canAffordTreasury(cost);
       h += '<div class="card tight"><div class="row">' +
         '<div class="item-icon">' + un.icon + '</div>' +
         '<div class="item-main"><div class="t">' + un.name +
@@ -729,7 +730,7 @@ window.G = window.G || {};
       var r = G.DATA.resolutions[i];
       var cost = r.cost * G.nation.costFactor();
       var needTarget = r.target;
-      var ok = n.treasury >= cost && (!needTarget || (selected && !G.nation.controls(selected)));
+      var ok = G.nation.canAffordTreasury(cost) && (!needTarget || (selected && !G.nation.controls(selected)));
       h += '<div class="item"><div class="item-icon">' + r.icon + '</div>' +
         '<div class="item-main"><div class="t">' + r.name + '</div>' +
         '<div class="s">' + u.esc(r.desc) + '</div>' +
@@ -753,9 +754,9 @@ window.G = window.G || {};
         (has ? ' <span class="pill green">dirigée</span>' : '') + '</div>' +
         '<div class="s">' + u.esc(org.desc) + '</div></div>' +
         '<div class="item-side">' + (has ? '✅' :
-          '<button class="btn sm ' + (n.treasury >= c2 ? 'primary' : '') +
+          '<button class="btn sm ' + (G.nation.canAffordTreasury(c2) ? 'primary' : '') +
           '" data-act="nt.joinorg" data-id="' + org.id + '"' +
-          (n.treasury >= c2 ? '' : ' disabled') + '>' + u.fmtMoney(c2) + '</button>') +
+          (G.nation.canAffordTreasury(c2) ? '' : ' disabled') + '>' + u.fmtMoney(c2) + '</button>') +
         '</div></div>';
     }
     h += '</div>';
@@ -858,9 +859,9 @@ window.G = window.G || {};
         '<div class="s">Tourisme +' + wd.tourism + ' · popularité +' + wd.pop + '</div></div>' +
         '<div class="item-side">' + (built ? '✅' : lockedW ?
           '<span class="pill red">technologie</span>' :
-          '<button class="btn sm ' + (n.treasury >= cost ? 'primary' : '') +
+          '<button class="btn sm ' + (G.nation.canAffordTreasury(cost) ? 'primary' : '') +
           '" data-act="nt.wonder" data-id="' + wd.id + '"' +
-          (n.treasury >= cost ? '' : ' disabled') + '>' + u.fmtMoney(cost) + '</button>') +
+          (G.nation.canAffordTreasury(cost) ? '' : ' disabled') + '>' + u.fmtMoney(cost) + '</button>') +
         '</div></div></div>';
     }
 

@@ -331,6 +331,30 @@ G.nation = (function () {
 
   function balance() { return revenue() - spending(); }
 
+  /**
+   * Débite le Trésor public ; si celui-ci ne suffit pas, complète avec la
+   * fortune personnelle du joueur (l'argent gagné en affaires finance la
+   * politique, comme le Trésor peut à l'inverse renflouer le joueur ailleurs).
+   */
+  function payTreasury(cost, label) {
+    var n = get();
+    if (!n || cost <= 0) return true;
+    if (n.treasury >= cost) {
+      n.treasury -= cost;
+      return true;
+    }
+    var shortfall = cost - n.treasury;
+    if (!G.eco.can(shortfall)) return false;
+    G.eco.spend(shortfall, 'pays', label || 'Financement personnel du Trésor', true);
+    n.treasury = 0;
+    return true;
+  }
+
+  function canAffordTreasury(cost) {
+    var n = get();
+    return !!n && (n.treasury + G.state.money) >= cost - 0.0001;
+  }
+
   /** Achat/vente de ressources sur le marché mondial. */
   function trade(resId, qty) {
     var n = get();
@@ -339,11 +363,10 @@ G.nation = (function () {
     var discount = 1 - Math.min(0.25, sheet.trade);
     if (qty > 0) {
       var cost = qty * price * discount * (n.sanctions.self ? 1.35 : 1);
-      if (n.treasury < cost) {
-        if (G.ui) G.ui.toast('🏛️ Trésor insuffisant', 'Il faut ' + u.fmtMoney(cost), 'bad');
+      if (!payTreasury(cost, 'Achat de ressources')) {
+        if (G.ui) G.ui.toast('💳 Fonds insuffisants', 'Il faut ' + u.fmtMoney(cost), 'bad');
         return false;
       }
-      n.treasury -= cost;
       n.res[resId] += qty;
     } else {
       var have = n.res[resId];
@@ -361,7 +384,7 @@ G.nation = (function () {
     var n = get();
     if (b.tech && !n.techs[b.tech]) return false;
     if (b.sea && countryDef(n.code).lock) return false;
-    return n.treasury >= buildCost(b);
+    return canAffordTreasury(buildCost(b));
   }
 
   function build(id, qty) {
@@ -375,11 +398,10 @@ G.nation = (function () {
       if (G.ui) G.ui.toast('🌍 Pays enclavé', 'Aucun accès à la mer', 'bad');
       return false;
     }
-    if (n.treasury < cost) {
-      if (G.ui) G.ui.toast('🏛️ Trésor insuffisant', 'Il faut ' + u.fmtMoney(cost), 'bad');
+    if (!payTreasury(cost, 'Construction · ' + b.name)) {
+      if (G.ui) G.ui.toast('💳 Fonds insuffisants', 'Il faut ' + u.fmtMoney(cost), 'bad');
       return false;
     }
-    n.treasury -= cost;
     n.buildings[id] = (n.buildings[id] || 0) + qty;
     journal('🏗️ Construction : ' + qty + ' × ' + b.name + '.');
     return true;
@@ -403,11 +425,10 @@ G.nation = (function () {
     if (un.sea && countryDef(n.code).lock) return false;
     qty = Math.max(1, qty || 1);
     var cost = unitCost(un) * qty;
-    if (n.treasury < cost) {
-      if (G.ui) G.ui.toast('🏛️ Trésor insuffisant', 'Il faut ' + u.fmtMoney(cost), 'bad');
+    if (!payTreasury(cost, 'Recrutement · ' + un.name)) {
+      if (G.ui) G.ui.toast('💳 Fonds insuffisants', 'Il faut ' + u.fmtMoney(cost), 'bad');
       return false;
     }
-    n.treasury -= cost;
     n.army[id] = (n.army[id] || 0) + qty;
     if (id === 'nuke') {
       journal('☢️ Essai nucléaire réussi : le monde proteste.');
@@ -474,8 +495,8 @@ G.nation = (function () {
   /** Cadeau diplomatique : améliore durablement la relation. */
   function gift(code, amount) {
     var n = get();
-    if (n.treasury < amount || amount <= 0) return false;
-    n.treasury -= amount;
+    if (amount <= 0) return false;
+    if (!payTreasury(amount, 'Aide financière')) return false;
     var gain = u.clamp(amount / (n.gdp / 12) * 60, 0.5, 25);
     adjustRelation(code, gain);
     journal('🎁 Aide financière à ' + countryDef(code).n + ' (+' + u.dec(gain, 1) + ').');
@@ -648,11 +669,10 @@ G.nation = (function () {
     var war = warWith(code);
     if (!war) return false;
     var cost = n.gdp * 0.01 * (war.front < 50 ? 1.8 : 0.5);
-    if (n.treasury < cost) {
-      if (G.ui) G.ui.toast('🏛️ Trésor insuffisant', 'Indemnités : ' + u.fmtMoney(cost), 'bad');
+    if (!payTreasury(cost, 'Indemnités de paix')) {
+      if (G.ui) G.ui.toast('💳 Fonds insuffisants', 'Indemnités : ' + u.fmtMoney(cost), 'bad');
       return false;
     }
-    n.treasury -= cost;
     n.wars.splice(n.wars.indexOf(war), 1);
     adjustRelation(code, 25);
     n.ind.popularite = u.clamp(n.ind.popularite + 3, 1, 99);
@@ -714,11 +734,10 @@ G.nation = (function () {
     var r = resolutionDef(resId);
     if (!r) return null;
     var cost = r.cost * costFactor() + (bribe || 0);
-    if (n.treasury < cost) {
-      if (G.ui) G.ui.toast('🏛️ Trésor insuffisant', 'Il faut ' + u.fmtMoney(cost), 'bad');
+    if (!payTreasury(cost, 'Résolution · ' + r.name)) {
+      if (G.ui) G.ui.toast('💳 Fonds insuffisants', 'Il faut ' + u.fmtMoney(cost), 'bad');
       return null;
     }
-    n.treasury -= cost;
     var votes = voteEstimate(resId, targetCode, bribe);
     var passed = u.rnd() * 100 < votes;
 
@@ -771,11 +790,10 @@ G.nation = (function () {
     var o = orgDef(id);
     if (!o || n.orgs[id]) return false;
     var cost = o.cost * costFactor();
-    if (n.treasury < cost) {
-      if (G.ui) G.ui.toast('🏛️ Trésor insuffisant', 'Il faut ' + u.fmtMoney(cost), 'bad');
+    if (!payTreasury(cost, 'Adhésion · ' + o.name)) {
+      if (G.ui) G.ui.toast('💳 Fonds insuffisants', 'Il faut ' + u.fmtMoney(cost), 'bad');
       return false;
     }
-    n.treasury -= cost;
     n.orgs[id] = true;
     n.ind.unInfluence = u.clamp(n.ind.unInfluence + 8, 0, 100);
     journal('🌐 Vous prenez la direction de ' + o.name + '.');
@@ -849,11 +867,10 @@ G.nation = (function () {
     if (!w || n.wonders[id]) return false;
     if (w.tech && !n.techs[w.tech]) return false;
     var cost = w.cost * costFactor();
-    if (n.treasury < cost) {
-      if (G.ui) G.ui.toast('🏛️ Trésor insuffisant', 'Il faut ' + u.fmtMoney(cost), 'bad');
+    if (!payTreasury(cost, 'Merveille · ' + w.name)) {
+      if (G.ui) G.ui.toast('💳 Fonds insuffisants', 'Il faut ' + u.fmtMoney(cost), 'bad');
       return false;
     }
-    n.treasury -= cost;
     n.wonders[id] = true;
     n.ind.tourisme = u.clamp(n.ind.tourisme + w.tourism, 0, 100);
     n.ind.popularite = u.clamp(n.ind.popularite + w.pop, 1, 99);
@@ -876,8 +893,7 @@ G.nation = (function () {
   /** Diffuse la religion d'État à l'étranger. */
   function spreadFaith(amount) {
     var n = get();
-    if (n.treasury < amount) return false;
-    n.treasury -= amount;
+    if (!payTreasury(amount, 'Campagne religieuse')) return false;
     var gain = u.clamp(amount / (n.gdp / 12) * 40, 0.5, 12);
     n.ind.faith = u.clamp(n.ind.faith + gain, 0, 100);
     n.ind.stabilite = u.clamp(n.ind.stabilite + gain * 0.3, 1, 99);
@@ -1280,6 +1296,7 @@ G.nation = (function () {
     techDef: techDef, lawDef: lawDef, ideologyDef: ideologyDef, wonderDef: wonderDef,
     resolutionDef: resolutionDef, orgDef: orgDef,
     campaignCost: campaignCost, canRun: canRun, elect: elect,
+    payTreasury: payTreasury, canAffordTreasury: canAffordTreasury,
     baseMilitary: baseMilitary, hasNukes: hasNukes, worldEntry: worldEntry,
     owned: owned, controls: controls,
     costFactor: costFactor, buildCost: buildCost, unitCost: unitCost,
