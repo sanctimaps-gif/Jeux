@@ -321,16 +321,20 @@ window.G = window.G || {};
     for (var j = 0; j < cat.length; j++) {
       var ty = cat[j];
       var price = G.realestate.askPrice(ty, reCity);
-      var can = G.state.money >= price;
+      var left = G.realestate.unitsLeft(ty.id, reCity);
+      var can = G.state.money >= price && left > 0;
       var yieldH = price * ty.yield;
       h += '<div class="item"><div class="item-icon">' + ty.icon + '</div>' +
-        '<div class="item-main"><div class="t">' + ty.name + '</div>' +
+        '<div class="item-main"><div class="t">' + ty.name +
+        ' <span class="pill' + (left <= 0 ? ' red' : '') + '">' +
+        (isFinite(ty.maxPerCity) ? left + '/' + ty.maxPerCity + ' dispo.' : '') +
+        '</span></div>' +
         '<div class="s">' + u.esc(ty.desc) + '</div>' +
         '<div class="mute2">Loyer estimé ' + u.fmtMoney(yieldH) + '/h · rendement ' +
         u.dec(ty.yield * 24 * 100, 2) + ' %/jour</div></div>' +
         '<div class="item-side"><button class="btn sm ' + (can ? 'primary' : '') +
         '" data-act="re.buy" data-id="' + ty.id + '"' + (can ? '' : ' disabled') + '>' +
-        u.fmtMoney(price) + '</button></div></div>';
+        (left <= 0 ? 'Épuisé' : u.fmtMoney(price)) + '</button></div></div>';
     }
     h += '</div>';
 

@@ -4,29 +4,32 @@ G.DATA = G.DATA || {};
 
 /* ============================================================ IMMOBILIER == */
 
-/* rent : loyer horaire au niveau 1, exprimé en fraction du prix d'achat.
- * Un rendement de 0.00012/h ≈ 1 % du prix par jour de jeu. */
+/* rent       : loyer horaire au niveau 1, exprimé en fraction du prix d'achat.
+ *              Un rendement de 0.00012/h ≈ 1 % du prix par jour de jeu.
+ * maxPerCity : nombre d'exemplaires disponibles par ville — une ville n'a
+ *              qu'une poignée de tours signature ou de quartiers entiers à
+ *              vendre, même pour la plus grande fortune. */
 G.DATA.propertyTypes = [
   { id: 'studio', name: 'Studio étudiant', icon: '🛏️', price: 90000, yield: 0.00060, maxLvl: 5,
-    desc: 'Petite surface, forte demande, rotation rapide des locataires.' },
+    maxPerCity: 500, desc: 'Petite surface, forte demande, rotation rapide des locataires.' },
   { id: 'appart', name: 'Appartement familial', icon: '🏠', price: 320000, yield: 0.00055, maxLvl: 6,
-    desc: 'Trois pièces bien situées, locataires stables.' },
+    maxPerCity: 300, desc: 'Trois pièces bien situées, locataires stables.' },
   { id: 'maison', name: 'Maison avec jardin', icon: '🏡', price: 850000, yield: 0.00050, maxLvl: 6,
-    desc: 'Périphérie recherchée, plus-value à long terme.' },
+    maxPerCity: 150, desc: 'Périphérie recherchée, plus-value à long terme.' },
   { id: 'immeuble', name: 'Petit immeuble de rapport', icon: '🏘️', price: 4.5e6, yield: 0.00058, maxLvl: 8,
-    desc: 'Huit lots, un seul acte notarié.' },
+    maxPerCity: 60, desc: 'Huit lots, un seul acte notarié.' },
   { id: 'commerce', name: 'Local commercial', icon: '🏪', price: 1.6e7, yield: 0.00065, maxLvl: 8,
-    desc: 'Bail commercial ferme de neuf ans.' },
+    maxPerCity: 30, desc: 'Bail commercial ferme de neuf ans.' },
   { id: 'bureaux', name: 'Plateau de bureaux', icon: '🏢', price: 8.0e7, yield: 0.00062, maxLvl: 10,
-    desc: 'Quartier d\'affaires, locataires solvables.' },
+    maxPerCity: 12, desc: 'Quartier d\'affaires, locataires solvables.' },
   { id: 'hotelp', name: 'Hôtel de luxe', icon: '🏨', price: 4.0e8, yield: 0.00070, maxLvl: 10,
-    desc: 'Palace saisonnier : rendement élevé, entretien coûteux.' },
+    maxPerCity: 5, desc: 'Palace saisonnier : rendement élevé, entretien coûteux.' },
   { id: 'mall', name: 'Centre commercial', icon: '🛍️', price: 1.8e9, yield: 0.00066, maxLvl: 12,
-    desc: 'Deux cents enseignes et un parking de six mille places.' },
+    maxPerCity: 3, desc: 'Deux cents enseignes et un parking de six mille places.' },
   { id: 'tour', name: 'Tour signature', icon: '🌆', price: 9.0e9, yield: 0.00060, maxLvl: 12,
-    desc: 'Soixante étages qui redessinent la ligne d\'horizon.' },
+    maxPerCity: 2, desc: 'Soixante étages qui redessinent la ligne d\'horizon.' },
   { id: 'quartier', name: 'Quartier entier', icon: '🌇', price: 6.0e10, yield: 0.00058, maxLvl: 14,
-    desc: 'Un morceau de ville : logements, bureaux, commerces.' }
+    maxPerCity: 1, desc: 'Un morceau de ville : logements, bureaux, commerces.' }
 ];
 
 /* Villes : chacune a sa prime de prix et son propre cycle de marché. */

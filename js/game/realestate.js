@@ -71,9 +71,31 @@ G.realestate = (function () {
 
   /* ------------------------------------------------------------ achat --- */
 
+  /** Nombre de biens d'un type déjà possédés dans une ville donnée. */
+  function ownedCount(typeId, cityId) {
+    var l = owned(), n = 0;
+    for (var i = 0; i < l.length; i++) {
+      if (l[i].type === typeId && l[i].city === cityId) n++;
+    }
+    return n;
+  }
+
+  /** Combien d'exemplaires restent à vendre dans cette ville. */
+  function unitsLeft(typeId, cityId) {
+    var t = typeDef(typeId);
+    if (!t) return 0;
+    var max = t.maxPerCity === undefined ? Infinity : t.maxPerCity;
+    return Math.max(0, max - ownedCount(typeId, cityId));
+  }
+
   function buy(typeId, cityId) {
     var t = typeDef(typeId);
     if (!t) return null;
+    if (unitsLeft(typeId, cityId) <= 0) {
+      if (G.ui) G.ui.toast('🏙️ Plus aucun bien', 'Tous les ' + t.name.toLowerCase() +
+        ' de cette ville sont déjà vendus', 'bad');
+      return null;
+    }
     var price = askPrice(t, cityId);
     var c = cityDef(cityId);
     if (!G.eco.spend(price, 'immobilier', t.name + ' · ' + c.name)) return null;
@@ -217,6 +239,7 @@ G.realestate = (function () {
     totalHourly: totalHourly, totalValue: totalValue, totalGain: totalGain,
     buy: buy, sell: sell, renovateCost: renovateCost, renovate: renovate,
     onNewDay: onNewDay, tick: tick, cityTrend: cityTrend,
-    recordHistory: recordHistory, catalog: catalog, pushNews: pushNews
+    recordHistory: recordHistory, catalog: catalog, pushNews: pushNews,
+    ownedCount: ownedCount, unitsLeft: unitsLeft
   };
 })();
