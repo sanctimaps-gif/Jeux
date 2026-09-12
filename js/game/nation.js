@@ -141,7 +141,8 @@ G.nation = (function () {
       sanctions: {},
       subsidyMonths: 0,
       journal: [],
-      history: []
+      history: [],
+      personalFund: false      // true = payer les dépenses politiques uniquement avec la fortune personnelle
     };
     G.state.nation = n;
 
@@ -335,10 +336,19 @@ G.nation = (function () {
    * Débite le Trésor public ; si celui-ci ne suffit pas, complète avec la
    * fortune personnelle du joueur (l'argent gagné en affaires finance la
    * politique, comme le Trésor peut à l'inverse renflouer le joueur ailleurs).
+   *
+   * En mode « fortune personnelle » (n.personalFund), le Trésor n'est jamais
+   * touché : tout est payé directement sur le capital du joueur — utile
+   * quand le pays est ruiné et qu'on ne veut pas dépendre de ses caisses.
    */
   function payTreasury(cost, label) {
     var n = get();
     if (!n || cost <= 0) return true;
+    if (n.personalFund) {
+      if (!G.eco.can(cost)) return false;
+      G.eco.spend(cost, 'pays', label || 'Financement personnel', true);
+      return true;
+    }
     if (n.treasury >= cost) {
       n.treasury -= cost;
       return true;
@@ -352,7 +362,16 @@ G.nation = (function () {
 
   function canAffordTreasury(cost) {
     var n = get();
-    return !!n && (n.treasury + G.state.money) >= cost - 0.0001;
+    if (!n) return false;
+    if (n.personalFund) return G.state.money >= cost - 0.0001;
+    return (n.treasury + G.state.money) >= cost - 0.0001;
+  }
+
+  function togglePersonalFund() {
+    var n = get();
+    if (!n) return false;
+    n.personalFund = !n.personalFund;
+    return n.personalFund;
   }
 
   /** Achat/vente de ressources sur le marché mondial. */
@@ -1297,6 +1316,7 @@ G.nation = (function () {
     resolutionDef: resolutionDef, orgDef: orgDef,
     campaignCost: campaignCost, canRun: canRun, elect: elect,
     payTreasury: payTreasury, canAffordTreasury: canAffordTreasury,
+    togglePersonalFund: togglePersonalFund,
     baseMilitary: baseMilitary, hasNukes: hasNukes, worldEntry: worldEntry,
     owned: owned, controls: controls,
     costFactor: costFactor, buildCost: buildCost, unitCost: unitCost,

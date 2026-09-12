@@ -464,7 +464,17 @@ window.G = window.G || {};
       '<button class="btn sm" data-act="nt.salary">💼 Traitement</button>' +
       '<button class="btn sm" data-act="nt.subsidy">💰 Plan de soutien</button></div>' +
       '<button class="btn sm full" style="margin-top:6px" data-act="nt.inject">' +
-      '🎁 Donner au Trésor public</button></div>';
+      '🎁 Donner au Trésor public</button>' +
+      '<button class="btn sm full ' + (n.personalFund ? 'primary' : '') +
+      '" style="margin-top:6px" data-act="nt.togglefund">' +
+      (n.personalFund
+        ? '💳 Financement : ma fortune personnelle (Trésor épargné)'
+        : '🏛️ Financement : Trésor public en priorité') + '</button>' +
+      '<div class="mute2" style="margin-top:4px">' +
+      (n.personalFund
+        ? 'Constructions, armée, diplomatie… tout est payé sur votre capital, sans toucher au Trésor.'
+        : 'Le Trésor paie d\'abord ; votre capital complète s\'il manque des fonds.') +
+      '</div></div>';
 
     if (n.journal.length) {
       h += '<div class="card"><div class="card-head">📰 Journal du mandat</div><div class="feed">';
@@ -986,6 +996,13 @@ window.G = window.G || {};
   ui.act('nt.month', function () { advance(1); });
   ui.act('nt.year', function () { advance(12); });
   ui.act('nt.salary', function () { if (G.nation.drawSalary()) ui.refresh(); });
+  ui.act('nt.togglefund', function () {
+    var on = G.nation.togglePersonalFund();
+    ui.toast(on ? '💳 Fortune personnelle' : '🏛️ Trésor public',
+      on ? 'Les dépenses politiques n\'entament plus le Trésor' :
+        'Le Trésor finance à nouveau vos dépenses en priorité', 'good');
+    ui.refresh();
+  });
   ui.act('nt.subsidy', function () {
     var n = G.nation.get();
     ui.confirm('Lancer un plan de soutien ?',
