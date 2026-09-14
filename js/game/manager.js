@@ -1,9 +1,12 @@
 /* Manager multisports : clubs, effectifs, transferts, championnats, finances.
  *
  * On peut posséder plusieurs clubs, y compris dans le même sport. Chaque club
- * appartient à un pays et démarre en division 3 : il faut le faire monter
- * jusqu'à l'élite. Le pays et la division déterminent le niveau des
- * adversaires, le prix du club et l'argent qui circule.
+ * appartient à un pays et démarre dans la division choisie (1 = Élite, en
+ * passant par National et Régional, jusqu'à 10 = Départementale 3, le point
+ * d'entrée le plus abordable). Plus la division visée est proche de l'élite,
+ * plus le prix d'achat explose. On peut aussi racheter la fédération d'un
+ * pays (division 0) : l'équipe nationale ne joue alors que des compétitions
+ * internationales, sans montée ni descente.
  */
 window.G = window.G || {};
 
@@ -53,35 +56,67 @@ G.manager = (function () {
     return u.clamp(base, 0.30, 2.2);
   }
 
-  /** Coefficient économique de la division (D3 → D1). */
+  /* Pyramide à 10 paliers, de l'Élite (1) à la Départementale 3 (10). Une
+     équipe nationale est marquée division 0 : au-dessus de tout, pas de
+     montée/descente, elle joue des compétitions internationales. */
+  var DIVISION_NAMES = ['Élite', 'National 1', 'National 2', 'National 3',
+    'Régional 1', 'Régional 2', 'Régional 3',
+    'Départementale 1', 'Départementale 2', 'Départementale 3'];
+  var DIVISION_SHORT = ['Élite', 'N1', 'N2', 'N3', 'R1', 'R2', 'R3', 'D1', 'D2', 'D3'];
+  var MIN_DIVISION = 1;
+  var MAX_DIVISION = DIVISION_NAMES.length;
+  var PRICE_TIER_RATIO = 2.6;     // chaque palier vers l'élite multiplie le prix d'achat
+  var D3_PRICE_COEF = 0.256;      // prix de base en D3, inchangé par rapport à l'ancien système
+
+  /** Coefficient économique de la division (revenus, salaires, valeur). */
   function divisionCoef(div) {
-    return div === 1 ? 1 : div === 2 ? 0.42 : 0.16;
+    if (div === 0) return 2.2;                     // équipe nationale
+    return Math.pow(0.62, u.clamp(div, MIN_DIVISION, MAX_DIVISION) - 1);
   }
 
-  /** Niveau moyen des équipes du championnat. */
+  /** Niveau moyen des équipes du championnat (0-99). */
   function divisionLevel(div) {
-    return div === 1 ? 68 : div === 2 ? 56 : 45;
+    if (div === 0) return 90;                      // équipe nationale
+    return u.clamp(85 - (u.clamp(div, MIN_DIVISION, MAX_DIVISION) - 1) * 5, 30, 85);
   }
 
   function divisionName(sport, div) {
-    var names = {
-      1: ['Élite', 'Première division', 'Championnat national'],
-      2: ['Deuxième division', 'Division 2'],
-      3: ['Troisième division', 'Division 3']
-    };
-    return names[div][0];
+    if (div === 0) return 'Équipe nationale';
+    return DIVISION_NAMES[div - 1] || ('Division ' + div);
+  }
+
+  function divisionShort(div) {
+    if (div === 0) return 'Nat.';
+    return DIVISION_SHORT[div - 1] || ('D' + div);
   }
 
   function leagueTitle(club) {
     var nation = G.DATA.worldById[club.country];
     var sport = sportDef(club.sport);
+    if (club.division === 0) {
+      return (nation ? nation.n : '') + ' · Compétition internationale';
+    }
     return (nation ? nation.n : '') + ' · ' + divisionName(sport, club.division);
   }
 
-  /** Prix d'achat d'un club dans un pays donné (toujours en division 3). */
-  function clubPrice(sportId, code) {
+  /** Multiplicateur de prix : très cher à mesure qu'on s'approche de l'élite. */
+  function divisionPriceMult(div) {
+    return Math.pow(PRICE_TIER_RATIO, MAX_DIVISION - u.clamp(div, MIN_DIVISION, MAX_DIVISION));
+  }
+
+  /** Prix d'achat d'un club dans un pays donné, à la division choisie. */
+  function clubPrice(sportId, code, division) {
+    division = division === undefined ? MAX_DIVISION : division;
     var sport = sportDef(sportId);
-    return sport.economy.clubCost * countryCoef(sport, code) * divisionCoef(3) * 1.6;
+    return sport.economy.clubCost * countryCoef(sport, code) * D3_PRICE_COEF *
+      divisionPriceMult(division);
+  }
+
+  /** Prix de rachat de la fédération (équipe nationale) d'un pays. */
+  function nationalTeamPrice(sportId, code) {
+    var sport = sportDef(sportId);
+    return sport.economy.clubCost * countryCoef(sport, code) * D3_PRICE_COEF *
+      divisionPriceMult(MIN_DIVISION) * 3;
   }
 
   /* ====================================================== JOUEURS ======== */
@@ -152,9 +187,14 @@ G.manager = (function () {
     return p;
   }
 
+  /**
+   * Valeur marchande. Courbe très raide (exposant 12) : un joueur moyen
+   * reste peu cher, mais un très bon joueur coûte une fortune, comme dans
+   * la vraie vie (les superstars valent 100-200 M€, pas 15-20 M€).
+   */
   function value(p, sport) {
     var o = ovr(p, sport);
-    var base = Math.pow(o / 50, 6) * 300000 * sport.economy.valueMul;
+    var base = Math.pow(o / 50, 12) * 50000 * sport.economy.valueMul;
     var ageF;
     if (p.age <= 21) ageF = 1.15 + (p.pot - o) * 0.02;
     else if (p.age <= 25) ageF = 1.10 + (p.pot - o) * 0.012;
@@ -384,8 +424,32 @@ G.manager = (function () {
     return rounds.concat(back);
   }
 
+  /** Compétition internationale : adversaires tirés parmi les autres nations. */
+  function makeInternational(club, sport) {
+    var level = divisionLevel(0);
+    var n = Math.min(sport.leagueSize, sport.countries.length);
+    var teams = [{ name: club.name, str: teamRatings(club).ovr, you: true }];
+    var pool = sport.countries.filter(function (c) { return c !== club.country; });
+    for (var i = 1; i < n && pool.length; i++) {
+      var idx = u.rint(0, pool.length - 1);
+      var code = pool.splice(idx, 1)[0];
+      var nation = G.DATA.worldById[code];
+      var str = level * countryCoef(sport, code) * 0.75 + 14;
+      teams.push({
+        name: nation ? nation.n : code, code: code,
+        str: Math.round(u.clamp(str, 25, 97)), you: false
+      });
+    }
+    for (i = 0; i < teams.length; i++) {
+      teams[i].pts = 0; teams[i].w = 0; teams[i].d = 0; teams[i].l = 0;
+      teams[i].sf = 0; teams[i].sa = 0; teams[i].played = 0;
+    }
+    return { teams: teams, fixtures: makeFixtures(teams.length), round: 0, international: true };
+  }
+
   function makeLeague(club, sport) {
     if (sport.type === 'race') return G.race.makeSeason(club, sport);
+    if (club.division === 0) return makeInternational(club, sport);
 
     var n = sport.leagueSize;
     var level = divisionLevel(club.division) * countryCoef(sport, club.country) * 0.75 + 14;
@@ -494,7 +558,7 @@ G.manager = (function () {
       gate *= u.rfloat(0.85, 1.15);
     }
     var sponsor = e.sponsorBase * repF * mult *
-      (1 + (club.facilities.marketing - 1) * 0.15) * sponsorBonus;
+      (1 + (club.facilities.marketing - 1) * 0.15) * sponsorBonus * sponsorMult(club);
 
     var prize = won ? e.prizeWin : (drew ? e.prizeDraw : e.prizeLoss);
     prize *= (0.6 + club.rep / 160) * mult;
@@ -607,31 +671,39 @@ G.manager = (function () {
     var rank = rankOf(club);
     var s = G.state;
     var nTeams = club.league.teams.length;
+    var international = club.division === 0;
     var mult = countryCoef(sport, club.country) * divisionCoef(club.division);
 
     var tv = sport.economy.tvSeason * mult *
-      (0.4 + (nTeams - rank + 1) / nTeams * 0.9) * (0.5 + club.rep / 100);
+      (0.4 + (nTeams - rank + 1) / nTeams * 0.9) * (0.5 + club.rep / 100) *
+      (international ? 4 : 1);
     G.eco.earn(tv, 'manager:' + club.sport,
-      'Droits TV & prime de classement (' + rank + 'e) · ' + club.name);
+      (international ? 'Prime de compétition internationale (' : 'Droits TV & prime de classement (') +
+      rank + 'e) · ' + club.name);
 
     var promoted = false, relegated = false;
 
     if (rank === 1) {
       s.manager.trophies.push({
         sport: club.sport, season: club.season, club: club.name,
-        name: leagueTitle(club), country: club.country, division: club.division
+        name: international ? 'Compétition internationale · ' + G.DATA.worldById[club.country].n
+          : leagueTitle(club),
+        country: club.country, division: club.division
       });
       club.rep = u.clamp(club.rep + 8, 1, 100);
       G.market.addBoost(u.pick(G.DATA.sportStocks), 0.05 * divisionCoef(club.division),
         club.name + ' champion : les équipementiers s\'envolent');
     }
 
-    /* Montée : les deux premiers. Descente : les deux derniers (sauf en D3). */
-    if (rank <= 2 && club.division > 1) {
+    /* Montée : les deux premiers. Descente : les deux derniers (sauf en D3).
+       Les équipes nationales (division 0) ne montent ni ne descendent. */
+    if (international) {
+      club.rep = u.clamp(club.rep + (rank <= 3 ? 3 : -1), 1, 100);
+    } else if (rank <= 2 && club.division > MIN_DIVISION) {
       club.division--;
       promoted = true;
       club.rep = u.clamp(club.rep + 6, 1, 100);
-    } else if (rank >= nTeams - 1 && club.division < 3) {
+    } else if (rank >= nTeams - 1 && club.division < MAX_DIVISION) {
       club.division++;
       relegated = true;
       club.rep = u.clamp(club.rep - 6, 1, 100);
@@ -771,36 +843,77 @@ G.manager = (function () {
     return true;
   }
 
+  /* ======================================================= SPONSORING ==== */
+
+  var SPONSOR_TIERS = [
+    { name: 'Sponsor local' }, { name: 'Sponsor régional' },
+    { name: 'Sponsor national' }, { name: 'Sponsor multinational' },
+    { name: 'Sponsor de prestige' }, { name: 'Partenaire mondial' }
+  ];
+
+  function sponsorMult(club) {
+    var lvl = u.clamp(club.sponsorTier || 1, 1, SPONSOR_TIERS.length);
+    return 1 + (lvl - 1) * 0.5;
+  }
+
+  function sponsorTierDef(club) {
+    return SPONSOR_TIERS[u.clamp((club.sponsorTier || 1) - 1, 0, SPONSOR_TIERS.length - 1)];
+  }
+
+  function sponsorMaxed(club) { return (club.sponsorTier || 1) >= SPONSOR_TIERS.length; }
+
+  function sponsorCost(club) {
+    var sport = sportDef(club.sport);
+    var lvl = club.sponsorTier || 1;
+    if (lvl >= SPONSOR_TIERS.length) return Infinity;
+    return sport.economy.clubCost * countryCoef(sport, club.country) *
+      divisionCoef(club.division) * 0.6 * Math.pow(2.1, lvl - 1);
+  }
+
+  function upgradeSponsor(club) {
+    if (sponsorMaxed(club)) return false;
+    var cost = sponsorCost(club);
+    if (!G.eco.spend(cost, 'manager:' + club.sport, 'Nouveau sponsor · ' + club.name)) return false;
+    club.sponsorTier = (club.sponsorTier || 1) + 1;
+    club.rep = u.clamp(club.rep + 1.5, 1, 100);
+    return true;
+  }
+
   /* =================================================== CRÉATION CLUB ===== */
 
   /**
-   * Rachète un club dans le pays choisi. Il démarre toujours en division 3.
+   * Rachète un club dans le pays choisi, à la division voulue (D3 par
+   * défaut). Plus la division est proche de l'élite, plus le prix explose.
    * @param {string} sportId
-   * @param {string} code    code ISO du pays
-   * @param {string} name    nom voulu (facultatif)
+   * @param {string} code      code ISO du pays
+   * @param {string} name      nom voulu (facultatif)
+   * @param {number} division  1 (élite) à 10 (D3) ; défaut 10
    */
-  function buyClub(sportId, code, name) {
+  function buyClub(sportId, code, name, division) {
     var sport = sportDef(sportId);
     if (!sport) return null;
+    division = u.clamp(division === undefined ? MAX_DIVISION : division, MIN_DIVISION, MAX_DIVISION);
     var s = G.state;
-    var cost = clubPrice(sportId, code);
+    var cost = clubPrice(sportId, code, division);
     var finalName = (name || clubNameFor(sportId, code)).slice(0, 30);
 
     if (!G.eco.spend(cost, 'manager:' + sportId, 'Rachat · ' + finalName)) return null;
 
-    var quality = divisionLevel(3) * countryCoef(sport, code) * 0.7 + 15;
+    var quality = divisionLevel(division) * countryCoef(sport, code) * 0.7 + 15;
     var club = {
       uid: u.uid('cl'),
       sport: sportId,
       name: finalName,
       country: code,
-      division: 3,
-      rep: 22 + countryCoef(sport, code) * 8,
+      division: division,
+      national: false,
+      rep: 22 + countryCoef(sport, code) * 8 + (MAX_DIVISION - division) * 1.2,
       season: 1,
       players: makeSquad(sport, quality),
       tactics: { mentality: 2, pressing: 1, style: 1 },
       facilities: { stade: 1, entrainement: 1, formation: 1, medical: 1, marketing: 1 },
       staff: { coach: 1, adjoint: 1, scout: 1, medecin: 1 },
+      sponsorTier: 1,
       finances: { seasonIn: 0, seasonOut: 0, last: null },
       results: [], history: [], transferList: null,
       boughtDay: s.market.day
@@ -816,6 +929,51 @@ G.manager = (function () {
     s.manager.active = club.uid;
     G.market.addBoost(u.pick(G.DATA.sportStocks), 0.015,
       'Un investisseur rachète un club de ' + sport.name.toLowerCase());
+    return club;
+  }
+
+  /**
+   * Rachète la fédération d'un pays : l'équipe nationale, qui joue des
+   * compétitions internationales plutôt qu'un championnat domestique.
+   */
+  function buyNationalTeam(sportId, code, name) {
+    var sport = sportDef(sportId);
+    if (!sport || sport.type === 'race') return null;
+    var s = G.state;
+    var cost = nationalTeamPrice(sportId, code);
+    var nation = G.DATA.worldById[code];
+    var finalName = (name || (nation ? 'Équipe de ' + nation.n : clubNameFor(sportId, code))).slice(0, 30);
+
+    if (!G.eco.spend(cost, 'manager:' + sportId, 'Rachat de la fédération · ' + finalName)) return null;
+
+    var quality = divisionLevel(0) * countryCoef(sport, code) * 0.75 + 20;
+    var club = {
+      uid: u.uid('cl'),
+      sport: sportId,
+      name: finalName,
+      country: code,
+      division: 0,
+      national: true,
+      rep: 40 + countryCoef(sport, code) * 12,
+      season: 1,
+      players: makeSquad(sport, quality),
+      tactics: { mentality: 2, pressing: 1, style: 1 },
+      facilities: { stade: 1, entrainement: 1, formation: 1, medical: 1, marketing: 1 },
+      staff: { coach: 1, adjoint: 1, scout: 1, medecin: 1 },
+      sponsorTier: 1,
+      finances: { seasonIn: 0, seasonOut: 0, last: null },
+      results: [], history: [], transferList: null,
+      boughtDay: s.market.day
+    };
+    autoLineup(club);
+    refreshPlayerEconomics(club);
+    club.league = makeLeague(club, sport);
+
+    clubs().push(club);
+    s.manager.active = club.uid;
+    G.market.addBoost(u.pick(G.DATA.sportStocks), 0.03,
+      'Un magnat rachète la fédération de ' + sport.name.toLowerCase() +
+      (nation ? ' de ' + nation.n : ''));
     return club;
   }
 
@@ -840,6 +998,51 @@ G.manager = (function () {
     return true;
   }
 
+  /* ========================================================== FUSIONS ==== */
+
+  /** Deux équipes nationales, ou une nationale + un club, ne se fusionnent pas. */
+  function canMergeClubs(a, b) {
+    return !!a && !!b && a.uid !== b.uid && !a.national && !b.national;
+  }
+
+  /**
+   * Fusionne deux clubs en un seul, plus gros. Même sport : les effectifs
+   * sont combinés (on garde les meilleurs) et la meilleure division est
+   * conservée. Sports différents : la valeur du club absorbé se transforme
+   * en capital et en réputation pour le club qui survit.
+   */
+  function mergeClub(uidA, uidB) {
+    var a = byUid(uidA), b = byUid(uidB);
+    if (!canMergeClubs(a, b)) return false;
+    var sameSport = a.sport === b.sport;
+    var sport = sportDef(a.sport);
+
+    if (sameSport) {
+      var combined = a.players.concat(b.players);
+      combined = u.sortBy(combined, function (p) { return ovr(p, sport); }, true);
+      a.players = combined.slice(0, sport.squadSize + 6);
+      a.division = Math.min(a.division, b.division);
+    }
+
+    var absorbed = clubValue(b) * (sameSport ? 0.55 : 0.75);
+    G.eco.earn(absorbed, 'manager:' + a.sport, 'Fusion · ' + b.name + ' → ' + a.name, true);
+    a.rep = u.clamp(a.rep + (sameSport ? 10 : 5), 1, 100);
+
+    var list = clubs();
+    list.splice(list.indexOf(b), 1);
+    if (G.state.manager.active === b.uid) G.state.manager.active = a.uid;
+
+    autoLineup(a);
+    refreshPlayerEconomics(a);
+    a.league = makeLeague(a, sport);
+
+    if (G.ui) {
+      G.ui.toast('🤝 Fusion réalisée', b.name + ' rejoint ' + a.name +
+        ' · ' + u.fmtMoney(absorbed) + ' absorbés', 'good');
+    }
+    return true;
+  }
+
   function restDay(club) {
     var lvl = club.facilities.entrainement || 1;
     for (var i = 0; i < club.players.length; i++) {
@@ -852,7 +1055,9 @@ G.manager = (function () {
     sportDef: sportDef, posDef: posDef, ovr: ovr, effOvr: effOvr,
     clubs: clubs, byUid: byUid, activeClub: activeClub, clubsOfSport: clubsOfSport,
     countryCoef: countryCoef, divisionCoef: divisionCoef, divisionLevel: divisionLevel,
-    divisionName: divisionName, leagueTitle: leagueTitle, clubPrice: clubPrice,
+    divisionName: divisionName, divisionShort: divisionShort,
+    MIN_DIVISION: MIN_DIVISION, MAX_DIVISION: MAX_DIVISION,
+    leagueTitle: leagueTitle, clubPrice: clubPrice, nationalTeamPrice: nationalTeamPrice,
     makePlayer: makePlayer, makeSquad: makeSquad, value: value, wage: wage,
     autoLineup: autoLineup, starters: starters, bench: bench,
     teamRatings: teamRatings, squadAvg: squadAvg, wageBill: wageBill,
@@ -860,13 +1065,17 @@ G.manager = (function () {
     facilityCost: facilityCost, upgradeFacility: upgradeFacility,
     staffCost: staffCost, upgradeStaff: upgradeStaff,
     carPartCost: carPartCost, upgradeCar: upgradeCar,
+    sponsorCost: sponsorCost, upgradeSponsor: upgradeSponsor,
+    sponsorTierDef: sponsorTierDef, sponsorMaxed: sponsorMaxed,
     makeLeague: makeLeague, nextFixture: nextFixture, standings: standings,
     rankOf: rankOf, pointsFor: pointsFor, simScore: simScore,
     pickScoreValue: pickScoreValue, matchIncome: matchIncome,
     finishMatch: finishMatch, endSeason: endSeason,
     refreshTransfers: refreshTransfers, signPlayer: signPlayer,
-    sellPlayer: sellPlayer, buyClub: buyClub, renameClub: renameClub,
-    sellClub: sellClub, restDay: restDay, clubNameFor: clubNameFor,
+    sellPlayer: sellPlayer, buyClub: buyClub, buyNationalTeam: buyNationalTeam,
+    renameClub: renameClub, sellClub: sellClub,
+    canMergeClubs: canMergeClubs, mergeClub: mergeClub,
+    restDay: restDay, clubNameFor: clubNameFor,
     refreshPlayerEconomics: refreshPlayerEconomics
   };
 })();

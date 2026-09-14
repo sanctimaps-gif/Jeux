@@ -86,7 +86,14 @@ window.G = window.G || {};
       '" style="margin-top:6px" data-act="tx.pay">Payer maintenant</button></div>';
   }
 
-  ui.act('tx.open', function () { ui.setTab('empire'); });
+  ui.act('tx.open', function () {
+    var t = G.state.tax;
+    if (!t || t.due <= 0) { ui.setTab('empire'); return; }
+    ui.confirm('🧾 Payer les impôts ?',
+      'Montant dû : ' + u.fmtMoney(t.due) + '.' +
+      (t.overdue ? ' Vos revenus sont actuellement bloqués jusqu\'au paiement.' : ''),
+      function () { if (G.tax.pay()) ui.refresh(); }, 'Payer');
+  });
   ui.act('tx.pay', function () {
     if (G.tax.pay()) ui.refresh();
   });

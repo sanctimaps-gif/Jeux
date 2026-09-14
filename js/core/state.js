@@ -5,7 +5,7 @@
  */
 window.G = window.G || {};
 
-G.SAVE_VERSION = 2;
+G.SAVE_VERSION = 3;
 
 G.newState = function () {
   var s = {
@@ -131,6 +131,7 @@ G.migrate = function (s) {
   var def = G.newState();
   var u = G.util;
   var i, st;
+  var wasVersion = s.version || 0;
 
   /* ---- Conversion de la version 1 (avant la refonte) ------------------- */
   if (!s.version || s.version < 2) {
@@ -181,6 +182,19 @@ G.migrate = function (s) {
     /* L'ancien onglet Pays est remplacé par le module de stratégie. */
     if (s.country) { s.nation = null; delete s.country; }
     s.version = 2;
+  }
+
+  /* ---- Conversion de la version < 3 : pyramide à 3 paliers -> 10 paliers,
+     et nouveaux champs (fédération, sponsoring) sur les clubs existants. --- */
+  if (wasVersion < 3 && s.manager && Array.isArray(s.manager.clubs)) {
+    for (i = 0; i < s.manager.clubs.length; i++) {
+      var oc = s.manager.clubs[i];
+      if (typeof oc.division === 'number' && oc.division >= 1 && oc.division <= 3) {
+        oc.division = Math.round(1 + (oc.division - 1) * 4.5);
+      }
+      if (oc.national === undefined) oc.national = false;
+      if (oc.sponsorTier === undefined) oc.sponsorTier = 1;
+    }
   }
 
   s = u.defaults(s, def);

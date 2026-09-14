@@ -10,16 +10,19 @@ window.G = window.G || {};
   var GUIDE = [
     ['🏢', 'Fonder ses entreprises',
       'Choisissez un type d\'entreprise dans le catalogue, donnez-lui le nom que ' +
-      'vous voulez, puis touchez-la pour investir palier par palier. Les revenus ' +
-      'sont versés automatiquement sur votre compte toutes les minutes.'],
+      'vous voulez, puis touchez-la pour investir palier par palier. Chaque palier ' +
+      'lance un chantier ; les revenus sont ensuite versés en continu sur votre compte.'],
     ['📈', 'Placer son argent',
       'Actions cotées, immobilier dans douze villes et cryptomonnaies très ' +
       'volatiles. Les collections d\'objets de prestige donnent en plus des bonus ' +
       'permanents à tout le reste du jeu.'],
     ['🏟️', 'Diriger des clubs',
-      'Achetez un club dans le pays de votre choix — vous démarrez en division 3 ' +
-      'et visez l\'élite. Plusieurs clubs sont possibles, même dans le même sport, ' +
-      'et vous pouvez les renommer.'],
+      '10 sports, des dizaines de pays. Achetez un club en Départementale 3 pour ' +
+      'pas cher, ou visez d\'emblée plus haut (D2 à Élite) si votre fortune le ' +
+      'permet — plus la division est relevée, plus le prix explose. Vous pouvez ' +
+      'aussi racheter la fédération d\'un pays pour jouer les compétitions ' +
+      'internationales, fusionner deux clubs, signer des sponsors, et posséder ' +
+      'plusieurs clubs à la fois.'],
     ['🎮', 'Jouer les matchs vous-même',
       'Football, rugby, water-polo, basket, handball : joystick à gauche, tirer ' +
       'et passer à droite, la caméra suit le ballon. En sport automobile, vous ' +

@@ -1,4 +1,5 @@
-/* Onglet Manager : plusieurs clubs, choix du pays, montée de division 3 à 1. */
+/* Onglet Manager : plusieurs clubs, choix du pays et de la division de départ
+ * (D3 à Élite), fédérations nationales, fusions, sponsors. */
 window.G = window.G || {};
 
 (function () {
@@ -19,10 +20,11 @@ window.G = window.G || {};
 
   function renderShop() {
     var h = '<div class="card"><div class="card-head">🏅 Racheter un club</div>' +
-      '<div class="mute2">Choisissez une discipline puis un pays. Vous démarrez ' +
-      'toujours en <b>division 3</b> : à vous de faire monter le club jusqu\'à ' +
-      'l\'élite. Vous pouvez posséder plusieurs clubs, y compris dans le même ' +
-      'sport et le même pays.</div></div>';
+      '<div class="mute2">Choisissez une discipline, un pays, puis une division de ' +
+      'départ — de la <b>Départementale 3</b>, accessible, jusqu\'à l\'<b>Élite</b>, ' +
+      'hors de prix. On peut aussi racheter la fédération d\'un pays pour jouer des ' +
+      'compétitions internationales. Plusieurs clubs sont possibles, même dans le ' +
+      'même sport et le même pays.</div></div>';
 
     /* Étape 1 : la discipline. */
     h += '<div class="card-head">1 · Discipline</div><div class="sub-tabs">';
@@ -40,15 +42,14 @@ window.G = window.G || {};
 
     /* Étape 2 : le pays. */
     h += '<div class="card-head" style="margin-top:12px">2 · Pays</div>';
-    h += '<div class="card tight"><div class="mute2">Plus le championnat est ' +
-      'relevé, plus le club coûte cher — mais plus les recettes et les primes ' +
-      'sont élevées une fois en division 1.</div></div>';
+    h += '<div class="card tight"><div class="mute2">Plus le championnat national ' +
+      'est relevé, plus les clubs de ce pays coûtent cher et rapportent gros.</div></div>';
 
     for (var c = 0; c < sport.countries.length; c++) {
       var code = sport.countries[c];
       var nation = G.DATA.worldById[code];
       if (!nation) continue;
-      var price = G.manager.clubPrice(shop.sport, code);
+      var price = G.manager.clubPrice(shop.sport, code, G.manager.MAX_DIVISION);
       var coef = G.manager.countryCoef(sport, code);
       var can = G.state.money >= price;
       h += '<div class="item' + (shop.country === code ? ' sel' : '') +
@@ -58,7 +59,44 @@ window.G = window.G || {};
         '<div class="s">Niveau du championnat : ' + stars(coef) + '</div></div>' +
         '<div class="item-side"><div class="' + (can ? 'good' : 'bad') + '">' +
         u.fmtMoney(price) + '</div>' +
-        '<div class="mute2">division 3</div></div></div>';
+        '<div class="mute2">à partir de D3</div></div></div>';
+    }
+
+    if (!shop.country) return h;
+    var pickedNation = G.DATA.worldById[shop.country];
+
+    /* Étape 3 : la division de départ. */
+    h += '<div class="card-head" style="margin-top:12px">3 · Division de départ</div>';
+    h += '<div class="card tight"><div class="mute2">Chaque palier vers l\'élite ' +
+      'multiplie le prix par ' + u.dec(2.6, 1) + '. Commencer en D3 est de très loin ' +
+      'le plus raisonnable.</div></div>';
+
+    for (var dv = G.manager.MAX_DIVISION; dv >= G.manager.MIN_DIVISION; dv--) {
+      var dprice = G.manager.clubPrice(shop.sport, shop.country, dv);
+      var dcan = G.state.money >= dprice;
+      h += '<div class="item"><div class="item-icon" style="font-size:14px;font-weight:800">' +
+        G.manager.divisionShort(dv) + '</div>' +
+        '<div class="item-main"><div class="t">' + G.manager.divisionName(sport, dv) + '</div>' +
+        '<div class="s">Niveau moyen ' + Math.round(G.manager.divisionLevel(dv)) + '</div></div>' +
+        '<div class="item-side"><button class="btn sm ' + (dcan ? 'primary' : '') +
+        '" data-act="mg.pickdiv" data-div="' + dv + '"' + (dcan ? '' : ' disabled') + '>' +
+        u.fmtMoney(dprice) + '</button></div></div>';
+    }
+
+    if (sport.type !== 'race') {
+      var natPrice = G.manager.nationalTeamPrice(shop.sport, shop.country);
+      var natCan = G.state.money >= natPrice;
+      h += '<div class="card-head" style="margin-top:12px">🌍 Ou racheter la fédération</div>';
+      h += '<div class="card tight"><div class="mute2">Plus de championnat domestique : ' +
+        'l\'équipe nationale affronte les autres pays en compétition internationale.' +
+        '</div></div>';
+      h += '<div class="item"><div class="item-icon">' + (pickedNation ? pickedNation.f : '🌍') +
+        '</div><div class="item-main"><div class="t">Équipe nationale</div>' +
+        '<div class="s">Niveau moyen ' + Math.round(G.manager.divisionLevel(0)) +
+        ' · prestige maximal</div></div>' +
+        '<div class="item-side"><button class="btn sm ' + (natCan ? 'primary' : '') +
+        '" data-act="mg.picknational"' + (natCan ? '' : ' disabled') + '>' +
+        u.fmtMoney(natPrice) + '</button></div></div>';
     }
     return h;
   }
@@ -69,18 +107,20 @@ window.G = window.G || {};
   }
 
   ui.act('mg.shopsport', function (d) { shop.sport = d.id; shop.country = null; ui.refresh(); });
+  ui.act('mg.shopcountry', function (d) { shop.country = d.id; ui.refresh(); });
 
-  ui.act('mg.shopcountry', function (d) {
-    shop.country = d.id;
+  ui.act('mg.pickdiv', function (d) {
     var sport = G.DATA.sportById[shop.sport];
-    var nation = G.DATA.worldById[d.id];
-    var price = G.manager.clubPrice(shop.sport, d.id);
-    var suggested = G.manager.clubNameFor(shop.sport, d.id);
+    var nation = G.DATA.worldById[shop.country];
+    var div = parseInt(d.div, 10);
+    var price = G.manager.clubPrice(shop.sport, shop.country, div);
+    var suggested = G.manager.clubNameFor(shop.sport, shop.country);
 
     var h = '<div class="row" style="gap:10px;margin-bottom:10px">' +
       '<div style="font-size:32px">' + sport.icon + '</div><div>' +
       '<div style="font-weight:800">' + sport.name + '</div>' +
-      '<div class="mute2">' + nation.f + ' ' + nation.n + ' · division 3</div></div></div>';
+      '<div class="mute2">' + nation.f + ' ' + nation.n + ' · ' +
+      G.manager.divisionName(sport, div) + '</div></div></div>';
 
     h += '<label class="field">Nom du club</label>' +
       '<input type="text" id="mg-name" maxlength="30" value="' + u.esc(suggested) + '">' +
@@ -91,15 +131,16 @@ window.G = window.G || {};
       ui.stat('Prix du club', u.fmtMoney(price)) +
       ui.stat('Recettes par match', u.fmtMoney(
         (sport.economy.gateBase + sport.economy.sponsorBase) *
-        G.manager.countryCoef(sport, d.id) * G.manager.divisionCoef(3)), 'good') +
+        G.manager.countryCoef(sport, shop.country) * G.manager.divisionCoef(div)), 'good') +
       '</div>';
 
-    h += '<div class="mute2" style="margin-top:8px">Deux montées vous séparent de ' +
-      'l\'élite : les deux premiers de chaque championnat montent, les deux ' +
-      'derniers descendent.</div>';
+    if (div > G.manager.MIN_DIVISION) {
+      h += '<div class="mute2" style="margin-top:8px">Les deux premiers de chaque ' +
+        'championnat montent, les deux derniers descendent.</div>';
+    }
 
-    h += '<button class="btn primary full" style="margin-top:12px" data-act="mg.dobuy">' +
-      'Racheter le club</button>';
+    h += '<button class="btn primary full" style="margin-top:12px" data-act="mg.dobuy" ' +
+      'data-div="' + div + '">Racheter le club</button>';
     ui.modal('Acquisition d\'un club', h, {});
   });
 
@@ -108,15 +149,55 @@ window.G = window.G || {};
     if (input) input.value = G.manager.clubNameFor(shop.sport, shop.country);
   });
 
-  ui.act('mg.dobuy', function () {
+  ui.act('mg.dobuy', function (d) {
     var input = document.getElementById('mg-name');
     var name = input ? input.value.trim() : '';
-    var club = G.manager.buyClub(shop.sport, shop.country, name);
+    var club = G.manager.buyClub(shop.sport, shop.country, name, parseInt(d.div, 10));
     if (club) {
       ui.closeModal();
       sub = 'club';
       shopMode = false;
       ui.toast('🏟️ Club acquis !', club.name, 'good');
+      ui.refresh();
+    }
+  });
+
+  ui.act('mg.picknational', function () {
+    var sport = G.DATA.sportById[shop.sport];
+    var nation = G.DATA.worldById[shop.country];
+    var price = G.manager.nationalTeamPrice(shop.sport, shop.country);
+    var suggested = 'Équipe de ' + nation.n;
+
+    var h = '<div class="row" style="gap:10px;margin-bottom:10px">' +
+      '<div style="font-size:32px">' + sport.icon + '</div><div>' +
+      '<div style="font-weight:800">' + sport.name + '</div>' +
+      '<div class="mute2">' + nation.f + ' ' + nation.n + ' · Équipe nationale</div></div></div>';
+
+    h += '<p class="muted">Vous prenez la tête de la fédération. Fini le championnat ' +
+      'domestique : place aux compétitions internationales, face aux autres nations.</p>';
+
+    h += '<label class="field">Nom de la sélection</label>' +
+      '<input type="text" id="mg-name" maxlength="30" value="' + u.esc(suggested) + '">';
+
+    h += '<div class="grid2" style="margin-top:12px">' +
+      ui.stat('Prix', u.fmtMoney(price)) +
+      ui.stat('Niveau moyen', Math.round(G.manager.divisionLevel(0))) +
+      '</div>';
+
+    h += '<button class="btn primary full" style="margin-top:12px" data-act="mg.donational">' +
+      'Racheter la fédération</button>';
+    ui.modal('🌍 Rachat d\'une fédération', h, {});
+  });
+
+  ui.act('mg.donational', function () {
+    var input = document.getElementById('mg-name');
+    var name = input ? input.value.trim() : '';
+    var club = G.manager.buyNationalTeam(shop.sport, shop.country, name);
+    if (club) {
+      ui.closeModal();
+      sub = 'club';
+      shopMode = false;
+      ui.toast('🌍 Fédération rachetée !', club.name, 'good');
       ui.refresh();
     }
   });
@@ -135,7 +216,7 @@ window.G = window.G || {};
       h += '<button class="sub' + (active === c.uid ? ' active' : '') +
         '" data-act="mg.select" data-uid="' + c.uid + '">' + sp.icon +
         (nation ? ' ' + nation.f : '') + ' ' + u.esc(c.name) +
-        ' <span class="divtag">D' + c.division + '</span></button>';
+        ' <span class="divtag">' + G.manager.divisionShort(c.division) + '</span></button>';
     }
     h += '<button class="sub" data-act="mg.shop">➕ Nouveau club</button></div>';
     return h;
@@ -185,13 +266,18 @@ window.G = window.G || {};
       '<div class="item-side"><div class="ov ' + ui.ovrClass(r.ovr) + '">' +
       Math.round(r.ovr) + '</div></div></div>';
 
-    /* Échelle des divisions. */
-    h += '<div class="divbar">';
-    for (var d = 3; d >= 1; d--) {
-      h += '<div class="divstep' + (club.division === d ? ' on' : '') +
-        (club.division < d ? ' done' : '') + '">D' + d + '</div>';
+    /* Échelle des divisions (les équipes nationales n'y figurent pas). */
+    if (club.division > 0) {
+      h += '<div class="divbar">';
+      for (var d = G.manager.MAX_DIVISION; d >= G.manager.MIN_DIVISION; d--) {
+        h += '<div class="divstep' + (club.division === d ? ' on' : '') +
+          (club.division < d ? ' done' : '') + '">' + G.manager.divisionShort(d) + '</div>';
+      }
+      h += '</div>';
+    } else {
+      h += '<div class="mute2" style="margin-top:6px">🌍 Équipe nationale · compétitions ' +
+        'internationales, pas de montée ni de descente.</div>';
     }
-    h += '</div>';
 
     h += '<div class="grid4" style="margin-top:8px">' +
       ui.stat('Attaque', Math.round(r.att)) +
@@ -282,9 +368,11 @@ window.G = window.G || {};
   function standingsCard(club) {
     var st = G.manager.standings(club);
     var isRace = !!club.league.isRace;
+    var international = club.division === 0;
     var n = st.length;
     var h = '<div class="card"><div class="card-head">🏆 ' +
-      (isRace ? 'Championnat constructeurs' : 'Classement') + '</div>' +
+      (isRace ? 'Championnat constructeurs' : international ? 'Compétition internationale'
+        : 'Classement') + '</div>' +
       '<div class="scroll-x"><table class="table"><tr><th>#</th><th>Équipe</th>' +
       '<th class="num">J</th>' + (isRace ? '' :
         '<th class="num">V</th><th class="num">N</th><th class="num">D</th>' +
@@ -292,9 +380,9 @@ window.G = window.G || {};
     for (var i = 0; i < n; i++) {
       var t = st[i].t;
       var zone = '';
-      if (!isRace) {
-        if (i < 2 && club.division > 1) zone = ' promo';
-        else if (i >= n - 2 && club.division < 3) zone = ' releg';
+      if (!isRace && !international) {
+        if (i < 2 && club.division > G.manager.MIN_DIVISION) zone = ' promo';
+        else if (i >= n - 2 && club.division < G.manager.MAX_DIVISION) zone = ' releg';
       }
       h += '<tr class="' + (st[i].i === 0 ? 'you' : '') + zone + '"><td>' + (i + 1) + '</td>' +
         '<td>' + u.esc(t.name) + '</td><td class="num">' + t.played + '</td>' +
@@ -304,10 +392,11 @@ window.G = window.G || {};
         '<td class="num"><b>' + t.pts + '</b></td></tr>';
     }
     h += '</table></div>';
-    if (!isRace) {
+    if (!isRace && !international) {
       h += '<div class="mute2" style="margin-top:6px">' +
-        (club.division > 1 ? '<span class="promo-dot"></span> montée · ' : '') +
-        (club.division < 3 ? '<span class="releg-dot"></span> relégation' : '') + '</div>';
+        (club.division > G.manager.MIN_DIVISION ? '<span class="promo-dot"></span> montée · ' : '') +
+        (club.division < G.manager.MAX_DIVISION ? '<span class="releg-dot"></span> relégation' : '') +
+        '</div>';
     }
     return h + '</div>';
   }
@@ -599,11 +688,51 @@ window.G = window.G || {};
     }
     h += '</div>';
 
-    h += '<div class="card"><div class="card-head">⚠️ Céder le club</div>' +
-      '<div class="mute2">Valeur estimée : ' + u.fmtMoney(G.manager.clubValue(club)) +
-      ' (revente à 85 %).</div>' +
-      '<button class="btn danger full" style="margin-top:8px" data-act="mg.sellclub" ' +
-      'data-uid="' + club.uid + '">Vendre ' + u.esc(club.name) + '</button></div>';
+    /* Sponsoring. */
+    var maxed = G.manager.sponsorMaxed(club);
+    var tier = G.manager.sponsorTierDef(club);
+    var spCost = G.manager.sponsorCost(club);
+    var canSp = !maxed && G.state.money >= spCost;
+    h += '<div class="card"><div class="card-head">📣 Sponsoring</div>' +
+      '<div class="item"><div class="item-icon">🤝</div>' +
+      '<div class="item-main"><div class="t">' + tier.name + '</div>' +
+      '<div class="s">Revenus sponsors ×' + u.dec(1 + ((club.sponsorTier || 1) - 1) * 0.5, 2) +
+      '</div></div>' +
+      '<div class="item-side"><button class="btn sm ' + (canSp ? 'primary' : '') +
+      '" data-act="mg.sponsor"' + (canSp ? '' : ' disabled') + '>' +
+      (maxed ? 'MAX' : u.fmtMoney(spCost)) + '</button></div></div></div>';
+
+    /* Fusion avec un autre club possédé. */
+    var others = clubs().filter(function (c) { return c.uid !== club.uid && !c.national; });
+    if (!club.national && others.length) {
+      h += '<div class="card"><div class="card-head">🤝 Fusionner</div>' +
+        '<div class="mute2">Absorbez un autre de vos clubs : même sport, les effectifs ' +
+        'se combinent ; sport différent, sa valeur se transforme en capital.</div>';
+      for (var m = 0; m < others.length; m++) {
+        var osp = G.DATA.sportById[others[m].sport];
+        h += '<div class="item"><div class="item-icon">' + osp.icon + '</div>' +
+          '<div class="item-main"><div class="t">' + u.esc(others[m].name) + '</div>' +
+          '<div class="s">' + osp.name + ' · valeur ' +
+          u.fmtMoney(G.manager.clubValue(others[m])) + '</div></div>' +
+          '<div class="item-side"><button class="btn sm" data-act="mg.merge" ' +
+          'data-a="' + club.uid + '" data-b="' + others[m].uid + '">Fusionner</button></div></div>';
+      }
+      h += '</div>';
+    }
+
+    if (!club.national) {
+      h += '<div class="card"><div class="card-head">⚠️ Céder le club</div>' +
+        '<div class="mute2">Valeur estimée : ' + u.fmtMoney(G.manager.clubValue(club)) +
+        ' (revente à 85 %).</div>' +
+        '<button class="btn danger full" style="margin-top:8px" data-act="mg.sellclub" ' +
+        'data-uid="' + club.uid + '">Vendre ' + u.esc(club.name) + '</button></div>';
+    } else {
+      h += '<div class="card"><div class="card-head">⚠️ Quitter la fédération</div>' +
+        '<div class="mute2">Valeur estimée : ' + u.fmtMoney(G.manager.clubValue(club)) +
+        ' (revente à 85 %).</div>' +
+        '<button class="btn danger full" style="margin-top:8px" data-act="mg.sellclub" ' +
+        'data-uid="' + club.uid + '">Quitter · ' + u.esc(club.name) + '</button></div>';
+    }
     return h;
   }
 
@@ -625,6 +754,25 @@ window.G = window.G || {};
       'Vous récupérez ' + u.fmtMoney(G.manager.clubValue(club) * 0.85) +
       ' mais perdez l\'effectif, les installations et la place en championnat.',
       function () { G.manager.sellClub(d.uid); ui.refresh(); }, 'Vendre');
+  });
+  ui.act('mg.sponsor', function () {
+    if (G.manager.upgradeSponsor(activeClub())) {
+      ui.toast('📣 Nouveau sponsor', 'Les revenus sponsors augmentent', 'good');
+    }
+    ui.refresh();
+  });
+  ui.act('mg.merge', function (d) {
+    var a = G.manager.byUid(d.a), b = G.manager.byUid(d.b);
+    if (!a || !b) return;
+    ui.confirm('Fusionner avec ' + u.esc(b.name) + ' ?',
+      a.sport === b.sport
+        ? 'Les effectifs se combinent (les meilleurs joueurs sont conservés) et ' +
+          a.name + ' garde la meilleure des deux divisions. ' + b.name + ' disparaît.'
+        : b.name + ' disparaît : sa valeur est convertie en capital et en réputation ' +
+          'pour ' + a.name + '.',
+      function () {
+        if (G.manager.mergeClub(d.a, d.b)) ui.refresh();
+      }, 'Fusionner');
   });
 
   /* ========================================================= PALMARÈS ==== */
@@ -652,7 +800,8 @@ window.G = window.G || {};
       for (var j = club.history.length - 1; j >= 0; j--) {
         var hh = club.history[j];
         h += '<tr><td>' + hh.season + (hh.promoted ? ' ⬆️' : hh.relegated ? ' ⬇️' : '') +
-          '</td><td class="num">D' + (hh.division || '?') + '</td>' +
+          '</td><td class="num">' +
+          (hh.division === undefined ? '?' : G.manager.divisionShort(hh.division)) + '</td>' +
           '<td class="num">' + hh.rank + 'e</td><td class="num">' + hh.pts + '</td>' +
           '<td class="num ' + ui.signCls(hh.in - hh.out) + '">' +
           u.fmtSigned(hh.in - hh.out) + '</td></tr>';

@@ -46,7 +46,12 @@ G.DATA.sports = [
     },
     leagueSize: 12,
     countries: ['ESP', 'GBR', 'DEU', 'ITA', 'FRA', 'BRA', 'PRT', 'NLD', 'ARG',
-      'BEL', 'TUR', 'MEX', 'USA', 'SAU', 'JPN', 'MAR', 'GRC', 'CHE', 'AUT', 'POL']
+      'BEL', 'TUR', 'MEX', 'USA', 'SAU', 'JPN', 'MAR', 'GRC', 'CHE', 'AUT', 'POL',
+      'URY', 'COL', 'HRV', 'DNK', 'SWE', 'NOR', 'RUS', 'UKR', 'SRB', 'CZE',
+      'HUN', 'ROU', 'DZA', 'EGY', 'TUN', 'SEN', 'CIV', 'GHA', 'CMR', 'NGA',
+      'KOR', 'CHN', 'IDN', 'THA', 'VNM', 'IND', 'AUS', 'CHL', 'PER', 'ECU',
+      'PRY', 'CAN', 'IRL', 'SVK', 'SVN', 'BIH', 'ISR', 'IRN', 'IRQ', 'QAT',
+      'ARE', 'KWT', 'JOR', 'PAN', 'CRI', 'BOL', 'VEN', 'ZAF', 'FIN', 'ISL']
   },
 
   /* ------------------------------------------------------------ RUGBY --- */
@@ -86,7 +91,9 @@ G.DATA.sports = [
     },
     leagueSize: 12,
     countries: ['NZL', 'ZAF', 'FRA', 'IRL', 'GBR', 'AUS', 'ARG', 'ITA', 'JPN',
-      'GEO', 'FJI', 'URY', 'ROU', 'ESP', 'USA']
+      'GEO', 'FJI', 'URY', 'ROU', 'ESP', 'USA', 'CAN', 'CHL', 'PRT', 'RUS',
+      'NLD', 'BEL', 'DEU', 'POL', 'KOR', 'CHN', 'BRA', 'MEX', 'WSM', 'TON',
+      'NAM', 'KEN', 'ZWE', 'MAR']
   },
 
   /* ------------------------------------------------------- WATER-POLO --- */
@@ -118,7 +125,8 @@ G.DATA.sports = [
     },
     leagueSize: 10,
     countries: ['HRV', 'SRB', 'HUN', 'ITA', 'ESP', 'GRC', 'MNE', 'FRA', 'USA',
-      'AUS', 'JPN', 'ROU', 'DEU', 'NLD']
+      'AUS', 'JPN', 'ROU', 'DEU', 'NLD', 'GEO', 'KAZ', 'CHN', 'CAN', 'GBR',
+      'BRA', 'ARG', 'ZAF', 'MEX', 'TUR', 'BEL']
   },
 
   /* ----------------------------------------------------------- BASKET --- */
@@ -154,7 +162,9 @@ G.DATA.sports = [
     },
     leagueSize: 12,
     countries: ['USA', 'ESP', 'GRC', 'TUR', 'ITA', 'FRA', 'DEU', 'SRB', 'LTU',
-      'ISR', 'AUS', 'CHN', 'ARG', 'BRA', 'PHL']
+      'ISR', 'AUS', 'CHN', 'ARG', 'BRA', 'PHL', 'CAN', 'SVN', 'LVA', 'GEO',
+      'MNE', 'POL', 'CZE', 'DOM', 'PRT', 'NGA', 'AGO', 'MLI', 'SEN', 'JPN',
+      'KOR', 'NZL', 'RUS', 'UKR', 'VEN', 'MEX']
   },
 
   /* -------------------------------------------------------- HANDBALL --- */
@@ -188,7 +198,9 @@ G.DATA.sports = [
     },
     leagueSize: 12,
     countries: ['FRA', 'DEU', 'ESP', 'DNK', 'HUN', 'POL', 'HRV', 'NOR', 'SWE',
-      'SVN', 'PRT', 'QAT', 'EGY', 'ISL']
+      'SVN', 'PRT', 'QAT', 'EGY', 'ISL', 'SRB', 'MNE', 'ROU', 'RUS', 'UKR',
+      'BLR', 'TUN', 'MAR', 'ARG', 'BRA', 'JPN', 'KOR', 'AGO', 'CPV', 'ISR',
+      'NLD', 'AUT', 'CHE', 'MKD']
   },
 
   /* --------------------------------------------------- SPORT AUTOMOBILE - */
@@ -232,7 +244,145 @@ G.DATA.sports = [
     },
     leagueSize: 7,
     countries: ['GBR', 'ITA', 'DEU', 'FRA', 'AUT', 'CHE', 'USA', 'JPN', 'ESP',
-      'NLD', 'ARE', 'BRA']
+      'NLD', 'ARE', 'BRA', 'MEX', 'CAN', 'AUS', 'BEL', 'FIN', 'MCO', 'SGP',
+      'BHR', 'QAT', 'SAU', 'AZE', 'THA', 'IDN', 'KOR']
+  },
+
+  /* --------------------------------------------------------- VOLLEYBALL - */
+  {
+    id: 'volleyball', name: 'Volleyball', icon: '🏐', type: 'team',
+    unit: 'point', unitPlural: 'points',
+    squadSize: 14, lineupSize: 6,
+    duration: 60, segments: 20, periods: 5,
+    avgEvents: 25, spread: 0.6,
+    scoreEvents: [{ label: 'Point', pts: 1, w: 1 }],
+    attW: { att: 0.48, mid: 0.32, def: 0.20 },
+    defW: { def: 0.46, mid: 0.32, att: 0.22 },
+    positions: [
+      { code: 'PAS', name: 'Passeur', role: 'mid', need: 1, w: { tec: .36, men: .28, att: .18, phy: .12, def: .06 } },
+      { code: 'CEN', name: 'Central', role: 'def', need: 2, w: { phy: .36, def: .30, att: .18, tec: .10, men: .06 } },
+      { code: 'REC', name: 'Réceptionneur-attaquant', role: 'att', need: 2, w: { att: .34, tec: .26, phy: .20, men: .12, def: .08 } },
+      { code: 'POI', name: 'Pointu', role: 'att', need: 1, w: { att: .42, phy: .24, tec: .20, men: .10, def: .04 } }
+    ],
+    tactics: {
+      mentality: ['Ultra prudent', 'Prudent', 'Équilibré', 'Offensif', 'Tout en attaque'],
+      pressing: ['Bloc simple', 'Bloc double', 'Bloc triple'],
+      style: ['Jeu au centre', 'Jeu équilibré', 'Jeu sur les ailes']
+    },
+    economy: {
+      clubCost: 2.5e6, gateBase: 1.0e5, sponsorBase: 1.6e5,
+      prizeWin: 1.6e5, prizeDraw: 0, prizeLoss: 4.0e4,
+      wageBase: 14000, valueMul: 0.12, tvSeason: 2.5e6
+    },
+    leagueSize: 12,
+    countries: ['BRA', 'ITA', 'POL', 'USA', 'RUS', 'SRB', 'FRA', 'JPN', 'ARG',
+      'TUR', 'DEU', 'NLD', 'BEL', 'CHN', 'IRN', 'BGR', 'CUB', 'KOR', 'CAN',
+      'SVN', 'CZE', 'UKR', 'ESP', 'GRC', 'MEX', 'EGY', 'TUN', 'DOM', 'FIN']
+  },
+
+  /* --------------------------------------------------- HOCKEY SUR GLACE - */
+  {
+    id: 'hockey', name: 'Hockey sur glace', icon: '🏒', type: 'team',
+    unit: 'but', unitPlural: 'buts',
+    squadSize: 22, lineupSize: 6,
+    duration: 60, segments: 18, periods: 3,
+    avgEvents: 6, spread: 1.3,
+    scoreEvents: [{ label: 'But', pts: 1, w: 1 }],
+    attW: { att: 0.44, mid: 0.34, def: 0.18, gk: 0.04 },
+    defW: { gk: 0.30, def: 0.42, mid: 0.24, att: 0.04 },
+    positions: [
+      { code: 'G', name: 'Gardien', role: 'gk', need: 1, w: { def: .32, men: .28, phy: .18, tec: .18, att: .04 } },
+      { code: 'DEF', name: 'Défenseur', role: 'def', need: 2, w: { def: .40, phy: .28, men: .14, tec: .12, att: .06 } },
+      { code: 'AIL', name: 'Ailier', role: 'mid', need: 2, w: { tec: .32, att: .28, phy: .22, men: .12, def: .06 } },
+      { code: 'CEN', name: 'Centre', role: 'att', need: 1, w: { att: .36, tec: .26, phy: .20, men: .14, def: .04 } }
+    ],
+    tactics: {
+      mentality: ['Ultra défensif', 'Prudent', 'Équilibré', 'Offensif', 'Tout va'],
+      pressing: ['Repli défensif', 'Échec avant mixte', 'Forecheck agressif'],
+      style: ['Jeu physique', 'Jeu équilibré', 'Jeu de vitesse']
+    },
+    economy: {
+      clubCost: 6.0e6, gateBase: 2.2e5, sponsorBase: 3.2e5,
+      prizeWin: 3.0e5, prizeDraw: 1.0e5, prizeLoss: 6.0e4,
+      wageBase: 32000, valueMul: 0.22, tvSeason: 6.0e6
+    },
+    leagueSize: 12,
+    countries: ['CAN', 'USA', 'RUS', 'FIN', 'SWE', 'CZE', 'SVK', 'CHE', 'DEU',
+      'LVA', 'BLR', 'NOR', 'DNK', 'FRA', 'AUT', 'SVN', 'KAZ', 'ITA', 'GBR',
+      'POL', 'JPN', 'KOR', 'CHN', 'HUN']
+  },
+
+  /* ------------------------------------------------------------ BASEBALL - */
+  {
+    id: 'baseball', name: 'Baseball', icon: '⚾', type: 'team',
+    unit: 'point', unitPlural: 'points',
+    squadSize: 18, lineupSize: 9,
+    duration: 120, segments: 18, periods: 9,
+    avgEvents: 8, spread: 1.4,
+    scoreEvents: [{ label: 'Point', pts: 1, w: 1 }],
+    attW: { att: 0.40, mid: 0.36, def: 0.24 },
+    defW: { def: 0.50, mid: 0.30, att: 0.20 },
+    positions: [
+      { code: 'LAN', name: 'Lanceur', role: 'def', need: 1, w: { tec: .34, men: .26, phy: .22, def: .14, att: .04 } },
+      { code: 'REC', name: 'Receveur', role: 'def', need: 1, w: { def: .32, men: .26, tec: .22, phy: .16, att: .04 } },
+      { code: 'INT', name: 'Intérieur', role: 'mid', need: 4, w: { tec: .30, phy: .24, att: .22, men: .16, def: .08 } },
+      { code: 'EXT', name: 'Extérieur', role: 'att', need: 3, w: { att: .36, phy: .26, tec: .20, men: .14, def: .04 } }
+    ],
+    tactics: {
+      mentality: ['Ultra prudent', 'Prudent', 'Équilibré', 'Agressif', 'Tout en attaque'],
+      pressing: ['Défense resserrée', 'Défense standard', 'Défense avancée'],
+      style: ['Jeu de contact', 'Jeu équilibré', 'Jeu de puissance']
+    },
+    economy: {
+      clubCost: 1.0e7, gateBase: 3.5e5, sponsorBase: 5.0e5,
+      prizeWin: 4.5e5, prizeDraw: 0, prizeLoss: 1.0e5,
+      wageBase: 45000, valueMul: 0.30, tvSeason: 1.0e7
+    },
+    leagueSize: 12,
+    countries: ['USA', 'JPN', 'DOM', 'KOR', 'CUB', 'MEX', 'VEN', 'CAN', 'NIC',
+      'PAN', 'COL', 'AUS', 'NLD', 'ITA', 'GBR', 'CHN']
+  },
+
+  /* --------------------------------------------------- CYCLISME SUR ROUTE */
+  {
+    id: 'cyclisme', name: 'Cyclisme sur route', icon: '🚴', type: 'race',
+    unit: 'point', unitPlural: 'points',
+    squadSize: 2, lineupSize: 2,
+    attW: { att: 1.0 }, defW: { att: 1.0 },
+    positions: [
+      { code: 'C1', name: 'Coureur n°1', role: 'att', need: 1, w: { phy: .34, men: .26, tec: .18, att: .18, def: .04 } },
+      { code: 'C2', name: 'Coureur n°2', role: 'att', need: 1, w: { phy: .34, men: .26, tec: .18, att: .18, def: .04 } }
+    ],
+    car: [
+      { id: 'moteur', name: 'Puissance', icon: '💪', desc: 'Vitesse de pointe dans les lignes droites et les sprints.' },
+      { id: 'aero', name: 'Aérodynamisme', icon: '🪽', desc: 'Vitesse en peloton et dans les descentes.' },
+      { id: 'chassis', name: 'Vélo', icon: '🚲', desc: 'Légèreté en montagne et maniabilité.' },
+      { id: 'fiabilite', name: 'Récupération', icon: '🧰', desc: 'Réduit le risque de chute ou de défaillance.' }
+    ],
+    race: {
+      laps: 24, grid: 16, pitLoss: 18,
+      points: [25, 18, 15, 12, 10, 8, 6, 4, 2, 1],
+      tyres: [
+        { id: 'tendre', name: 'Braquet offensif', pace: 1.9, wear: 2.35 },
+        { id: 'medium', name: 'Braquet équilibré', pace: 0.9, wear: 1.55 },
+        { id: 'dur', name: 'Braquet économique', pace: 0.0, wear: 1.00 },
+        { id: 'pluie', name: 'Pluie', pace: -1.5, wear: 1.20, rain: true }
+      ]
+    },
+    tactics: {
+      mentality: ['Économie totale', 'Conservateur', 'Équilibré', 'Agressif', 'Attaque permanente'],
+      pressing: ['1 ravitaillement', '2 ravitaillements', 'Réactif'],
+      style: ['Setup grimpeur', 'Setup équilibré', 'Setup sprinteur']
+    },
+    economy: {
+      clubCost: 1.8e7, gateBase: 0, sponsorBase: 2.0e6,
+      prizeWin: 0, prizeDraw: 0, prizeLoss: 0,
+      prizePerPoint: 1.2e5,
+      wageBase: 3.5e5, valueMul: 0.9, tvSeason: 1.4e7
+    },
+    leagueSize: 10,
+    countries: ['FRA', 'BEL', 'ITA', 'ESP', 'NLD', 'GBR', 'SVN', 'DNK', 'COL',
+      'AUS', 'DEU', 'POL', 'NOR', 'CHE', 'USA', 'KAZ']
   }
 ];
 
