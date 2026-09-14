@@ -192,6 +192,26 @@ G.ui = (function () {
 
   function isModalOpen() { return modalStack > 0; }
 
+  /**
+   * Publicité interne, affichée périodiquement (voir G.loop). N'interrompt
+   * jamais un écran de jeu ou une modale déjà ouverte : réessayée plus tard.
+   */
+  function showAd() {
+    if (modalStack > 0) return false;
+    if (document.body.classList.contains('playing')) return false;
+    modal('📢 Publicité',
+      '<div style="text-align:center;padding:4px 0 6px">' +
+      '<div style="font-size:42px;margin-bottom:8px">🗺️</div>' +
+      '<div style="font-weight:800;font-size:18px;margin-bottom:6px">Sanctimaps</div>' +
+      '<p class="muted">Un autre projet du créateur de ce jeu.</p>' +
+      '<a href="https://sanctimaps.fr/" target="_blank" rel="noopener noreferrer" ' +
+      'class="btn primary full" style="text-decoration:none;margin-top:10px">' +
+      '🌐 Visiter sanctimaps.fr</a>' +
+      '<button class="btn full" style="margin-top:8px" data-act="ui.close">Fermer</button>' +
+      '</div>', {});
+    return true;
+  }
+
   /** Boîte de confirmation simple. */
   function confirm(title, text, onOk, okLabel) {
     modal(title,
@@ -328,7 +348,7 @@ G.ui = (function () {
     render: render, refresh: refresh,
     setTab: setTab, currentTab: currentTab, onTick: onTick,
     toast: toast, modal: modal, modalUpdate: modalUpdate, closeModal: closeModal,
-    isModalOpen: isModalOpen, confirm: confirm, headerDirty: headerDirty,
+    isModalOpen: isModalOpen, confirm: confirm, headerDirty: headerDirty, showAd: showAd,
     bar: bar, stat: stat, pill: pill, empty: empty, ovrClass: ovrClass,
     signCls: signCls, views: views
   };

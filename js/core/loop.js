@@ -7,9 +7,11 @@ G.loop = (function () {
 
   var TICK_MS = 200;
   var MAX_OFFLINE = 8 * 3600;        // 8 heures de rattrapage maximum
+  var AD_INTERVAL = 5 * 60;          // une publicité toutes les 5 minutes de connexion
   var timer = null;
   var last = 0;
   var lastDay = 0;
+  var sinceAd = 0;
 
   /** Tout ce qui se passe au changement de séance. */
   function onNewDays(n) {
@@ -59,6 +61,14 @@ G.loop = (function () {
     }
 
     if (G.ui) G.ui.onTick(dt);
+
+    /* Publicité périodique : réessayée au prochain tick si l'écran de jeu
+       ou une modale l'empêche de s'afficher pour l'instant. */
+    sinceAd += dt;
+    if (sinceAd >= AD_INTERVAL) {
+      if (G.ui && G.ui.showAd && G.ui.showAd()) sinceAd = 0;
+    }
+
     G.save.autosave(8000);
   }
 
@@ -89,6 +99,7 @@ G.loop = (function () {
   function start() {
     last = Date.now();
     lastDay = G.state.market.day;
+    sinceAd = 0;
     if (timer) clearInterval(timer);
     timer = setInterval(tick, TICK_MS);
 
