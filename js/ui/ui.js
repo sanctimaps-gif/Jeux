@@ -84,7 +84,6 @@ G.ui = (function () {
       ? '+' + u.fmtMoney(hourly) + ' /h · versé en continu'
       : 'aucun revenu passif';
 
-    el.net.textContent = u.fmtMoney(G.eco.netWorth());
     el.day.textContent = u.fmtDay(s.market.day);
 
     var invest = G.eco.portfolioValue() + G.eco.cryptoValue() + G.eco.realEstateValue();
@@ -318,7 +317,6 @@ G.ui = (function () {
     el.toasts = u.$('#toasts');
     el.money = u.$('#hud-money');
     el.rate = u.$('#hud-rate');
-    el.net = u.$('#hud-net');
     el.day = u.$('#hud-day');
     el.pf = u.$('#hud-pf');
     el.reinvest = u.$('#reinvest');

@@ -23,6 +23,10 @@ window.G = window.G || {};
       'seconde après seconde.</div>' +
       '</div>';
 
+    h += '<div class="card tight" style="margin-bottom:10px">' +
+      '<div class="row between"><span class="mute2">💰 Compte en banque</span>' +
+      '<b class="good" style="font-size:16px">' + u.fmtMoney(G.state.money) + '</b></div></div>';
+
     h += taxCard();
 
     h += '<div class="grid2" style="margin-bottom:10px">' +

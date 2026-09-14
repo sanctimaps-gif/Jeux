@@ -193,7 +193,13 @@ window.G = window.G || {};
 
   function renderSettings() {
     var s = G.state;
-    var h = '<div class="card"><div class="card-head">⚙️ Réglages</div>' +
+    var h = '<div class="card hero" data-act="pf.sub" data-sub="patrimoine" ' +
+      'style="cursor:pointer">' +
+      '<div class="hero-v">' + u.fmtMoney(G.eco.netWorth()) + '</div>' +
+      '<div class="hero-l">💎 Patrimoine total</div>' +
+      '<div class="mute2" style="margin-top:4px">Voir le détail →</div></div>';
+
+    h += '<div class="card"><div class="card-head">⚙️ Réglages</div>' +
       '<div class="mute2" style="margin-bottom:4px">Vitesse des rencontres dirigées ' +
       'depuis le banc</div><div class="row wrap" style="gap:5px">' +
       [[1400, 'Lente'], [700, 'Normale'], [350, 'Rapide'], [120, 'Éclair']].map(function (o) {
