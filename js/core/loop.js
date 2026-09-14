@@ -29,6 +29,7 @@ G.loop = (function () {
 
   /** Versement des revenus passifs (entreprises + loyers), toutes les minutes. */
   function payroll(dt, silent) {
+    G.tax.tick(dt, silent);
     var biz = G.business.tick(dt, true);
     var rent = G.realestate.tick(dt);
     var total = biz + rent;

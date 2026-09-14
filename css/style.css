@@ -73,6 +73,22 @@ button, input, select { font-family: inherit; font-size: inherit; color: inherit
 .reinvest-bar b { color: var(--green); }
 .reinvest-bar .go { margin-left: auto; color: var(--green); font-weight: 700; white-space: nowrap; }
 
+.tax-bar {
+  margin-top: 7px; display: flex; align-items: center; gap: 8px;
+  background: linear-gradient(90deg, rgba(240,180,41,.18), rgba(240,180,41,.04));
+  border: 1px solid rgba(240,180,41,.4);
+  border-radius: 10px; padding: 6px 9px; font-size: 12px;
+  cursor: pointer;
+}
+.tax-bar b { color: var(--gold); }
+.tax-bar .go { margin-left: auto; color: var(--gold); font-weight: 700; white-space: nowrap; }
+.tax-bar.overdue {
+  background: linear-gradient(90deg, rgba(255,107,107,.22), rgba(255,107,107,.05));
+  border-color: rgba(255,107,107,.5);
+}
+.tax-bar.overdue b { color: var(--red); }
+.tax-bar.overdue .go { color: var(--red); }
+
 /* ============================================================ CONTENU == */
 
 #app {

@@ -12,8 +12,8 @@ G.business = (function () {
   var u = G.util;
 
   var PAYOUT_SECONDS = 60;          // versement des salaires toutes les minutes
-  var UPGRADE_BASE_SECONDS = 360;   // 6 min par palier : dix paliers ≈ 1 heure
-  var UPGRADE_MILESTONE_MULT = 4;   // franchir un cap (rendement ×2) prend plus de temps
+  var UPGRADE_BASE_SECONDS = 1800;  // 30 min par palier, un seul à la fois
+  var UPGRADE_MILESTONE_MULT = 6;   // franchir un cap (rendement ×2) prend bien plus longtemps
 
   function typeDef(id) { return G.DATA.companyById[id] || null; }
 
@@ -96,42 +96,16 @@ G.business = (function () {
     return t.cost * t.up * Math.pow(1.11, c.lvl - 1);
   }
 
-  function bulkUpgradeCost(c, n) {
-    var t = typeDef(c.type), total = 0;
-    for (var i = 0; i < n; i++) {
-      total += t.cost * t.up * Math.pow(1.11, c.lvl - 1 + i);
-    }
-    return total;
-  }
-
-  function maxUpgrades(c, cash) {
-    if (c.upgrade) return 0;
-    var t = typeDef(c.type);
-    var n = 0, total = 0;
-    var room = t.maxLvl - c.lvl;
-    while (n < room) {
-      var next = t.cost * t.up * Math.pow(1.11, c.lvl - 1 + n);
-      if (total + next > cash) break;
-      total += next;
-      n++;
-    }
-    return n;
-  }
-
   /**
-   * Durée (en secondes) du chantier pour passer `n` paliers à partir du
-   * niveau actuel. Chaque palier prend une base de 6 minutes ; un palier qui
-   * franchit un cap de rendement (×2) est un chantier plus important et
-   * prend quatre fois plus longtemps. Dix paliers classiques ≈ 1 heure.
+   * Durée (en secondes) du chantier pour passer au palier suivant. Base de
+   * 30 minutes ; franchir un cap de rendement (×2 tous les dix niveaux) est
+   * un chantier bien plus important et prend six fois plus longtemps.
+   * On ne peut investir qu'un seul palier à la fois : pas d'achat groupé.
    */
-  function upgradeDuration(c, n) {
-    var total = 0;
-    for (var i = 0; i < n; i++) {
-      var lvl = c.lvl + i + 1;
-      var isMilestone = G.DATA.companyMilestones.indexOf(lvl) >= 0;
-      total += UPGRADE_BASE_SECONDS * (isMilestone ? UPGRADE_MILESTONE_MULT : 1);
-    }
-    return total;
+  function upgradeDuration(c) {
+    var lvl = c.lvl + 1;
+    var isMilestone = G.DATA.companyMilestones.indexOf(lvl) >= 0;
+    return UPGRADE_BASE_SECONDS * (isMilestone ? UPGRADE_MILESTONE_MULT : 1);
   }
 
   function isUpgrading(c) { return !!(c && c.upgrade); }
@@ -143,8 +117,8 @@ G.business = (function () {
     return u.clamp(1 - c.upgrade.remain / c.upgrade.total, 0, 1);
   }
 
-  /** Lance le chantier d'investissement de `n` paliers dans une entreprise. */
-  function invest(uid, n) {
+  /** Lance le chantier d'investissement d'un seul palier dans une entreprise. */
+  function invest(uid) {
     var c = byUid(uid);
     if (!c) return false;
     if (c.upgrade) {
@@ -152,15 +126,14 @@ G.business = (function () {
       return false;
     }
     var t = typeDef(c.type);
-    n = Math.max(1, Math.min(n || 1, t.maxLvl - c.lvl));
-    if (n <= 0) return false;
+    if (c.lvl >= t.maxLvl) return false;
 
-    var cost = bulkUpgradeCost(c, n);
+    var cost = upgradeCost(c);
     if (!G.eco.spend(cost, 'business', 'Investissement · ' + c.name, true)) return false;
 
-    var duration = upgradeDuration(c, n);
+    var duration = upgradeDuration(c);
     c.invested += cost;
-    c.upgrade = { fromLvl: c.lvl, toLvl: c.lvl + n, total: duration, remain: duration };
+    c.upgrade = { fromLvl: c.lvl, toLvl: c.lvl + 1, total: duration, remain: duration };
     if (G.ui) {
       G.ui.toast('🔨 Chantier lancé', c.name + ' · prêt dans ' +
         u.fmtDuration(duration * 1000), 'good');
@@ -308,6 +281,7 @@ G.business = (function () {
   function tick(dt, silent) {
     var s = G.state;
     tickUpgrades(dt, silent);
+    if (G.tax && G.tax.isBlocked()) return 0;
     var rate = totalHourly() / 3600;
     s.biz.accrued += rate * dt;
     s.biz.timer += dt;
@@ -378,8 +352,7 @@ G.business = (function () {
     milestoneMult: milestoneMult, nextMilestone: nextMilestone,
     globalMult: globalMult, hourly: hourly, totalHourly: totalHourly,
     perSecond: perSecond,
-    upgradeCost: upgradeCost, bulkUpgradeCost: bulkUpgradeCost,
-    maxUpgrades: maxUpgrades, invest: invest,
+    upgradeCost: upgradeCost, invest: invest,
     upgradeDuration: upgradeDuration, isUpgrading: isUpgrading,
     upgradeRemaining: upgradeRemaining, upgradeProgress: upgradeProgress,
     suggestName: suggestName, canFound: canFound, found: found, rename: rename,

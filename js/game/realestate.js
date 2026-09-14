@@ -191,6 +191,7 @@ G.realestate = (function () {
   /** Accumule les loyers ; versement par tranche d'une minute. */
   function tick(dt) {
     var s = G.state;
+    if (G.tax && G.tax.isBlocked()) return 0;
     s.realestate.accrued += totalHourly() / 3600 * dt;
     s.realestate.timer += dt;
     var paid = 0;

@@ -81,6 +81,7 @@ G.eco = (function () {
     s.money += amount;
     s.stats.earned += amount;
     track(source, amount);
+    if (G.tax && source !== 'impots') G.tax.recordIncome(amount);
 
     var g = group(source);
     s.pending[g] = (s.pending[g] || 0) + amount;

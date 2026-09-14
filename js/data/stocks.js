@@ -27,7 +27,15 @@ G.DATA.stocks = [
   { id: 'MDA', name: 'Netflox Broadcast', sector: 'media', p0: 31, drift: 0.0010, vol: 0.028, beta: 1.30, div: 0.012, shares: 28000000 },
   { id: 'SPT', name: 'Nike Équipement', sector: 'sport', p0: 47, drift: 0.0014, vol: 0.029, beta: 1.40, div: 0.010, shares: 24000000 },
   { id: 'ARN', name: 'Adidas Holding', sector: 'sport', p0: 112, drift: 0.0011, vol: 0.027, beta: 1.25, div: 0.016, shares: 10000000 },
-  { id: 'CSN', name: 'Caesars Resorts', sector: 'loisir', p0: 68, drift: 0.0010, vol: 0.034, beta: 1.45, div: 0.024, shares: 14000000 }
+  { id: 'CSN', name: 'Caesars Resorts', sector: 'loisir', p0: 68, drift: 0.0010, vol: 0.034, beta: 1.45, div: 0.024, shares: 14000000 },
+  { id: 'AMZ', name: 'Amazan Commerce', sector: 'commerce', p0: 175, drift: 0.0017, vol: 0.033, beta: 1.30, div: 0.000, shares: 9000000 },
+  { id: 'VSU', name: 'Visu Payments', sector: 'finance', p0: 210, drift: 0.0013, vol: 0.020, beta: 1.05, div: 0.008, shares: 11000000 },
+  { id: 'TYD', name: 'Toyoda Motors', sector: 'indus', p0: 58, drift: 0.0008, vol: 0.022, beta: 0.95, div: 0.028, shares: 26000000 },
+  { id: 'APX', name: 'Applx Devices', sector: 'tech', p0: 190, drift: 0.0018, vol: 0.028, beta: 1.20, div: 0.006, shares: 13000000 },
+  { id: 'MTA', name: 'Metaa Social', sector: 'media', p0: 165, drift: 0.0015, vol: 0.038, beta: 1.45, div: 0.000, shares: 8000000 },
+  { id: 'TTL', name: 'Totalo Energy', sector: 'energie', p0: 45, drift: 0.0006, vol: 0.024, beta: 0.90, div: 0.058, shares: 32000000 },
+  { id: 'PFZ', name: 'Pfizir Labs', sector: 'sante', p0: 38, drift: 0.0007, vol: 0.025, beta: 0.70, div: 0.033, shares: 34000000 },
+  { id: 'CCQ', name: 'Cocaqola Drinks', sector: 'conso', p0: 62, drift: 0.0009, vol: 0.015, beta: 0.65, div: 0.031, shares: 42000000 }
 ];
 
 /* Secteurs supplémentaires propres à la cote. */

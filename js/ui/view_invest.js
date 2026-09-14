@@ -77,7 +77,7 @@ window.G = window.G || {};
         ? '<div class="row between small" style="padding:2px 0 8px"><span class="mute2">' +
           'Résultat total</span><b class="' + ui.signCls(pnl.abs) + '">' +
           u.fmtSigned(pnl.abs) + ' (' + u.fmtPct(pnl.pct) + ')</b></div>' : '');
-      for (var j = 0; j < ownedStocks.length; j++) h += stockRow(ownedStocks[j]);
+      for (var j = 0; j < ownedStocks.length; j++) h += portfolioStockRow(ownedStocks[j]);
     } else {
       h += '<div class="mute2">Aucune action détenue pour l\'instant. ' +
         '<span data-act="iv.sub" data-sub="actions" style="text-decoration:underline;' +
@@ -99,14 +99,17 @@ window.G = window.G || {};
         var t = G.realestate.typeDef(p.type);
         var city = G.realestate.cityDef(p.city);
         var diff = p.value - p.paid;
-        h += '<div class="item" data-act="re.open" data-uid="' + p.uid + '">' +
-          '<div class="item-icon">' + t.icon + '</div>' +
-          '<div class="item-main"><div class="t">' + t.name + ' <span class="mute2">' +
+        h += '<div class="item"><div class="item-icon" data-act="re.open" data-uid="' +
+          p.uid + '">' + t.icon + '</div>' +
+          '<div class="item-main" data-act="re.open" data-uid="' + p.uid + '">' +
+          '<div class="t">' + t.name + ' <span class="mute2">' +
           city.flag + ' ' + city.name + '</span></div>' +
           '<div class="s">Niveau ' + p.lvl + '/' + t.maxLvl + ' · loyer ' +
-          u.fmtMoney(G.realestate.hourly(p)) + '/h</div></div>' +
-          '<div class="item-side"><div>' + u.fmtMoney(p.value) + '</div>' +
-          '<div class="small ' + ui.signCls(diff) + '">' + u.fmtSigned(diff) + '</div></div>' +
+          u.fmtMoney(G.realestate.hourly(p)) + '/h</div>' +
+          '<div class="small ' + ui.signCls(diff) + '">' + u.fmtMoney(p.value) +
+          ' (' + u.fmtSigned(diff) + ')</div></div>' +
+          '<div class="item-side"><button class="btn xs danger" data-act="re.quicksell" ' +
+          'data-uid="' + p.uid + '">Vendre</button></div>' +
           '</div>';
       }
     } else {
@@ -200,6 +203,53 @@ window.G = window.G || {};
         ui.signCls(pos.abs) + '">' + u.fmtSigned(pos.abs) + '</div></div>' : '') +
       '</div>';
   }
+
+  /** Ligne dans l'onglet Portefeuille : détail de la position + vente rapide. */
+  function portfolioStockRow(st) {
+    var h = G.market.hold(st.id);
+    var chg = G.market.dayChange(st.id);
+    var pos = G.market.positionPnl(st.id);
+    return '<div class="item"><div class="item-icon" data-act="mk.open" data-id="' +
+      st.id + '" style="font-size:12px;font-weight:800">' + st.id + '</div>' +
+      '<div class="item-main" data-act="mk.open" data-id="' + st.id + '">' +
+      '<div class="t">' + u.esc(st.name) + '</div>' +
+      '<div class="s">' + u.fmtNum(h.qty) + ' titres · ' + u.fmtMoney(h.p) +
+      ' <span class="small ' + ui.signCls(chg) + '">' + u.fmtPct(chg) + '</span></div>' +
+      '<div class="small ' + ui.signCls(pos.abs) + '">' + u.fmtMoney(h.qty * h.p) +
+      ' (' + u.fmtSigned(pos.abs) + ')</div></div>' +
+      '<div class="item-side"><button class="btn xs danger" data-act="mk.quicksell" ' +
+      'data-id="' + st.id + '">Vendre</button></div></div>';
+  }
+
+  ui.act('mk.quicksell', function (d) {
+    var st = G.market.def(d.id);
+    var h = G.market.hold(d.id);
+    if (!st || !h || h.qty <= 0) return;
+    ui.confirm('Vendre toutes les ' + u.esc(st.name) + ' ?',
+      'Vous cédez ' + u.fmtNum(h.qty) + ' titres pour ' + u.fmtMoney(h.qty * h.p) +
+      ' (frais de courtage inclus).',
+      function () {
+        if (G.market.sell(d.id, h.qty)) {
+          ui.toast('📉 Vente exécutée', st.name, 'neutral');
+          ui.refresh();
+        }
+      }, 'Vendre tout');
+  });
+
+  ui.act('re.quicksell', function (d) {
+    var p = G.realestate.byUid(d.uid);
+    if (!p) return;
+    var t = G.realestate.typeDef(p.type);
+    ui.confirm('Vendre ' + u.esc(t.name) + ' ?',
+      'Vous récupérez ' + u.fmtMoney(p.value * 0.955) +
+      ' (frais d\'agence et de notaire déduits).',
+      function () {
+        if (G.realestate.sell(d.uid)) {
+          ui.toast('🔑 Bien cédé', t.name, 'neutral');
+          ui.refresh();
+        }
+      }, 'Vendre');
+  });
 
   function stockModal(id) {
     openStock = id;

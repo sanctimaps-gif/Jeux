@@ -102,6 +102,21 @@ G.ui = (function () {
     } else {
       el.reinvest.style.display = 'none';
     }
+
+    /* Bandeau des impôts : montant dû, sursis restant, ou blocage des revenus. */
+    var t = s.tax;
+    if (t && t.due > 0) {
+      el.taxbar.style.display = 'flex';
+      el.taxbar.classList.toggle('overdue', t.overdue);
+      el.taxbar.innerHTML = '<span>🧾</span><span>' +
+        (t.overdue
+          ? '<b>Revenus bloqués</b> · impôts impayés'
+          : '<b>' + u.fmtMoney(t.due) + '</b> d\'impôts dus · ' +
+            u.fmtDuration(Math.max(0, t.graceLeft) * 1000) + ' restants') +
+        '</span><span class="go">Payer →</span>';
+    } else if (el.taxbar) {
+      el.taxbar.style.display = 'none';
+    }
     headerNeedsUpdate = false;
   }
 
@@ -288,6 +303,7 @@ G.ui = (function () {
     el.day = u.$('#hud-day');
     el.pf = u.$('#hud-pf');
     el.reinvest = u.$('#reinvest');
+    el.taxbar = u.$('#taxbar');
     el.backdrop = u.$('#backdrop');
     el.modalTitle = u.$('#modal-title');
     el.modalBody = u.$('#modal-body');

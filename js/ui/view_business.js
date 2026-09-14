@@ -30,6 +30,8 @@ window.G = window.G || {};
       '💰 Encaisser maintenant</button>' +
       '</div>';
 
+    h += taxCard();
+
     h += '<div class="grid2" style="margin-bottom:10px">' +
       '<button class="btn primary" data-act="bz.found">🏗️ Fonder une entreprise</button>' +
       '<button class="btn" data-act="bz.merge"' +
@@ -60,6 +62,37 @@ window.G = window.G || {};
 
     return h;
   }
+
+  /* ============================================================= IMPÔTS === */
+
+  function taxCard() {
+    var t = G.state.tax;
+    if (!t) return '';
+    if (t.due <= 0) {
+      return '<div class="card tight" style="margin-bottom:10px">' +
+        '<div class="row between"><span class="mute2">🧾 Prochains impôts</span>' +
+        '<b>' + u.fmtDuration(Math.max(0, t.dueIn) * 1000) + '</b></div>' +
+        '<div class="mute2" style="margin-top:2px">' + u.dec(G.tax.RATE * 100, 0) +
+        ' % des revenus accumulés depuis la dernière échéance.</div></div>';
+    }
+    var cls = t.overdue ? 'bad' : '';
+    return '<div class="card tight" style="margin-bottom:10px;' +
+      (t.overdue ? 'border-color:rgba(255,107,107,.5)' : 'border-color:rgba(240,180,41,.4)') + '">' +
+      '<div class="row between"><b class="' + cls + '">🧾 Impôts dus : ' +
+      u.fmtMoney(t.due) + '</b></div>' +
+      '<div class="mute2" style="margin-top:2px">' +
+      (t.overdue
+        ? 'Revenus bloqués : entreprises et loyers sont à l\'arrêt.'
+        : 'Sursis : ' + u.fmtDuration(Math.max(0, t.graceLeft) * 1000) + ' restants.') +
+      '</div>' +
+      '<button class="btn sm full ' + (t.overdue ? 'danger' : 'primary') +
+      '" style="margin-top:6px" data-act="tx.pay">Payer maintenant</button></div>';
+  }
+
+  ui.act('tx.open', function () { ui.setTab('empire'); });
+  ui.act('tx.pay', function () {
+    if (G.tax.pay()) ui.refresh();
+  });
 
   function companyCard(c) {
     var t = G.business.typeDef(c.type);
@@ -184,8 +217,6 @@ window.G = window.G || {};
     var sector = G.DATA.sectors[t.sector];
     var maxed = c.lvl >= t.maxLvl;
     var upgrading = G.business.isUpgrading(c);
-    var max10 = Math.min(10, t.maxLvl - c.lvl);
-    var maxAll = G.business.maxUpgrades(c, G.state.money);
 
     var h = '<div class="row" style="gap:10px;margin-bottom:10px">' +
       '<div class="co-icon big">' + t.icon + '</div>' +
@@ -225,16 +256,10 @@ window.G = window.G || {};
       h += ui.bar(G.business.upgradeProgress(c) * 100);
     } else if (!maxed) {
       h += '<div class="card-head" style="margin-top:14px">💵 Investir</div>';
-      h += '<div class="mute2" style="margin-bottom:6px">Chaque investissement ' +
-        'lance un chantier : le palier n\'est acquis qu\'une fois les travaux ' +
-        'terminés, plus longs pour les investissements plus importants.</div>';
-      h += '<div class="grid3" style="gap:6px">' +
-        upBtn(uid, 1, G.business.bulkUpgradeCost(c, 1), null, G.business.upgradeDuration(c, 1)) +
-        (max10 > 1 ? upBtn(uid, max10, G.business.bulkUpgradeCost(c, max10), null,
-          G.business.upgradeDuration(c, max10)) : '') +
-        (maxAll > 0 ? upBtn(uid, maxAll, G.business.bulkUpgradeCost(c, maxAll), 'MAX',
-          G.business.upgradeDuration(c, maxAll)) : '') +
-        '</div>';
+      h += '<div class="mute2" style="margin-bottom:6px">Un seul palier à la fois : ' +
+        'l\'investissement lance un chantier, plus long pour les paliers qui ' +
+        'franchissent un cap de rendement.</div>';
+      h += upBtn(uid, G.business.upgradeCost(c), G.business.upgradeDuration(c));
     } else {
       h += '<div class="card tight good" style="margin-top:12px">' +
         'Entreprise développée au maximum. Vous pouvez la fusionner avec une ' +
@@ -278,20 +303,20 @@ window.G = window.G || {};
     });
   }
 
-  function upBtn(uid, n, cost, label, duration) {
+  function upBtn(uid, cost, duration) {
     var can = G.state.money >= cost;
-    return '<button class="btn ' + (can ? 'primary' : '') + '" data-act="bz.invest" ' +
-      'data-uid="' + uid + '" data-n="' + n + '"' + (can ? '' : ' disabled') + '>' +
-      '<span class="btn-col"><span>' + (label || '+' + n) + '</span>' +
+    return '<button class="btn full ' + (can ? 'primary' : '') + '" data-act="bz.invest" ' +
+      'data-uid="' + uid + '"' + (can ? '' : ' disabled') + '>' +
+      '<span class="btn-col"><span>+1 palier</span>' +
       '<span class="k">' + u.fmtMoney(cost) + '</span>' +
-      (duration ? '<span class="k">⏱ ' + u.fmtDuration(duration * 1000) + '</span>' : '') +
+      '<span class="k">⏱ ' + u.fmtDuration(duration * 1000) + '</span>' +
       '</span></button>';
   }
 
   ui.act('bz.open', function (d) { openCompany(d.uid); });
 
   ui.act('bz.invest', function (d) {
-    if (G.business.invest(d.uid, parseInt(d.n, 10))) openCompany(d.uid);
+    if (G.business.invest(d.uid)) openCompany(d.uid);
   });
 
   ui.act('bz.rename', function (d) {
