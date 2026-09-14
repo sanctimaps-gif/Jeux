@@ -81,8 +81,7 @@ G.ui = (function () {
     el.money.textContent = u.fmtMoney(s.money);
     var hourly = G.business.totalHourly() + G.realestate.totalHourly();
     el.rate.textContent = hourly > 0
-      ? '+' + u.fmtMoney(hourly) + ' /h · versement dans ' +
-        Math.ceil(G.business.nextPayoutIn()) + ' s'
+      ? '+' + u.fmtMoney(hourly) + ' /h · versé en continu'
       : 'aucun revenu passif';
 
     el.net.textContent = u.fmtMoney(G.eco.netWorth());

@@ -11,7 +11,6 @@ G.business = (function () {
   'use strict';
   var u = G.util;
 
-  var PAYOUT_SECONDS = 60;          // versement des salaires toutes les minutes
   var UPGRADE_BASE_SECONDS = 1800;  // 30 min par palier, un seul à la fois
   var UPGRADE_MILESTONE_MULT = 6;   // franchir un cap (rendement ×2) prend bien plus longtemps
 
@@ -274,50 +273,19 @@ G.business = (function () {
   /* ------------------------------------------------------------ paie ---- */
 
   /**
-   * Fait tourner les entreprises. Les revenus s'accumulent et sont versés
-   * par tranches d'une minute.
+   * Fait tourner les entreprises. Le revenu horaire est versé en continu,
+   * seconde après seconde, plutôt que par lots toutes les minutes.
    * @returns {number} montant versé pendant cet appel
    */
   function tick(dt, silent) {
     var s = G.state;
     tickUpgrades(dt, silent);
     if (G.tax && G.tax.isBlocked()) return 0;
-    var rate = totalHourly() / 3600;
-    s.biz.accrued += rate * dt;
-    s.biz.timer += dt;
-
-    var paid = 0;
-    if (s.biz.timer >= PAYOUT_SECONDS) {
-      var periods = Math.floor(s.biz.timer / PAYOUT_SECONDS);
-      s.biz.timer -= periods * PAYOUT_SECONDS;
-      paid = s.biz.accrued;
-      s.biz.accrued = 0;
-      if (paid > 0) {
-        G.eco.earn(paid, 'business', 'Salaires des entreprises', silent);
-        s.biz.totalPaid += paid;
-        s.biz.lastPayout = paid;
-        if (!silent && G.ui && G.ui.toast) {
-          G.ui.toast('🏢 +' + u.fmtMoney(paid), 'Versement des entreprises', 'good');
-        }
-      }
+    var amount = totalHourly() / 3600 * dt;
+    if (amount > 0) {
+      G.eco.earn(amount, 'business', null, true);
+      s.biz.totalPaid += amount;
     }
-    return paid;
-  }
-
-  /** Secondes restantes avant le prochain versement. */
-  function nextPayoutIn() {
-    return Math.max(0, PAYOUT_SECONDS - G.state.biz.timer);
-  }
-
-  /** Encaisse immédiatement ce qui est accumulé (sans attendre la minute). */
-  function collectNow() {
-    var s = G.state;
-    var amount = s.biz.accrued;
-    if (amount <= 0) return 0;
-    s.biz.accrued = 0;
-    s.biz.timer = 0;
-    s.biz.totalPaid += amount;
-    G.eco.earn(amount, 'business', 'Encaissement anticipé', true);
     return amount;
   }
 
@@ -346,7 +314,6 @@ G.business = (function () {
   }
 
   return {
-    PAYOUT_SECONDS: PAYOUT_SECONDS,
     typeDef: typeDef, all: all, byUid: byUid, count: count,
     slots: slots, slotCost: slotCost, buySlot: buySlot,
     milestoneMult: milestoneMult, nextMilestone: nextMilestone,
@@ -358,7 +325,7 @@ G.business = (function () {
     suggestName: suggestName, canFound: canFound, found: found, rename: rename,
     saleValue: saleValue, sell: sell,
     mergeCandidates: mergeCandidates, canMergeAny: canMergeAny, merge: merge,
-    tick: tick, nextPayoutIn: nextPayoutIn, collectNow: collectNow,
+    tick: tick,
     sectorWeight: sectorWeight, totalValue: totalValue, catalog: catalog
   };
 })();

@@ -188,24 +188,16 @@ G.realestate = (function () {
 
   /* ------------------------------------------------------------ loyers -- */
 
-  /** Accumule les loyers ; versement par tranche d'une minute. */
+  /** Verse les loyers en continu, seconde après seconde. */
   function tick(dt) {
     var s = G.state;
     if (G.tax && G.tax.isBlocked()) return 0;
-    s.realestate.accrued += totalHourly() / 3600 * dt;
-    s.realestate.timer += dt;
-    var paid = 0;
-    if (s.realestate.timer >= G.business.PAYOUT_SECONDS) {
-      var periods = Math.floor(s.realestate.timer / G.business.PAYOUT_SECONDS);
-      s.realestate.timer -= periods * G.business.PAYOUT_SECONDS;
-      paid = s.realestate.accrued;
-      s.realestate.accrued = 0;
-      if (paid > 0) {
-        G.eco.earn(paid, 'immobilier', 'Loyers encaissés', true);
-        s.realestate.totalRent += paid;
-      }
+    var amount = totalHourly() / 3600 * dt;
+    if (amount > 0) {
+      G.eco.earn(amount, 'immobilier', null, true);
+      s.realestate.totalRent += amount;
     }
-    return paid;
+    return amount;
   }
 
   /** Trend de la ville sur les 30 dernières séances (approximation). */

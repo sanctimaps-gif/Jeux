@@ -11,7 +11,6 @@ window.G = window.G || {};
   /* ============================================================ LISTE ===== */
 
   function render() {
-    var s = G.state;
     var h = '<div class="view-title">Entreprise</div>';
 
     /* Bandeau de revenus, façon tableau de bord. */
@@ -20,14 +19,8 @@ window.G = window.G || {};
     h += '<div class="card hero">' +
       '<div class="hero-v">' + u.fmtMoney(hourly + rent) + '</div>' +
       '<div class="hero-l">Revenu total par heure</div>' +
-      '<div class="row between" style="margin-top:8px">' +
-      '<span class="mute2">Prochain versement dans <b id="biz-timer">' +
-      Math.ceil(G.business.nextPayoutIn()) + ' s</b></span>' +
-      '<span class="mute2">En attente : <b class="good">' +
-      u.fmtMoney(s.biz.accrued + s.realestate.accrued) + '</b></span>' +
-      '</div>' + ui.bar((1 - G.business.nextPayoutIn() / G.business.PAYOUT_SECONDS) * 100, 'green') +
-      '<button class="btn sm full" style="margin-top:8px" data-act="bz.collect">' +
-      '💰 Encaisser maintenant</button>' +
+      '<div class="mute2" style="margin-top:8px">Versé en continu sur votre compte, ' +
+      'seconde après seconde.</div>' +
       '</div>';
 
     h += taxCard();
@@ -343,12 +336,6 @@ window.G = window.G || {};
       'Vous récupérez ' + u.fmtMoney(G.business.saleValue(c)) +
       ' et libérez un emplacement commercial.',
       function () { G.business.sell(d.uid); ui.refresh(); }, 'Vendre');
-  });
-
-  ui.act('bz.collect', function () {
-    var got = G.business.collectNow();
-    if (got > 0) ui.toast('💰 +' + u.fmtMoney(got), 'Encaissement anticipé', 'good');
-    ui.refresh();
   });
 
   /* ============================================================ FUSIONS === */

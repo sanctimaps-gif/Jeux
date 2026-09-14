@@ -58,10 +58,7 @@ window.G = window.G || {};
     var h = '<p class="muted">Vous étiez absent pendant ' +
       u.fmtDuration(off.seconds * 1000) +
       (off.seconds > off.capped ? ' (production plafonnée à 8 heures)' : '') + '.</p>';
-    h += '<div class="grid2">' +
-      G.ui.stat('Encaissé automatiquement', u.fmtMoney(off.earned), 'good') +
-      G.ui.stat('En attente dans les caisses', u.fmtMoney(off.pending), 'warn') +
-      '</div>';
+    h += G.ui.stat('Encaissé automatiquement', u.fmtMoney(off.earned), 'good');
     h += '<div class="mute2" style="margin-top:8px">' + off.days +
       ' séance(s) de Bourse se sont écoulées pendant votre absence.</div>';
     h += '<button class="btn primary full" style="margin-top:12px" data-act="ui.close">' +
@@ -84,7 +81,7 @@ window.G = window.G || {};
     if (isNew) {
       showGuide();
       G.save.write();
-    } else if (off && (off.earned > 0 || off.pending > 0)) {
+    } else if (off && off.earned > 0) {
       showOffline(off);
     }
 

@@ -33,10 +33,7 @@ G.newState = function () {
     biz: {
       companies: [],       // { uid, type, name, lvl, invested, merged }
       slots: 4,
-      accrued: 0,
-      timer: 0,
-      totalPaid: 0,
-      lastPayout: 0
+      totalPaid: 0
     },
 
     /* -------------------------------------------------------------- bourse */
@@ -57,8 +54,6 @@ G.newState = function () {
       index: {},
       hist: {},
       news: [],
-      accrued: 0,
-      timer: 0,
       totalRent: 0
     },
 
@@ -166,8 +161,7 @@ G.migrate = function (s) {
     s.biz = {
       companies: companies,
       slots: Math.max(G.DATA.slotBase, companies.length),
-      accrued: 0, timer: 0, totalPaid: (s.biz && s.biz.totalCollected) || 0,
-      lastPayout: 0
+      totalPaid: (s.biz && s.biz.totalCollected) || 0
     };
 
     /* Clubs : l'objet indexé par sport devient une liste. */

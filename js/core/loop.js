@@ -3,7 +3,6 @@ window.G = window.G || {};
 
 G.loop = (function () {
   'use strict';
-  var u = G.util;
 
   var TICK_MS = 200;
   var MAX_OFFLINE = 8 * 3600;        // 8 heures de rattrapage maximum
@@ -29,19 +28,12 @@ G.loop = (function () {
     }
   }
 
-  /** Versement des revenus passifs (entreprises + loyers), toutes les minutes. */
+  /** Verse les revenus passifs (entreprises + loyers) en continu. */
   function payroll(dt, silent) {
     G.tax.tick(dt, silent);
-    var biz = G.business.tick(dt, true);
+    var biz = G.business.tick(dt, silent);
     var rent = G.realestate.tick(dt);
-    var total = biz + rent;
-    if (total > 0 && !silent && G.ui && G.ui.toast) {
-      var detail = rent > 0
-        ? u.fmtMoney(biz) + ' d\'entreprises · ' + u.fmtMoney(rent) + ' de loyers'
-        : 'Salaires des entreprises';
-      G.ui.toast('💼 +' + u.fmtMoney(total), detail, 'good');
-    }
-    return total;
+    return biz + rent;
   }
 
   function tick() {
