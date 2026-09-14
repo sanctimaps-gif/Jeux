@@ -1,5 +1,5 @@
 /* Service worker : met tout le jeu en cache pour un usage 100 % hors ligne. */
-var CACHE = 'empire-total-v15';
+var CACHE = 'empire-total-v16';
 
 var ASSETS = [
   './',
@@ -24,6 +24,7 @@ var ASSETS = [
   'js/data/world.js',
   'js/data/worldmap.js',
   'js/core/tax.js',
+  'js/core/prayer.js',
   'js/core/state.js',
   'js/core/economy.js',
   'js/core/save.js',

@@ -254,7 +254,39 @@ G.ui = (function () {
           cap.textContent = AD_SLIDES[idx].cap;
         }, 2400);
       },
-      onClose: function () { if (timer) clearInterval(timer); }
+      onClose: function () { if (timer) clearInterval(timer); showPrayer(); }
+    });
+    return true;
+  }
+
+  /**
+   * Prière du moment, dans l'esprit de la Liturgie des Heures (AELF),
+   * affichée juste après la fermeture de la publicité. Une croix en haut du
+   * texte permet de passer directement. Un texte traditionnel s'affiche
+   * hors ligne ; si une connexion est disponible, le texte du jour d'AELF
+   * le remplace silencieusement dès qu'il arrive.
+   */
+  function showPrayer() {
+    if (!G.prayer) return false;
+    if (modalStack > 0) return false;
+    if (document.body.classList.contains('playing')) return false;
+
+    var hour = G.prayer.currentHour();
+    var html = '<button class="prayer-skip" data-act="ui.close">✝ Passer</button>' +
+      '<div class="prayer-card">' +
+      '<div class="prayer-title">' + hour.icon + ' ' + hour.name + '</div>' +
+      '<div class="prayer-sub">' + hour.subtitle + '</div>' +
+      '<div class="prayer-text" id="prayer-text">' + hour.text + '</div>' +
+      '</div>';
+
+    modal('🙏 Prière', html, {
+      after: function (root) {
+        G.prayer.fetchLive(hour, function (liveHtml) {
+          if (!liveHtml) return;
+          var el2 = root.querySelector('#prayer-text');
+          if (el2) el2.innerHTML = liveHtml;
+        });
+      }
     });
     return true;
   }
@@ -394,7 +426,8 @@ G.ui = (function () {
     render: render, refresh: refresh,
     setTab: setTab, currentTab: currentTab, onTick: onTick,
     toast: toast, modal: modal, modalUpdate: modalUpdate, closeModal: closeModal,
-    isModalOpen: isModalOpen, confirm: confirm, headerDirty: headerDirty, showAd: showAd,
+    isModalOpen: isModalOpen, confirm: confirm, headerDirty: headerDirty,
+    showAd: showAd, showPrayer: showPrayer,
     bar: bar, stat: stat, pill: pill, empty: empty, ovrClass: ovrClass,
     signCls: signCls, views: views
   };
