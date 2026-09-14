@@ -39,7 +39,7 @@ window.G = window.G || {};
       'propose, et le jeu garde la trace de l\'origine de chaque capital investi.']
   ];
 
-  function showGuide() {
+  function showGuide(onClose) {
     var h = '';
     for (var i = 0; i < GUIDE.length; i++) {
       h += '<div class="item"><div class="item-icon">' + GUIDE[i][0] + '</div>' +
@@ -48,13 +48,13 @@ window.G = window.G || {};
     }
     h += '<button class="btn primary full" style="margin-top:12px" data-act="ui.close">' +
       'Commencer</button>';
-    G.ui.modal('Bienvenue dans Empire Total', h, {});
+    G.ui.modal('Bienvenue dans Empire Total', h, { onClose: onClose });
   }
   G.ui.showGuide = showGuide;
 
   /* ---------------------------------------------------- rapport hors ligne */
 
-  function showOffline(off) {
+  function showOffline(off, onClose) {
     var h = '<p class="muted">Vous étiez absent pendant ' +
       u.fmtDuration(off.seconds * 1000) +
       (off.seconds > off.capped ? ' (production plafonnée à 8 heures)' : '') + '.</p>';
@@ -63,7 +63,7 @@ window.G = window.G || {};
       ' séance(s) de Bourse se sont écoulées pendant votre absence.</div>';
     h += '<button class="btn primary full" style="margin-top:12px" data-act="ui.close">' +
       'Reprendre les affaires</button>';
-    G.ui.modal('👋 De retour', h, {});
+    G.ui.modal('👋 De retour', h, { onClose: onClose });
   }
 
   /* --------------------------------------------------------------- boot - */
@@ -79,10 +79,12 @@ window.G = window.G || {};
     G.loop.start();
 
     if (isNew) {
-      showGuide();
+      showGuide(function () { G.ui.showAd(); });
       G.save.write();
     } else if (off && off.earned > 0) {
-      showOffline(off);
+      showOffline(off, function () { G.ui.showAd(); });
+    } else {
+      G.ui.showAd();
     }
 
     /* Mise en cache pour un fonctionnement complet hors ligne. */
