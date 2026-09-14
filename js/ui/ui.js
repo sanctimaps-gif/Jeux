@@ -193,20 +193,69 @@ G.ui = (function () {
   /**
    * Publicité interne, affichée périodiquement (voir G.loop). N'interrompt
    * jamais un écran de jeu ou une modale déjà ouverte : réessayée plus tard.
+   * Diaporama de captures d'écran façon bande-annonce, avec légendes qui
+   * défilent en même temps que les images.
    */
+  var AD_SLIDES = [
+    { img: 'assets/ads/sm-5.jpg', cap: '🌍 4 628 saints recensés dans 91 pays' },
+    { img: 'assets/ads/sm-4.jpg', cap: '🗺️ Une carte interactive du monde entier' },
+    { img: 'assets/ads/sm-3.jpg', cap: '🇫🇷 717 saints rien qu\'en France' },
+    { img: 'assets/ads/sm-2.jpg', cap: '📍 523 lieux, jusqu\'à la ville de naissance' },
+    { img: 'assets/ads/sm-1.jpg', cap: '📖 La biographie de chaque saint, en un clic' }
+  ];
+
   function showAd() {
     if (modalStack > 0) return false;
     if (document.body.classList.contains('playing')) return false;
-    modal('📢 Publicité',
-      '<div style="text-align:center;padding:4px 0 6px">' +
-      '<div style="font-size:42px;margin-bottom:8px">🗺️</div>' +
-      '<div style="font-weight:800;font-size:18px;margin-bottom:6px">Sanctimaps</div>' +
-      '<p class="muted">Un autre projet du créateur de ce jeu.</p>' +
+
+    var reel = '<div class="ad-reel">' +
+      AD_SLIDES.map(function (s, i) {
+        return '<div class="ad-slide' + (i === 0 ? ' active' : '') +
+          '" style="background-image:url(\'' + s.img + '\')"></div>';
+      }).join('') +
+      '<div class="ad-dots">' + AD_SLIDES.map(function (s, i) {
+        return '<span class="ad-dot' + (i === 0 ? ' on' : '') + '"></span>';
+      }).join('') + '</div>' +
+      '<div class="ad-cap" id="ad-cap">' + AD_SLIDES[0].cap + '</div>' +
+      '</div>';
+
+    var html = reel +
+      '<div style="text-align:center;padding:12px 0 4px">' +
+      '<div style="font-weight:800;font-size:18px;margin-bottom:2px">SanctiMaps</div>' +
+      '<p class="muted" style="margin:2px 0 0">La carte mondiale des saints de l\'Église ' +
+      'catholique, un autre projet du créateur de ce jeu.</p>' +
+      '</div>' +
+      '<div class="ad-stats">' +
+      '<div><b>4 628</b>saints</div><div><b>91</b>pays</div><div><b>27</b>siècles</div>' +
+      '</div>' +
       '<a href="https://sanctimaps.fr/" target="_blank" rel="noopener noreferrer" ' +
       'class="btn primary full" style="text-decoration:none;margin-top:10px">' +
       '🌐 Visiter sanctimaps.fr</a>' +
-      '<button class="btn full" style="margin-top:8px" data-act="ui.close">Fermer</button>' +
-      '</div>', {});
+      '<button class="btn full" style="margin-top:8px" data-act="ui.close">Fermer</button>';
+
+    var timer = null;
+    modal('📢 Publicité', html, {
+      after: function (root) {
+        var idx = 0;
+        var slides = root.querySelectorAll('.ad-slide');
+        var dots = root.querySelectorAll('.ad-dot');
+        var cap = root.querySelector('#ad-cap');
+        timer = setInterval(function () {
+          if (idx >= AD_SLIDES.length - 1) {
+            clearInterval(timer);
+            timer = null;
+            return;
+          }
+          slides[idx].classList.remove('active');
+          dots[idx].classList.remove('on');
+          idx++;
+          slides[idx].classList.add('active');
+          dots[idx].classList.add('on');
+          cap.textContent = AD_SLIDES[idx].cap;
+        }, 2400);
+      },
+      onClose: function () { if (timer) clearInterval(timer); }
+    });
     return true;
   }
 

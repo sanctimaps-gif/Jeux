@@ -1,11 +1,16 @@
 /* Service worker : met tout le jeu en cache pour un usage 100 % hors ligne. */
-var CACHE = 'empire-total-v13';
+var CACHE = 'empire-total-v14';
 
 var ASSETS = [
   './',
   'index.html',
   'manifest.webmanifest',
   'assets/icon.svg',
+  'assets/ads/sm-1.jpg',
+  'assets/ads/sm-2.jpg',
+  'assets/ads/sm-3.jpg',
+  'assets/ads/sm-4.jpg',
+  'assets/ads/sm-5.jpg',
   'css/style.css',
   'js/core/util.js',
   'js/data/companies.js',

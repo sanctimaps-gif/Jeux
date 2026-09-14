@@ -89,6 +89,43 @@ button, input, select { font-family: inherit; font-size: inherit; color: inherit
 .tax-bar.overdue b { color: var(--red); }
 .tax-bar.overdue .go { color: var(--red); }
 
+/* ==================================================== PUBLICITÉ (PUB) === */
+
+.ad-reel {
+  position: relative; width: 100%; max-width: 260px; aspect-ratio: 480/967;
+  margin: 0 auto; border-radius: 14px; overflow: hidden;
+  background: #0b1017; border: 1px solid var(--line);
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+}
+.ad-slide {
+  position: absolute; inset: 0; background-size: cover; background-position: top center;
+  opacity: 0; transition: opacity .7s ease; transform: scale(1);
+}
+.ad-slide.active { opacity: 1; animation: adZoom 3.2s ease-in-out forwards; }
+@keyframes adZoom {
+  from { transform: scale(1); }
+  to { transform: scale(1.07); }
+}
+.ad-cap {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 12px 10px;
+  background: linear-gradient(0deg, rgba(0,0,0,.8), rgba(0,0,0,0));
+  color: #fff; font-weight: 800; font-size: 13px; line-height: 1.3;
+}
+.ad-dots {
+  position: absolute; top: 8px; left: 0; right: 0;
+  display: flex; justify-content: center; gap: 5px;
+}
+.ad-dot {
+  width: 16px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.35);
+  transition: background .25s;
+}
+.ad-dot.on { background: #fff; }
+.ad-stats {
+  display: flex; justify-content: center; gap: 14px; margin: 10px 0 2px;
+  font-size: 12px; color: var(--txt-mute);
+}
+.ad-stats b { display: block; font-size: 16px; color: var(--gold); }
+
 /* ============================================================ CONTENU == */
 
 #app {
