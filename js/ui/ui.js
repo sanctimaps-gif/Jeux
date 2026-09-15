@@ -35,13 +35,31 @@ G.ui = (function () {
 
   /* ------------------------------------------------------------- rendu -- */
 
+  /** Position de défilement horizontal des rangées de sous-onglets et autres
+   * listes déroulantes : sans ça, un rafraîchissement (notamment ceux d'une
+   * vue « vivante ») les remet à zéro pendant qu'on fait défiler pour choisir
+   * un élément tout au bout, avant même d'avoir pu le toucher. */
+  function captureScrollX() {
+    var nodes = el.app.querySelectorAll('.sub-tabs, .scroll-x');
+    var pos = [];
+    for (var i = 0; i < nodes.length; i++) pos.push(nodes[i].scrollLeft);
+    return pos;
+  }
+
+  function restoreScrollX(pos) {
+    var nodes = el.app.querySelectorAll('.sub-tabs, .scroll-x');
+    for (var i = 0; i < nodes.length && i < pos.length; i++) nodes[i].scrollLeft = pos[i];
+  }
+
   function render() {
     var v = views[current];
     if (!v) return;
     var keepScroll = el.app.scrollTop;
+    var scrollX = captureScrollX();
     el.app.innerHTML = v.render();
     if (v.after) v.after(el.app);
     el.app.scrollTop = keepScroll;
+    restoreScrollX(scrollX);
     updateNav();
     updateHeader();
   }
