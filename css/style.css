@@ -323,7 +323,8 @@ button, input, select { font-family: inherit; font-size: inherit; color: inherit
 @keyframes slideUp { from { transform: translateY(24px); opacity: .6; } to { transform: none; opacity: 1; } }
 .modal-head {
   display: flex; align-items: center; gap: 8px;
-  padding: 10px 14px 8px; border-bottom: 1px solid var(--line); font-weight: 700;
+  padding: calc(28px + env(safe-area-inset-top, 0px)) 14px 8px;
+  border-bottom: 1px solid var(--line); font-weight: 700;
 }
 .modal-head .x {
   margin-left: auto; background: var(--card); border: 1px solid var(--line);
