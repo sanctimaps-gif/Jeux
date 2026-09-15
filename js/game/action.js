@@ -15,19 +15,24 @@ G.action = (function () {
   var FIELDS = {
     football: { w: 68, h: 105, goalW: 7.3, surface: '#2e7d32', line: '#ffffff',
       goal: 'shot', speed: 1.0, ballSpeed: 30, clock: 90, realSeconds: 200,
-      aiShoot: 0.45, aiRange: 0.19, tackle: 1.0, view: 50 },
+      aiShoot: 0.45, aiRange: 0.19, tackle: 1.0, view: 50,
+      texture: 'grass', ball: '#f5f5f0', ballLine: '#111111' },
     rugby: { w: 70, h: 110, goalW: 5.6, surface: '#2f7a34', line: '#ffffff',
       goal: 'tryline', speed: 0.95, ballSpeed: 24, clock: 80, realSeconds: 190,
-      aiShoot: 0, aiRange: 0, tackle: 4.2, view: 55 },
+      aiShoot: 0, aiRange: 0, tackle: 4.2, view: 55,
+      texture: 'grass', ball: '#8a4b23', ballLine: '#e8eef7', ballShape: 'oval' },
     waterpolo: { w: 20, h: 30, goalW: 3, surface: '#1565c0', line: '#e3f2fd',
       goal: 'shot', speed: 0.45, ballSpeed: 15, clock: 32, realSeconds: 150,
-      aiShoot: 2.4, aiRange: 0.60, tackle: 0.8, view: 32 },
+      aiShoot: 2.4, aiRange: 0.60, tackle: 0.8, view: 32,
+      texture: 'water', ball: '#ffd43b', ballLine: '#8a6d00' },
     basket: { w: 15, h: 28, goalW: 1.8, surface: '#a1622f', line: '#ffe0b2',
       goal: 'basket', speed: 0.8, ballSpeed: 18, clock: 40, realSeconds: 160,
-      aiShoot: 1.5, aiRange: 0.45, tackle: 2.0, view: 28 },
+      aiShoot: 1.5, aiRange: 0.45, tackle: 2.0, view: 28,
+      texture: 'wood', ball: '#e8720c', ballLine: '#3a2000' },
     handball: { w: 20, h: 40, goalW: 3, surface: '#1b5e20', line: '#c8e6c9',
       goal: 'shot', speed: 0.85, ballSpeed: 22, clock: 60, realSeconds: 170,
-      aiShoot: 2.8, aiRange: 0.55, tackle: 0.8, view: 35 },
+      aiShoot: 2.8, aiRange: 0.55, tackle: 0.8, view: 35,
+      texture: 'indoor', ball: '#c0392b', ballLine: '#3a0d08' },
 
     /* Sports de raquette : un joueur de chaque côté, terrain adapté à
        chaque discipline (dimensions réelles), échange simulé point par
@@ -850,20 +855,10 @@ G.action = (function () {
 
     ctx.clearRect(0, 0, cw, ch);
 
-    /* --- pelouse --- */
+    /* --- surface --- */
     ctx.fillStyle = F.surface;
     ctx.fillRect(0, 0, cw, ch);
-
-    /* Bandes de tonte. */
-    ctx.globalAlpha = 0.10;
-    ctx.fillStyle = '#ffffff';
-    var stripe = F.h / 14;
-    for (var s = 0; s < 15; s++) {
-      if (s % 2) continue;
-      var y0 = sy(s * stripe), y1 = sy((s + 1) * stripe);
-      ctx.fillRect(0, y1, cw, y0 - y1);
-    }
-    ctx.globalAlpha = 1;
+    drawSurfaceTexture(F, ctx, sx, sy, cw, ch);
 
     /* --- lignes --- */
     ctx.strokeStyle = F.line;
@@ -873,30 +868,7 @@ G.action = (function () {
     if (F.racket) {
       drawRacketCourt(F, ctx, sx, sy, scale);
     } else {
-      ctx.beginPath();
-      ctx.moveTo(sx(0), sy(F.h / 2));
-      ctx.lineTo(sx(F.w), sy(F.h / 2));
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(sx(F.w / 2), sy(F.h / 2), F.w * 0.13 * scale, 0, Math.PI * 2);
-      ctx.stroke();
-
-      /* Surfaces et buts. */
-      var boxW = F.w * 0.55, boxH = F.h * 0.15;
-      [0, 1].forEach(function (side) {
-        var y = side ? F.h - boxH : 0;
-        ctx.strokeRect(sx(F.w / 2 - boxW / 2), sy(y + boxH), boxW * scale, boxH * scale);
-      });
-
-      ctx.lineWidth = Math.max(2, scale * 0.22);
-      ctx.strokeStyle = '#ffffff';
-      [0, F.h].forEach(function (gy) {
-        ctx.beginPath();
-        ctx.moveTo(sx(F.w / 2 - F.goalW / 2), sy(gy));
-        ctx.lineTo(sx(F.w / 2 + F.goalW / 2), sy(gy));
-        ctx.stroke();
-      });
+      drawFieldMarkings(M.sport.id, F, ctx, sx, sy, scale);
     }
 
     /* --- joueurs --- */
@@ -957,18 +929,21 @@ G.action = (function () {
       }
     }
 
-    /* --- ballon --- */
+    /* --- ballon (couleur et forme propres à chaque sport) --- */
     var b = M.ball;
     var bx = sx(b.x), by = sy(b.y);
+    var ballColor = F.ball || '#ffffff';
+    var ballLine = F.ballLine || '#333333';
+    var oval = F.ballShape === 'oval';
     ctx.fillStyle = 'rgba(0,0,0,.3)';
     ctx.beginPath();
-    ctx.ellipse(bx + 2, by + 3, r * 0.42, r * 0.28, 0, 0, Math.PI * 2);
+    ctx.ellipse(bx + 2, by + 3, r * (oval ? 0.5 : 0.42), r * (oval ? 0.24 : 0.28), 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = ballColor;
     ctx.beginPath();
-    ctx.arc(bx, by, r * 0.42, 0, Math.PI * 2);
+    ctx.ellipse(bx, by, r * (oval ? 0.5 : 0.42), r * (oval ? 0.28 : 0.42), 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#333';
+    ctx.strokeStyle = ballLine;
     ctx.lineWidth = 1;
     ctx.stroke();
 
@@ -986,6 +961,161 @@ G.action = (function () {
         ctx.closePath();
         ctx.fill();
       }
+    }
+  }
+
+  /** Texture de la surface : pelouse tondue, parquet, ou eau — jamais la
+   * même pour un terrain de basket, une piscine et une pelouse. */
+  function drawSurfaceTexture(F, ctx, sx, sy, cw, ch) {
+    if (F.texture === 'grass') {
+      ctx.globalAlpha = 0.10;
+      ctx.fillStyle = '#ffffff';
+      var stripe = F.h / 14;
+      for (var s = 0; s < 15; s++) {
+        if (s % 2) continue;
+        var y0 = sy(s * stripe), y1 = sy((s + 1) * stripe);
+        ctx.fillRect(0, y1, cw, y0 - y1);
+      }
+      ctx.globalAlpha = 1;
+    } else if (F.texture === 'wood') {
+      ctx.globalAlpha = 0.10;
+      ctx.strokeStyle = '#5a3410';
+      ctx.lineWidth = 1;
+      var plank = F.w / 8;
+      for (var p = 1; p < 8; p++) {
+        var x = sx(p * plank);
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, ch); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    } else if (F.texture === 'water') {
+      ctx.globalAlpha = 0.14;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      var lane = F.h / 12;
+      for (var l = 1; l < 12; l++) {
+        var y = sy(l * lane);
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cw, y); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+    /* 'indoor' (handball) : sol uni, pas de texture supplémentaire. */
+  }
+
+  /** Petit but rectangulaire avec filet, pour le water-polo et le handball
+   * (à la différence du grand but à poteaux du football). */
+  function drawNetGoal(F, ctx, sx, sy, scale, y, dir, depth) {
+    var gw = F.goalW;
+    var x0 = sx(F.w / 2 - gw / 2), x1 = sx(F.w / 2 + gw / 2);
+    var yLine = sy(y), yBack = sy(y + dir * depth);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = Math.max(2, scale * 0.16);
+    ctx.beginPath();
+    ctx.moveTo(x0, yLine); ctx.lineTo(x0, yBack);
+    ctx.lineTo(x1, yBack); ctx.lineTo(x1, yLine);
+    ctx.stroke();
+    ctx.globalAlpha = 0.45; ctx.lineWidth = 1;
+    var steps = 4;
+    for (var i = 1; i < steps; i++) {
+      var xx = x0 + (x1 - x0) * i / steps;
+      ctx.beginPath(); ctx.moveTo(xx, yLine); ctx.lineTo(xx, yBack); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** Marquages au sol, propres à chaque sport collectif (aucun terrain de
+   * basket ne ressemble à une pelouse de rugby). */
+  function drawFieldMarkings(sportId, F, ctx, sx, sy, scale) {
+    ctx.strokeStyle = F.line;
+    ctx.lineWidth = Math.max(1.2, scale * 0.09);
+
+    function hLine(y, dashed) {
+      ctx.save();
+      if (dashed) ctx.setLineDash([scale * 0.6, scale * 0.5]);
+      ctx.beginPath();
+      ctx.moveTo(sx(0), sy(y));
+      ctx.lineTo(sx(F.w), sy(y));
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function arcFromEnd(y, dir, radius, dashed) {
+      ctx.save();
+      if (dashed) ctx.setLineDash([scale * 0.6, scale * 0.5]);
+      ctx.beginPath();
+      ctx.arc(sx(F.w / 2), sy(y), radius * scale,
+        dir > 0 ? Math.PI : 0, dir > 0 ? Math.PI * 2 : Math.PI);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    if (sportId === 'football') {
+      hLine(F.h / 2);
+      ctx.beginPath();
+      ctx.arc(sx(F.w / 2), sy(F.h / 2), 9.15 * scale, 0, Math.PI * 2);
+      ctx.stroke();
+      var boxW = 40.3, boxH = 16.5;
+      [0, 1].forEach(function (side) {
+        var y = side ? F.h - boxH : 0;
+        ctx.strokeRect(sx(F.w / 2 - boxW / 2), sy(y + boxH), boxW * scale, boxH * scale);
+      });
+      ctx.lineWidth = Math.max(2, scale * 0.22);
+      [0, F.h].forEach(function (gy) {
+        ctx.beginPath();
+        ctx.moveTo(sx(F.w / 2 - F.goalW / 2), sy(gy));
+        ctx.lineTo(sx(F.w / 2 + F.goalW / 2), sy(gy));
+        ctx.stroke();
+      });
+    } else if (sportId === 'rugby') {
+      hLine(F.h / 2);
+      hLine(F.h / 2 - 10); hLine(F.h / 2 + 10);
+      hLine(22); hLine(F.h - 22);
+      hLine(5, true); hLine(F.h - 5, true);
+      [0, F.h].forEach(function (gy) {
+        [-1, 1].forEach(function (side) {
+          ctx.beginPath();
+          ctx.arc(sx(F.w / 2 + side * F.goalW / 2), sy(gy), Math.max(2, scale * 0.28), 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.fill();
+        });
+      });
+    } else if (sportId === 'waterpolo') {
+      [2, F.h - 2].forEach(function (y) { ctx.strokeStyle = '#e53935'; hLine(y); });
+      [5, F.h - 5].forEach(function (y) { ctx.strokeStyle = '#fdd835'; hLine(y); });
+      ctx.strokeStyle = F.line;
+      drawNetGoal(F, ctx, sx, sy, scale, 0, -1, 0.5);
+      drawNetGoal(F, ctx, sx, sy, scale, F.h, 1, 0.5);
+    } else if (sportId === 'basket') {
+      ctx.beginPath();
+      ctx.arc(sx(F.w / 2), sy(F.h / 2), 1.8 * scale, 0, Math.PI * 2);
+      ctx.stroke();
+      var keyW = 4.9, keyH = 5.8;
+      [0, 1].forEach(function (side) {
+        var y = side ? F.h - keyH : 0;
+        ctx.strokeRect(sx(F.w / 2 - keyW / 2), sy(y + keyH), keyW * scale, keyH * scale);
+        arcFromEnd(y + keyH, side ? -1 : 1, 1.8);
+      });
+      [0, F.h].forEach(function (gy, side) {
+        var dir = side ? -1 : 1;
+        arcFromEnd(gy + dir * 1.2, dir, 6.75);
+        var ringY = sy(gy + dir * 1.2);
+        ctx.beginPath();
+        ctx.arc(sx(F.w / 2), ringY, Math.max(2, scale * 0.28), 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.lineWidth = Math.max(2, scale * 0.2);
+        ctx.beginPath();
+        ctx.moveTo(sx(F.w / 2 - 0.9), sy(gy));
+        ctx.lineTo(sx(F.w / 2 + 0.9), sy(gy));
+        ctx.stroke();
+      });
+    } else if (sportId === 'handball') {
+      [0, F.h].forEach(function (gy, side) {
+        var dir = side ? -1 : 1;
+        arcFromEnd(gy, dir, 6);
+        arcFromEnd(gy, dir, 9, true);
+      });
+      drawNetGoal(F, ctx, sx, sy, scale, 0, -1, 0.8);
+      drawNetGoal(F, ctx, sx, sy, scale, F.h, 1, 0.8);
     }
   }
 
