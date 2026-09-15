@@ -563,6 +563,16 @@ G.match = (function () {
 
   return {
     create: create, step: step, decide: decide, finish: finish,
-    quickSim: quickSim, scoreLine: scoreLine, segmentMinutes: segmentMinutes
+    quickSim: quickSim, scoreLine: scoreLine, segmentMinutes: segmentMinutes,
+    /* Exposés pour que le mode « Regarder » (moteur canvas, js/game/action.js)
+     * réutilise les mêmes banques de commentaires du banc plutôt que d'en
+     * dupliquer une variante. */
+    pickComment: pickComment, situationBank: situationBank, unitWord: unitWord,
+    pools: {
+      EARLY_AHEAD: EARLY_AHEAD, EARLY_BEHIND: EARLY_BEHIND, EARLY_LEVEL: EARLY_LEVEL,
+      HALF_WINNING: HALF_WINNING, HALF_LOSING: HALF_LOSING, HALF_LEVEL: HALF_LEVEL,
+      LATE_AHEAD: LATE_AHEAD, LATE_BEHIND: LATE_BEHIND, LATE_LEVEL: LATE_LEVEL,
+      INCIDENT_BANKS: INCIDENT_BANKS, SCORE_VERBS: SCORE_VERBS
+    }
   };
 })();

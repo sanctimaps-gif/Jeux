@@ -27,7 +27,21 @@ G.action = (function () {
       aiShoot: 1.5, aiRange: 0.45, tackle: 2.0, view: 28 },
     handball: { w: 20, h: 40, goalW: 3, surface: '#1b5e20', line: '#c8e6c9',
       goal: 'shot', speed: 0.85, ballSpeed: 22, clock: 60, realSeconds: 170,
-      aiShoot: 2.8, aiRange: 0.55, tackle: 0.8, view: 35 }
+      aiShoot: 2.8, aiRange: 0.55, tackle: 0.8, view: 35 },
+
+    /* Sports de raquette : un joueur de chaque côté, terrain adapté à
+       chaque discipline (dimensions réelles), échange simulé point par
+       point plutôt que ballon disputé au contact. */
+    tennis: { w: 8.23, h: 23.77, surface: '#2f8f4e', line: '#ffffff',
+      racket: true, net: true, speed: 1.0, ballSpeed: 30, clock: 90, realSeconds: 210, view: 8.23 },
+    badminton: { w: 5.18, h: 13.4, surface: '#1a6e3c', line: '#ffffff',
+      racket: true, net: true, speed: 1.3, ballSpeed: 34, clock: 60, realSeconds: 170, view: 5.18 },
+    squash: { w: 6.4, h: 9.75, surface: '#2c4f70', line: '#ffe9a8',
+      racket: true, net: false, speed: 1.15, ballSpeed: 26, clock: 45, realSeconds: 150, view: 6.4 },
+    tennisdetable: { w: 1.525, h: 2.74, surface: '#0d4f8b', line: '#ffffff',
+      racket: true, net: true, speed: 2.4, ballSpeed: 10, clock: 30, realSeconds: 140, view: 1.525 },
+    padel: { w: 10, h: 20, surface: '#2373a6', line: '#ffffff',
+      racket: true, net: true, speed: 1.0, ballSpeed: 26, clock: 90, realSeconds: 200, view: 10 }
   };
 
   function fieldOf(sportId) { return FIELDS[sportId] || FIELDS.football; }
@@ -65,13 +79,48 @@ G.action = (function () {
       result: null,
       halfDone: false,
       cards: {},                     // cartons par joueur {playerId: {type, time}}
-      subs: { you: [], opp: [] }     // remplacements effectués
+      subs: { you: [], opp: [] },    // remplacements effectués
+      coach: { att: 0, def: 0 },     // effet temporaire des consignes du banc
+      commentsDone: {},
+      sinceIncident: 0
     };
 
-    buildTeams(M, club, sport, mine, oppStr);
-    kickoff(M, 1);
-    push(M, 'Coup d\'envoi — ' + club.name + ' contre ' + fx.opp.name, 'info');
+    if (F.racket) {
+      buildRacketMatch(M, club, sport, mine, oppStr, fx.opp.name);
+      push(M, 'Début de la rencontre — ' + club.name + ' contre ' + fx.opp.name, 'info');
+      startRally(M, u.chance(0.5) ? 0 : 1);
+    } else {
+      buildTeams(M, club, sport, mine, oppStr);
+      kickoff(M, 1);
+      push(M, 'Coup d\'envoi — ' + club.name + ' contre ' + fx.opp.name, 'info');
+    }
     return M;
+  }
+
+  /** Place l'unique joueur de chaque côté, sur un terrain adapté à la
+   * discipline (sports de raquette, à effectif individuel). */
+  function buildRacketMatch(M, club, sport, mine, oppStr, oppName) {
+    var F = M.F;
+    var line = G.manager.starters(club);
+    var me = line[0];
+    var ovrMe = me ? G.manager.effOvr(me, sport) : u.clamp(mine.att, 20, 95);
+    var ovrOpp = u.clamp(oppStr + u.gauss(0, 5), 20, 95);
+
+    M.players = [
+      {
+        id: (me && me.id) || u.uid('me'), name: (me && me.name) || club.name,
+        num: 1, team: 0, role: 'att', side: 1,
+        home: { x: F.w / 2, y: F.h * 0.9 }, x: F.w / 2, y: F.h * 0.9, vx: 0, vy: 0,
+        ovr: ovrMe, speed: (2.2 + ovrMe / 26) * F.speed, ref: me || null
+      },
+      {
+        id: 'o0', name: oppName, num: 2, team: 1, role: 'att', side: -1,
+        home: { x: F.w / 2, y: F.h * 0.1 }, x: F.w / 2, y: F.h * 0.1, vx: 0, vy: 0,
+        ovr: ovrOpp, speed: (2.2 + ovrOpp / 26) * F.speed, ref: null
+      }
+    ];
+    M.ball = { x: F.w / 2, y: F.h / 2, vx: 0, vy: 0, owner: null };
+    M.rally = null;
   }
 
   /** Place les deux équipes sur le terrain selon leurs postes. */
@@ -207,27 +256,99 @@ G.action = (function () {
       M.clock += minutesPerSecond * dt;
     }
 
-    /* Mi-temps. */
+    /* Mi-temps (pause entre les manches pour les sports de raquette). */
     if (!M.halfDone && M.clock >= F.clock / 2) {
       M.halfDone = true;
       push(M, 'Mi-temps — ' + M.score.you + ' - ' + M.score.opp, 'info');
-      kickoff(M, -1);
+      if (F.racket) startRally(M, u.chance(0.5) ? 0 : 1); else kickoff(M, -1);
     }
     if (M.clock >= F.clock) { finish(M); return; }
 
+    /* Consignes du banc : les mêmes causeries qu'en mode texte, qui restent
+       possibles à la mi-temps ou lors d'un temps mort même si le joueur ne
+       fait plus que regarder. */
+    if (M.coach) {
+      var decay = Math.pow(0.9, dt);
+      M.coach.att *= decay; M.coach.def *= decay;
+    }
+    maybeCoach(M, dt);
+
     pickUserPlayer(M);
     for (var i = 0; i < M.players.length; i++) updatePlayer(M, M.players[i], dt);
-    updateBall(M, dt);
+    if (F.racket) updateRally(M, dt); else updateBall(M, dt);
+    separatePlayers(M);
     updateCamera(M, dt);
 
-    /* Statistiques de possession. */
-    M.stats.possTot += dt;
-    if (M.ball.owner && M.ball.owner.team === 0) M.stats.possYou += dt;
-    M.stats.poss = Math.round(M.stats.possYou / Math.max(0.1, M.stats.possTot) * 100);
+    /* Statistiques de possession (part des points gagnés, pour les sports de
+       raquette qui n'ont pas de porteur de balle disputé au contact). */
+    if (F.racket) {
+      var tot = M.score.you + M.score.opp;
+      M.stats.poss = tot ? Math.round(M.score.you / tot * 100) : 50;
+    } else {
+      M.stats.possTot += dt;
+      if (M.ball.owner && M.ball.owner.team === 0) M.stats.possYou += dt;
+      M.stats.poss = Math.round(M.stats.possYou / Math.max(0.1, M.stats.possTot) * 100);
+    }
+  }
+
+  /** Choisit un commentaire dans une banque de M.club, sans le répéter avant
+   * qu'elle soit épuisée (voir G.match.pickComment). */
+  function coachSay(M, bank, pool) {
+    var text = G.match.pickComment(M.club, bank, pool).replace(/\{u\}/g, G.match.unitWord(M.sport, false));
+    push(M, '🗣️ ' + text, 'info');
+  }
+
+  function applyCoachEffect(M, e) {
+    M.coach.att = u.clamp(M.coach.att + e.att, -12, 12);
+    M.coach.def = u.clamp(M.coach.def + e.def, -12, 12);
+  }
+
+  /** Reprend les mêmes prises de parole du banc qu'en mode texte (en tout
+   * début de match, à la mi-temps, dans le dernier quart d'heure, ou lors
+   * d'un temps mort / incident propre au sport) : le joueur ne fait que
+   * regarder, mais l'entraîneur continue de parler et d'influer un peu sur
+   * le rythme de son équipe. */
+  function maybeCoach(M, dt) {
+    var frac = M.clock / M.F.clock;
+    var diff = M.score.you - M.score.opp;
+    var sit = G.match.situationBank(diff);
+
+    if (!M.commentsDone.early && frac >= 0.22) {
+      M.commentsDone.early = true;
+      var poolsE = { ahead: G.match.pools.EARLY_AHEAD, behind: G.match.pools.EARLY_BEHIND, level: G.match.pools.EARLY_LEVEL };
+      coachSay(M, 'early:' + sit, poolsE[sit]);
+      applyCoachEffect(M, sit === 'ahead' ? { def: 2, att: -0.8 } :
+        sit === 'behind' ? { att: 2, def: -0.8 } : { att: 0.6, def: 0.6 });
+    }
+    if (!M.commentsDone.half && M.halfDone) {
+      M.commentsDone.half = true;
+      var poolsH = { ahead: G.match.pools.HALF_WINNING, behind: G.match.pools.HALF_LOSING, level: G.match.pools.HALF_LEVEL };
+      coachSay(M, 'half:' + sit, poolsH[sit]);
+      applyCoachEffect(M, sit === 'ahead' ? { def: 3.5, att: -2 } :
+        sit === 'behind' ? { att: 3.5, def: -2.5 } : { att: 1, def: 1 });
+    }
+    if (!M.commentsDone.late && frac >= 0.78) {
+      M.commentsDone.late = true;
+      var poolsL = { ahead: G.match.pools.LATE_AHEAD, behind: G.match.pools.LATE_BEHIND, level: G.match.pools.LATE_LEVEL };
+      coachSay(M, 'late:' + sit, poolsL[sit]);
+      applyCoachEffect(M, sit === 'ahead' ? { def: 3, att: -2 } :
+        sit === 'behind' ? { att: 4.5, def: -3.5 } : { att: 0.8, def: 0.8 });
+    }
+
+    /* Temps mort / incident propre au sport (pénalité, exclusion, temps mort
+       basket…) : purement oral ici, l'action à l'écran fait déjà foi pour le
+       score. */
+    M.sinceIncident += dt;
+    if (M.sinceIncident > 15 && frac > 0.08 && frac < 0.92 && u.chance(dt * 0.015)) {
+      M.sinceIncident = 0;
+      var bank = G.match.pools.INCIDENT_BANKS[M.sport.id];
+      if (bank) coachSay(M, 'incident:' + M.sport.id, bank.map(function (e) { return e.text; }));
+    }
   }
 
   /** Le joueur contrôle le porteur, ou le plus proche du ballon. */
   function pickUserPlayer(M) {
+    if (M.F.racket) { M.user = M.players[0]; return; }
     var b = M.ball;
     if (b.owner && b.owner.team === 0) {
       M.user = b.owner;
@@ -246,6 +367,13 @@ G.action = (function () {
     var F = M.F, b = M.ball;
     var speed = p.speed;
 
+    /* Effet des consignes du banc (voir maybeCoach) : un léger coup de
+       fouet offensif ou défensif côté club du joueur, comme en mode texte. */
+    if (p.team === 0 && M.coach) {
+      if (p.role === 'att' || p.role === 'mid') speed *= u.clamp(1 + M.coach.att * 0.02, 0.6, 1.5);
+      if (p.role === 'def' || p.role === 'mid') speed *= u.clamp(1 + M.coach.def * 0.02, 0.6, 1.5);
+    }
+
     /* Simple spectateur : les deux équipes sont pilotées par l'IA, y compris
        le joueur le plus proche du ballon côté club du joueur. */
     var t = aiTarget(M, p);
@@ -259,6 +387,10 @@ G.action = (function () {
     p.vy = u.lerp(p.vy, ay * speed, Math.min(1, dt * 7));
     p.x = u.clamp(p.x + p.vx * dt, 0.4, F.w - 0.4);
     p.y = u.clamp(p.y + p.vy * dt, 0.4, F.h - 0.4);
+
+    /* Les sports de raquette n'ont pas de ballon disputé au contact : chaque
+       échange se résout dans updateRally, pas ici. */
+    if (F.racket) return;
 
     /* Duel : récupérer le ballon à l'adversaire. */
     /* Les distances de contact suivent la taille du terrain : sur un bassin
@@ -287,10 +419,54 @@ G.action = (function () {
     }
   }
 
+  /** Écarte les joueurs qui se retrouvent au même endroit (typiquement deux
+   * poursuivants d'un ballon libre convergeant vers le même point) : sans
+   * ça, leurs pastilles se superposent parfaitement et on ne distingue plus
+   * qui est qui. Le porteur du ballon garde sa trajectoire ; c'est l'autre
+   * qui s'écarte. */
+  function separatePlayers(M) {
+    var minSep = 1.0;
+    var list = M.players, F = M.F;
+    var owner = M.ball.owner;
+    for (var i = 0; i < list.length; i++) {
+      for (var j = i + 1; j < list.length; j++) {
+        var a = list[i], b = list[j];
+        var dx = b.x - a.x, dy = b.y - a.y;
+        var d = Math.hypot(dx, dy);
+        if (d >= minSep) continue;
+        var nx, ny;
+        if (d > 1e-4) { nx = dx / d; ny = dy / d; } else {
+          var ang = (i * 2.4 + j * 5.1) % (Math.PI * 2);
+          nx = Math.cos(ang); ny = Math.sin(ang);
+        }
+        var push = (minSep - d);
+        if (a === owner) { b.x += nx * push; b.y += ny * push; }
+        else if (b === owner) { a.x -= nx * push; a.y -= ny * push; }
+        else {
+          a.x -= nx * push / 2; a.y -= ny * push / 2;
+          b.x += nx * push / 2; b.y += ny * push / 2;
+        }
+        a.x = u.clamp(a.x, 0.4, F.w - 0.4); a.y = u.clamp(a.y, 0.4, F.h - 0.4);
+        b.x = u.clamp(b.x, 0.4, F.w - 0.4); b.y = u.clamp(b.y, 0.4, F.h - 0.4);
+      }
+    }
+  }
+
   /** Objectif de déplacement d'un joueur géré par l'ordinateur. */
   function aiTarget(M, p) {
     var b = M.ball;
     var F = M.F;
+
+    if (F.racket) {
+      /* On se replace au centre entre deux échanges, et on couvre le point
+         de chute quand c'est à nous de renvoyer. */
+      var r = M.rally;
+      if (r && r.receiver === p) {
+        return { x: u.clamp(r.toX, 0.5, F.w - 0.5), y: p.home.y };
+      }
+      return { x: p.home.x, y: p.home.y };
+    }
+
     var attacking = b.owner && b.owner.team === p.team;
     var goal = goalOf(M, p.team);
     var own = ownGoal(M, p.team);
@@ -525,6 +701,89 @@ G.action = (function () {
     kickoff(M, team === 0 ? -1 : 1);
   }
 
+  /* ============================================== SPORTS DE RAQUETTE ===== */
+
+  /** Lance un nouvel échange : `hitterTeam` sert (ou relance après la pause). */
+  function startRally(M, hitterTeam) {
+    var hitter = M.players[hitterTeam === 0 ? 0 : 1];
+    var receiver = M.players[hitterTeam === 0 ? 1 : 0];
+    M.ball.x = M.F.w / 2; M.ball.y = M.F.h / 2;
+    aimShot(M, hitter, receiver, true);
+    M.restart = 0.5;
+  }
+
+  /** Le frappeur envoie la balle vers le camp du relanceur ; le point visé
+   * est d'autant plus excentré que le frappeur est fort. */
+  function aimShot(M, hitter, receiver, isServe) {
+    var F = M.F;
+    var acc = u.clamp((hitter.ovr - 35) / 65, 0.08, 0.95);
+    var spread = (1 - acc) * F.w * 0.18 + F.w * 0.06;
+    var tx = u.clamp(F.w / 2 + u.gauss(0, spread), F.w * 0.08, F.w * 0.92);
+    M.rally = {
+      hitter: hitter, receiver: receiver,
+      fromX: M.ball.x, fromY: M.ball.y,
+      toX: tx, toY: receiver.home.y,
+      t: 0, dur: Math.max(0.4, F.h / F.ballSpeed)
+    };
+    if (!isServe) {
+      push(M, (hitter.team === 0 ? hitter.name : M.oppName) + ' renvoie', 'info');
+    }
+  }
+
+  /** Fait voler la balle d'un camp à l'autre pendant un échange. */
+  function updateRally(M, dt) {
+    if (!M.rally) { startRally(M, u.chance(0.5) ? 0 : 1); return; }
+    if (M.restart > 0) return;
+    var r = M.rally;
+    r.t += dt;
+    var frac = u.clamp(r.t / r.dur, 0, 1);
+    M.ball.x = u.lerp(r.fromX, r.toX, frac);
+    M.ball.y = u.lerp(r.fromY, r.toY, frac);
+    if (frac >= 1) resolveRallyShot(M);
+  }
+
+  /** À l'arrivée de la balle : le relanceur réussit ou manque son renvoi,
+   * selon l'écart de niveau et la difficulté du point visé. */
+  function resolveRallyShot(M) {
+    var r = M.rally, F = M.F;
+    var hitter = r.hitter, receiver = r.receiver;
+    var placementDiff = Math.abs(r.toX - receiver.home.x) / (F.w * 0.5);
+    var skillGap = (hitter.ovr - receiver.ovr) / 100;
+    var failChance = u.clamp(0.14 + placementDiff * 0.30 + skillGap * 0.35, 0.04, 0.85);
+    if (u.chance(failChance)) {
+      scoreRally(M, hitter.team, hitter);
+    } else {
+      aimShot(M, receiver, hitter, false);
+    }
+  }
+
+  var RACKET_MISS = ['ne parvient pas à revenir sur le point', 'sort la balle',
+    'touche le filet', 'ne trouve pas la balle à temps'];
+
+  function scoreRally(M, team, winner) {
+    var sport = M.sport;
+    var verb = (G.match.pools.SCORE_VERBS[sport.id] && u.pick(G.match.pools.SCORE_VERBS[sport.id])) || 'marque le point';
+    if (team === 0) {
+      M.score.you += 1;
+      M.stats.youShots++;
+      push(M, '🟢 ' + winner.name + ' ' + verb + ' — ' + M.score.you + '-' + M.score.opp, 'good');
+      if (winner.ref) {
+        winner.ref.seasonScored = (winner.ref.seasonScored || 0) + 1;
+        winner.ref.scored = (winner.ref.scored || 0) + 1;
+      }
+    } else {
+      M.score.opp += 1;
+      M.stats.oppShots++;
+      push(M, '🔴 ' + M.oppName + ' ' + verb + ' — ' + M.score.you + '-' + M.score.opp, 'bad');
+    }
+    if (u.chance(0.35)) {
+      var loser = team === 0 ? M.players[1] : M.players[0];
+      push(M, loser.name + ' ' + u.pick(RACKET_MISS), 'info');
+    }
+    M.rally = null;
+    startRally(M, team);
+  }
+
   /* ============================================================== FIN ===== */
 
   function finish(M) {
@@ -611,30 +870,34 @@ G.action = (function () {
     ctx.lineWidth = Math.max(1.5, scale * 0.12);
     ctx.strokeRect(sx(0), sy(F.h), F.w * scale, F.h * scale);
 
-    ctx.beginPath();
-    ctx.moveTo(sx(0), sy(F.h / 2));
-    ctx.lineTo(sx(F.w), sy(F.h / 2));
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(sx(F.w / 2), sy(F.h / 2), F.w * 0.13 * scale, 0, Math.PI * 2);
-    ctx.stroke();
-
-    /* Surfaces et buts. */
-    var boxW = F.w * 0.55, boxH = F.h * 0.15;
-    [0, 1].forEach(function (side) {
-      var y = side ? F.h - boxH : 0;
-      ctx.strokeRect(sx(F.w / 2 - boxW / 2), sy(y + boxH), boxW * scale, boxH * scale);
-    });
-
-    ctx.lineWidth = Math.max(2, scale * 0.22);
-    ctx.strokeStyle = '#ffffff';
-    [0, F.h].forEach(function (gy) {
+    if (F.racket) {
+      drawRacketCourt(F, ctx, sx, sy, scale);
+    } else {
       ctx.beginPath();
-      ctx.moveTo(sx(F.w / 2 - F.goalW / 2), sy(gy));
-      ctx.lineTo(sx(F.w / 2 + F.goalW / 2), sy(gy));
+      ctx.moveTo(sx(0), sy(F.h / 2));
+      ctx.lineTo(sx(F.w), sy(F.h / 2));
       ctx.stroke();
-    });
+
+      ctx.beginPath();
+      ctx.arc(sx(F.w / 2), sy(F.h / 2), F.w * 0.13 * scale, 0, Math.PI * 2);
+      ctx.stroke();
+
+      /* Surfaces et buts. */
+      var boxW = F.w * 0.55, boxH = F.h * 0.15;
+      [0, 1].forEach(function (side) {
+        var y = side ? F.h - boxH : 0;
+        ctx.strokeRect(sx(F.w / 2 - boxW / 2), sy(y + boxH), boxW * scale, boxH * scale);
+      });
+
+      ctx.lineWidth = Math.max(2, scale * 0.22);
+      ctx.strokeStyle = '#ffffff';
+      [0, F.h].forEach(function (gy) {
+        ctx.beginPath();
+        ctx.moveTo(sx(F.w / 2 - F.goalW / 2), sy(gy));
+        ctx.lineTo(sx(F.w / 2 + F.goalW / 2), sy(gy));
+        ctx.stroke();
+      });
+    }
 
     /* --- joueurs --- */
     /* Les petits terrains ne doivent pas produire des joueurs géants. */
@@ -709,18 +972,68 @@ G.action = (function () {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    /* --- flèche vers le but adverse --- */
-    var goal = goalOf(M, 0);
-    var gy = sy(goal.y);
-    if (gy < 0) {
-      ctx.fillStyle = 'rgba(255,209,102,.85)';
-      ctx.beginPath();
-      ctx.moveTo(cw / 2, 8);
-      ctx.lineTo(cw / 2 - 9, 22);
-      ctx.lineTo(cw / 2 + 9, 22);
-      ctx.closePath();
-      ctx.fill();
+    /* --- flèche vers le but adverse (sans objet pour les sports de raquette,
+       qui n'ont pas de but) --- */
+    if (!F.racket) {
+      var goal = goalOf(M, 0);
+      var gy = sy(goal.y);
+      if (gy < 0) {
+        ctx.fillStyle = 'rgba(255,209,102,.85)';
+        ctx.beginPath();
+        ctx.moveTo(cw / 2, 8);
+        ctx.lineTo(cw / 2 - 9, 22);
+        ctx.lineTo(cw / 2 + 9, 22);
+        ctx.closePath();
+        ctx.fill();
+      }
     }
+  }
+
+  /** Marquage propre aux sports de raquette : filet à mi-terrain (ou mur
+   * frontal surligné pour le squash, qui n'a pas de filet), lignes de
+   * service. */
+  function drawRacketCourt(F, ctx, sx, sy, scale) {
+    if (F.net) {
+      ctx.save();
+      ctx.strokeStyle = '#0b0b0b';
+      ctx.lineWidth = Math.max(2.5, scale * 0.28);
+      ctx.beginPath();
+      ctx.moveTo(sx(0), sy(F.h / 2));
+      ctx.lineTo(sx(F.w), sy(F.h / 2));
+      ctx.stroke();
+      ctx.strokeStyle = '#e8eef7';
+      ctx.lineWidth = Math.max(1, scale * 0.06);
+      ctx.beginPath();
+      ctx.moveTo(sx(0), sy(F.h / 2));
+      ctx.lineTo(sx(F.w), sy(F.h / 2));
+      ctx.stroke();
+      ctx.restore();
+    } else {
+      /* Squash : pas de filet, mais un mur frontal (en haut) qu'on surligne,
+         et la ligne du « T » de service au centre. */
+      ctx.fillStyle = 'rgba(255,233,168,.18)';
+      ctx.fillRect(sx(0), sy(F.h), F.w * scale, F.h * 0.06 * scale);
+      ctx.strokeStyle = F.line;
+      ctx.lineWidth = Math.max(1, scale * 0.06);
+      ctx.beginPath();
+      ctx.moveTo(sx(F.w / 2), sy(F.h * 0.55));
+      ctx.lineTo(sx(F.w / 2), sy(0));
+      ctx.stroke();
+    }
+
+    /* Lignes de service, communes à tous ces terrains. */
+    ctx.strokeStyle = F.line;
+    ctx.lineWidth = Math.max(1, scale * 0.06);
+    [0.22, 0.78].forEach(function (frac) {
+      ctx.beginPath();
+      ctx.moveTo(sx(F.w * 0.1), sy(F.h * frac));
+      ctx.lineTo(sx(F.w * 0.9), sy(F.h * frac));
+      ctx.stroke();
+    });
+    ctx.beginPath();
+    ctx.moveTo(sx(F.w / 2), sy(F.h * 0.22));
+    ctx.lineTo(sx(F.w / 2), sy(F.h * 0.78));
+    ctx.stroke();
   }
 
   /** Donner un carton à un joueur. */
