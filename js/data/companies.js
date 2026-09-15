@@ -93,6 +93,30 @@ G.DATA.companyTypes = [
       ]
     }
   },
+  { id: 'aerienflotte', name: 'Aviation régionale', icon: '🛩️', sector: 'transport',
+    cost: 700000,
+    desc: 'Court-courriers et long-courriers achetés un par un, avec un tarmac à agrandir.',
+    fleet: {
+      baseCapacity: 4,
+      capSteps: [{ n: 4, cost: 2.5e6 }, { n: 8, cost: 7.0e6 }, { n: 16, cost: 1.8e7 }],
+      categories: [
+        { id: 'courtcourrier', name: 'Court-courrier', icon: '🛬', baseCost: 1.2e6, rev: 46000, costMult: 1.15 },
+        { id: 'longcourrier', name: 'Long-courrier', icon: '🛫', baseCost: 8.0e6, rev: 260000, costMult: 1.17 }
+      ]
+    }
+  },
+  { id: 'metro', name: 'Réseau de métro', icon: '🚇', sector: 'transport',
+    cost: 1600000,
+    desc: 'Concession d\'exploitation d\'un métro urbain : rames achetées une par une.',
+    fleet: {
+      baseCapacity: 6,
+      capSteps: [{ n: 6, cost: 6.0e6 }, { n: 12, cost: 1.6e7 }, { n: 24, cost: 4.0e7 }],
+      categories: [
+        { id: 'rame', name: 'Rame standard', icon: '🚈', baseCost: 3.0e6, rev: 110000, costMult: 1.14 },
+        { id: 'ramegc', name: 'Rame grande capacité', icon: '🚟', baseCost: 9.0e6, rev: 320000, costMult: 1.16 }
+      ]
+    }
+  },
 
   /* ------------------------------------------------------- services ---- */
   { id: 'salle', name: 'Salle de sport', icon: '🏋️', sector: 'sport',
@@ -109,6 +133,24 @@ G.DATA.companyTypes = [
     desc: 'Quatre étoiles, taux d\'occupation soigneusement optimisé.' },
 
   /* ---------------------------------------------- fusion d'entreprises -- */
+  { id: 'petitcommerce', name: 'Empire du Quartier', icon: '🏘️', sector: 'commerce',
+    cost: 45000, rev: 68000, maxLvl: 12, up: 0.34,
+    desc: 'Naît de la fusion d\'un kiosque, d\'un food truck et d\'un salon de coiffure.',
+    mergerOnly: true,
+    mergerRequires: [
+      { kind: 'companyLevel', type: 'kiosque', lvl: 8, label: 'Kiosque à journaux niveau 8' },
+      { kind: 'companyLevel', type: 'foodtruck', lvl: 8, label: 'Food truck niveau 8' },
+      { kind: 'companyLevel', type: 'coiffeur', lvl: 6, label: 'Salon de coiffure niveau 6' }
+    ] },
+  { id: 'empiredistrib', name: 'Empire de la Grande Distribution', icon: '🏬', sector: 'commerce',
+    cost: 1.6e6, rev: 2.6e6, maxLvl: 18, up: 0.33,
+    desc: 'Naît de la fusion d\'une supérette, d\'une laverie et d\'une flotte de taxis pour la livraison.',
+    mergerOnly: true,
+    mergerRequires: [
+      { kind: 'companyLevel', type: 'superette', lvl: 12, label: 'Supérette de quartier niveau 12' },
+      { kind: 'companyLevel', type: 'laverie', lvl: 10, label: 'Laverie automatique niveau 10' },
+      { kind: 'fleetVehicles', fleet: 'taxis', category: 'standard', n: 6, label: '6 berlines standard' }
+    ] },
   { id: 'conglotextile', name: 'Empire du Textile', icon: '👕', sector: 'commerce',
     cost: 3.5e6, rev: 5.8e6, maxLvl: 20, up: 0.32,
     desc: 'Naît de la fusion d\'une boutique de mode, d\'une supérette et d\'une flotte de transport.',
@@ -118,6 +160,24 @@ G.DATA.companyTypes = [
       { kind: 'companyLevel', type: 'superette', lvl: 8, label: 'Supérette de quartier niveau 8' },
       { kind: 'fleetVehicles', fleet: 'routier', category: 'ville', n: 4, label: '4 fourgons urbains' },
       { kind: 'fleetVehicles', fleet: 'routier', category: 'longue', n: 2, label: '2 poids lourds' }
+    ] },
+  { id: 'grouperesto', name: 'Groupe Hôtelier & Restauration', icon: '🍾', sector: 'resto',
+    cost: 1.5e8, rev: 2.2e8, maxLvl: 25, up: 0.31,
+    desc: 'Naît de la fusion d\'un restaurant gastronomique, d\'une brasserie artisanale et d\'une chaîne hôtelière.',
+    mergerOnly: true,
+    mergerRequires: [
+      { kind: 'companyLevel', type: 'resto', lvl: 15, label: 'Restaurant gastronomique niveau 15' },
+      { kind: 'companyLevel', type: 'brasserie', lvl: 12, label: 'Brasserie artisanale niveau 12' },
+      { kind: 'companyLevel', type: 'hotel', lvl: 12, label: 'Chaîne hôtelière niveau 12' }
+    ] },
+  { id: 'groupemobilite', name: 'Groupe de Mobilité Urbaine', icon: '🚉', sector: 'transport',
+    cost: 2.2e7, rev: 3.2e7, maxLvl: 22, up: 0.32,
+    desc: 'Naît de la fusion d\'une flotte de taxis premium, d\'un réseau de métro et de fourgons urbains.',
+    mergerOnly: true,
+    mergerRequires: [
+      { kind: 'fleetVehicles', fleet: 'taxis', category: 'premium', n: 5, label: '5 berlines premium (VTC)' },
+      { kind: 'fleetVehicles', fleet: 'metro', category: 'rame', n: 4, label: '4 rames de métro' },
+      { kind: 'fleetVehicles', fleet: 'routier', category: 'ville', n: 6, label: '6 fourgons urbains' }
     ] },
 
   /* ------------------------------------------------------------ tech --- */
@@ -133,6 +193,24 @@ G.DATA.companyTypes = [
   { id: 'labo', name: 'Laboratoire pharmaceutique', icon: '🧪', sector: 'sante',
     cost: 6.0e8, rev: 8.2e8, maxLvl: 32, up: 0.30,
     desc: 'Un brevet bien placé vaut mieux qu\'une usine.' },
+  { id: 'empiremedia', name: 'Empire des Médias', icon: '🎬', sector: 'media',
+    cost: 5.5e8, rev: 7.8e8, maxLvl: 30, up: 0.30,
+    desc: 'Naît de la fusion d\'une chaîne de télévision, d\'un éditeur de logiciels et d\'un studio de jeux vidéo.',
+    mergerOnly: true,
+    mergerRequires: [
+      { kind: 'companyLevel', type: 'tv', lvl: 20, label: 'Chaîne de télévision niveau 20' },
+      { kind: 'companyLevel', type: 'saas', lvl: 18, label: 'Éditeur de logiciels niveau 18' },
+      { kind: 'companyLevel', type: 'studio', lvl: 18, label: 'Studio de jeux vidéo niveau 18' }
+    ] },
+  { id: 'groupesante', name: 'Groupe Santé International', icon: '🩺', sector: 'sante',
+    cost: 1.1e9, rev: 1.5e9, maxLvl: 32, up: 0.30,
+    desc: 'Naît de la fusion d\'une clinique privée, d\'un laboratoire pharmaceutique et d\'une salle de sport.',
+    mergerOnly: true,
+    mergerRequires: [
+      { kind: 'companyLevel', type: 'clinique', lvl: 20, label: 'Clinique privée niveau 20' },
+      { kind: 'companyLevel', type: 'labo', lvl: 18, label: 'Laboratoire pharmaceutique niveau 18' },
+      { kind: 'companyLevel', type: 'salle', lvl: 15, label: 'Salle de sport niveau 15' }
+    ] },
 
   /* -------------------------------------------------------- industrie -- */
   { id: 'usine', name: 'Usine robotisée', icon: '🏭', sector: 'indus',
@@ -147,17 +225,53 @@ G.DATA.companyTypes = [
   { id: 'auto', name: 'Constructeur automobile', icon: '🚗', sector: 'indus',
     cost: 2.0e10, rev: 2.5e10, maxLvl: 40, up: 0.29,
     desc: 'Chaînes de montage sur trois continents.' },
+  { id: 'groupeaeroport', name: 'Groupe Aéroportuaire', icon: '🛫', sector: 'transport',
+    cost: 1.0e10, rev: 1.35e10, maxLvl: 38, up: 0.29,
+    desc: 'Naît de la fusion d\'une aviation régionale, d\'une compagnie aérienne et d\'une chaîne hôtelière.',
+    mergerOnly: true,
+    mergerRequires: [
+      { kind: 'fleetVehicles', fleet: 'aerienflotte', category: 'longcourrier', n: 4, label: '4 long-courriers' },
+      { kind: 'companyLevel', type: 'aerien', lvl: 20, label: 'Compagnie aérienne niveau 20' },
+      { kind: 'companyLevel', type: 'hotel', lvl: 15, label: 'Chaîne hôtelière niveau 15' }
+    ] },
+  { id: 'conglauto', name: 'Conglomérat Automobile & Industriel', icon: '🔩', sector: 'indus',
+    cost: 4.2e10, rev: 5.3e10, maxLvl: 40, up: 0.29,
+    desc: 'Naît de la fusion d\'un constructeur automobile, d\'une usine robotisée et de poids lourds.',
+    mergerOnly: true,
+    mergerRequires: [
+      { kind: 'companyLevel', type: 'auto', lvl: 25, label: 'Constructeur automobile niveau 25' },
+      { kind: 'companyLevel', type: 'usine', lvl: 22, label: 'Usine robotisée niveau 22' },
+      { kind: 'fleetVehicles', fleet: 'routier', category: 'longue', n: 8, label: '8 poids lourds' }
+    ] },
 
   /* ------------------------------------------------------------ géant -- */
   { id: 'banque', name: 'Banque d\'affaires', icon: '🏦', sector: 'finance',
     cost: 5.5e10, rev: 6.6e10, maxLvl: 45, up: 0.28,
     desc: 'Les frais de dossier financent la moitié du bilan.' },
+  { id: 'groupefinance', name: 'Groupe Financier International', icon: '💼', sector: 'finance',
+    cost: 9.0e10, rev: 1.15e11, maxLvl: 45, up: 0.28,
+    desc: 'Naît de la fusion d\'une banque d\'affaires, d\'un cabinet d\'avocats et d\'une agence immobilière.',
+    mergerOnly: true,
+    mergerRequires: [
+      { kind: 'companyLevel', type: 'banque', lvl: 30, label: 'Banque d\'affaires niveau 30' },
+      { kind: 'companyLevel', type: 'avocats', lvl: 22, label: 'Cabinet d\'avocats niveau 22' },
+      { kind: 'companyLevel', type: 'agence', lvl: 18, label: 'Agence immobilière niveau 18' }
+    ] },
   { id: 'petrole', name: 'Groupe pétrolier', icon: '🛢️', sector: 'energie',
     cost: 1.5e11, rev: 1.75e11, maxLvl: 50, up: 0.28,
     desc: 'Plateformes offshore et raffineries.' },
   { id: 'energie', name: 'Parc énergétique', icon: '⚡', sector: 'energie',
     cost: 4.0e11, rev: 4.6e11, maxLvl: 55, up: 0.27,
     desc: 'Éolien, solaire et un petit nucléaire pour la base.' },
+  { id: 'conglonrj', name: 'Conglomérat Énergétique', icon: '🔥', sector: 'energie',
+    cost: 6.5e11, rev: 7.8e11, maxLvl: 50, up: 0.27,
+    desc: 'Naît de la fusion d\'un groupe pétrolier, d\'un parc énergétique et d\'une usine robotisée.',
+    mergerOnly: true,
+    mergerRequires: [
+      { kind: 'companyLevel', type: 'petrole', lvl: 30, label: 'Groupe pétrolier niveau 30' },
+      { kind: 'companyLevel', type: 'energie', lvl: 22, label: 'Parc énergétique niveau 22' },
+      { kind: 'companyLevel', type: 'usine', lvl: 25, label: 'Usine robotisée niveau 25' }
+    ] },
   { id: 'geanttech', name: 'Géant de la technologie', icon: '🌐', sector: 'tech',
     cost: 1.1e12, rev: 1.25e12, maxLvl: 60, up: 0.27,
     desc: 'Cloud, publicité, appareils : tout à la fois.' },
@@ -166,7 +280,16 @@ G.DATA.companyTypes = [
     desc: 'Lanceurs réutilisables et constellations privées.' },
   { id: 'conglo', name: 'Conglomérat mondial', icon: '🏛️', sector: 'finance',
     cost: 8.0e12, rev: 8.6e12, maxLvl: 62, up: 0.26,
-    desc: 'Plus une holding qu\'une entreprise : elle possède les autres.' },
+    desc: 'Plus une holding qu\'une entreprise : elle possède les autres. Naît de la fusion ' +
+      'de plusieurs grands conglomérats.',
+    mergerOnly: true,
+    mergerRequires: [
+      { kind: 'companyLevel', type: 'conglotextile', lvl: 1, label: 'Posséder l\'Empire du Textile' },
+      { kind: 'companyLevel', type: 'groupefinance', lvl: 1, label: 'Posséder le Groupe Financier International' },
+      { kind: 'companyLevel', type: 'conglonrj', lvl: 1, label: 'Posséder le Conglomérat Énergétique' },
+      { kind: 'companyLevel', type: 'grouperospatial', lvl: 1, label: 'Posséder le Groupe Aérospatial' },
+      { kind: 'companyLevel', type: 'spatial', lvl: 1, label: 'Posséder un Groupe spatial' }
+    ] },
   { id: 'grouperospatial', name: 'Groupe Aérospatial', icon: '🛰️', sector: 'tech',
     cost: 2.5e12, rev: 3.6e12, maxLvl: 45, up: 0.27,
     desc: 'Naît de la fusion d\'une usine robotisée, d\'un géant de la tech et ' +
