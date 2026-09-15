@@ -76,7 +76,7 @@ window.G = window.G || {};
       var dprice = G.manager.clubPrice(shop.sport, shop.country, dv);
       var dcan = G.state.money >= dprice;
       h += '<div class="item"><div class="item-icon" style="font-size:14px;font-weight:800">' +
-        G.manager.divisionShort(dv) + '</div>' +
+        G.manager.divisionShort(sport, dv) + '</div>' +
         '<div class="item-main"><div class="t">' + G.manager.divisionName(sport, dv) + '</div>' +
         '<div class="s">Niveau moyen ' + Math.round(G.manager.divisionLevel(dv)) + '</div></div>' +
         '<div class="item-side"><button class="btn sm ' + (dcan ? 'primary' : '') +
@@ -217,7 +217,7 @@ window.G = window.G || {};
       h += '<button class="sub' + (active === c.uid ? ' active' : '') +
         '" data-act="mg.select" data-uid="' + c.uid + '">' + sp.icon +
         (nation ? ' ' + nation.f : '') + ' ' + u.esc(c.name) +
-        ' <span class="divtag">' + G.manager.divisionShort(c.division) + '</span></button>';
+        ' <span class="divtag">' + G.manager.divisionShort(sp, c.division) + '</span></button>';
     }
     h += '<button class="sub" data-act="mg.shop">➕ Nouveau club</button></div>';
     return h;
@@ -272,7 +272,7 @@ window.G = window.G || {};
       h += '<div class="divbar">';
       for (var d = G.manager.MAX_DIVISION; d >= G.manager.MIN_DIVISION; d--) {
         h += '<div class="divstep' + (club.division === d ? ' on' : '') +
-          (club.division < d ? ' done' : '') + '">' + G.manager.divisionShort(d) + '</div>';
+          (club.division < d ? ' done' : '') + '">' + G.manager.divisionShort(sp, d) + '</div>';
       }
       h += '</div>';
     } else {
@@ -779,6 +779,7 @@ window.G = window.G || {};
   /* ========================================================= PALMARÈS ==== */
 
   function renderPalmares(club) {
+    var clubSport = G.DATA.sportById[club.sport];
     var h = '<div class="card"><div class="card-head">🏆 Trophées</div>';
     var t = G.state.manager.trophies;
     if (!t.length) h += '<div class="mute2">Aucun titre pour l\'instant. Ça viendra.</div>';
@@ -802,7 +803,7 @@ window.G = window.G || {};
         var hh = club.history[j];
         h += '<tr><td>' + hh.season + (hh.promoted ? ' ⬆️' : hh.relegated ? ' ⬇️' : '') +
           '</td><td class="num">' +
-          (hh.division === undefined ? '?' : G.manager.divisionShort(hh.division)) + '</td>' +
+          (hh.division === undefined ? '?' : G.manager.divisionShort(clubSport, hh.division)) + '</td>' +
           '<td class="num">' + hh.rank + 'e</td><td class="num">' + hh.pts + '</td>' +
           '<td class="num ' + ui.signCls(hh.in - hh.out) + '">' +
           u.fmtSigned(hh.in - hh.out) + '</td></tr>';

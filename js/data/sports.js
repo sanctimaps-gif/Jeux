@@ -393,6 +393,192 @@ G.DATA.sports = [
     leagueSize: 10,
     countries: ['FRA', 'BEL', 'ITA', 'ESP', 'NLD', 'GBR', 'SVN', 'DNK', 'COL',
       'AUS', 'DEU', 'POL', 'NOR', 'CHE', 'USA', 'KAZ']
+  },
+
+  /* ------------------------------------------------------------ TENNIS --- */
+  {
+    id: 'tennis', name: 'Tennis', icon: '🎾', type: 'team',
+    unit: 'manche', unitPlural: 'manches',
+    squadSize: 8, lineupSize: 4,
+    duration: 120, segments: 18, periods: 3,
+    avgEvents: 5, spread: 1.2,
+    scoreEvents: [{ label: 'Manche remportée', pts: 1, w: 1 }],
+    attW: { att: 0.50, mid: 0.34, def: 0.16 },
+    defW: { def: 0.46, mid: 0.34, att: 0.20 },
+    positions: [
+      { code: 'S1', name: 'Simple n°1', role: 'att', need: 1, w: { tec: .36, men: .28, phy: .20, att: .12, def: .04 } },
+      { code: 'S2', name: 'Simple n°2', role: 'att', need: 1, w: { tec: .34, men: .26, phy: .22, att: .14, def: .04 } },
+      { code: 'D1', name: 'Double n°1', role: 'mid', need: 1, w: { tec: .32, men: .24, phy: .20, att: .18, def: .06 } },
+      { code: 'D2', name: 'Double n°2', role: 'mid', need: 1, w: { tec: .32, men: .24, phy: .20, att: .18, def: .06 } }
+    ],
+    tactics: {
+      mentality: ['Ultra défensif', 'Prudent', 'Équilibré', 'Offensif', 'Tout ou rien'],
+      pressing: ['Fond de court', 'Polyvalent', 'Monte au filet'],
+      style: ['Jeu de patience', 'Jeu équilibré', 'Jeu d\'attaque']
+    },
+    economy: {
+      clubCost: 5.0e6, gateBase: 1.5e5, sponsorBase: 3.0e5,
+      prizeWin: 2.0e5, prizeDraw: 0, prizeLoss: 5.0e4,
+      wageBase: 40000, valueMul: 0.30, tvSeason: 6.0e6,
+      flagshipPrice: 3.0e8 /* plus grosse académie/écurie mondiale, échelle Grand Chelem */
+    },
+    leagueSize: 12,
+    countries: ['ESP', 'USA', 'SRB', 'ITA', 'FRA', 'GBR', 'DEU', 'AUS', 'RUS',
+      'ARG', 'CZE', 'JPN', 'CHE', 'CAN', 'GRC', 'POL', 'NOR', 'HRV', 'AUT',
+      'BEL', 'NLD', 'BRA', 'CHN', 'KOR', 'DNK', 'HUN', 'ROU', 'UKR', 'TUN',
+      'MAR', 'CHL', 'COL', 'URY', 'IND', 'ZAF', 'SWE', 'FIN', 'PRT', 'BIH', 'SVK'],
+    divisionNames: ['Grand Chelem', 'Masters 1000', 'ATP/WTA 500', 'ATP/WTA 250',
+      'Challenger 175', 'Challenger 125', 'Challenger 100', 'Challenger 75',
+      'ITF World Tour M25', 'ITF World Tour M15'],
+    divisionTags: ['GC', 'M1000', '500', '250', 'C175', 'C125', 'C100', 'C75', 'M25', 'M15'],
+    internationalLabel: 'Coupe Davis / Billie Jean King Cup'
+  },
+
+  /* --------------------------------------------------------- BADMINTON --- */
+  {
+    id: 'badminton', name: 'Badminton', icon: '🏸', type: 'team',
+    unit: 'manche', unitPlural: 'manches',
+    squadSize: 10, lineupSize: 5,
+    duration: 60, segments: 15, periods: 3,
+    avgEvents: 8, spread: 0.9,
+    scoreEvents: [{ label: 'Manche remportée', pts: 1, w: 1 }],
+    attW: { att: 0.48, mid: 0.34, def: 0.18 },
+    defW: { def: 0.44, mid: 0.34, att: 0.22 },
+    positions: [
+      { code: 'S1', name: 'Simple n°1', role: 'att', need: 1, w: { tec: .36, men: .26, phy: .22, att: .12, def: .04 } },
+      { code: 'S2', name: 'Simple n°2', role: 'att', need: 1, w: { tec: .34, men: .24, phy: .24, att: .14, def: .04 } },
+      { code: 'S3', name: 'Simple n°3', role: 'mid', need: 1, w: { tec: .32, men: .22, phy: .24, att: .16, def: .06 } },
+      { code: 'D1', name: 'Double n°1', role: 'mid', need: 1, w: { tec: .30, men: .22, phy: .24, att: .18, def: .06 } },
+      { code: 'D2', name: 'Double n°2', role: 'def', need: 1, w: { tec: .28, men: .20, phy: .26, att: .18, def: .08 } }
+    ],
+    tactics: {
+      mentality: ['Défensif', 'Prudent', 'Équilibré', 'Offensif', 'Rythme maximal'],
+      pressing: ['Repli fond de court', 'Polyvalent', 'Monte au filet'],
+      style: ['Jeu long', 'Jeu équilibré', 'Jeu de vitesse']
+    },
+    economy: {
+      clubCost: 1.5e6, gateBase: 5.0e4, sponsorBase: 8.0e4,
+      prizeWin: 6.0e4, prizeDraw: 0, prizeLoss: 1.5e4,
+      wageBase: 12000, valueMul: 0.10, tvSeason: 1.5e6,
+      flagshipPrice: 1.5e7 /* plus grand club/académie du BWF World Tour */
+    },
+    leagueSize: 10,
+    countries: ['CHN', 'IDN', 'JPN', 'DNK', 'KOR', 'MYS', 'IND', 'THA', 'ESP',
+      'FRA', 'GBR', 'DEU', 'SGP', 'NLD', 'CAN', 'USA', 'RUS', 'TUR', 'POL',
+      'CHE', 'AUT', 'BEL', 'SWE', 'FIN', 'NOR', 'BRA', 'MEX', 'EGY', 'NGA', 'ZAF'],
+    divisionNames: ['Super 1000', 'Super 750', 'Super 500', 'Super 300', 'Super 100',
+      'Challenge international', 'Série internationale', 'Future Series',
+      'Circuit national', 'Circuit régional'],
+    divisionTags: ['S1000', 'S750', 'S500', 'S300', 'S100', 'Chall.', 'Série', 'Future', 'National', 'Régional'],
+    internationalLabel: 'Coupe Thomas / Coupe Uber'
+  },
+
+  /* ------------------------------------------------------------ SQUASH --- */
+  {
+    id: 'squash', name: 'Squash', icon: '🥍', type: 'team',
+    unit: 'manche', unitPlural: 'manches',
+    squadSize: 6, lineupSize: 3,
+    duration: 45, segments: 12, periods: 5,
+    avgEvents: 10, spread: 0.8,
+    scoreEvents: [{ label: 'Manche remportée', pts: 1, w: 1 }],
+    attW: { att: 0.50, mid: 0.32, def: 0.18 },
+    defW: { def: 0.48, mid: 0.32, att: 0.20 },
+    positions: [
+      { code: 'S1', name: 'Simple n°1', role: 'att', need: 1, w: { tec: .34, men: .28, phy: .24, att: .10, def: .04 } },
+      { code: 'S2', name: 'Simple n°2', role: 'mid', need: 1, w: { tec: .32, men: .24, phy: .26, att: .12, def: .06 } },
+      { code: 'S3', name: 'Simple n°3', role: 'def', need: 1, w: { tec: .28, men: .20, phy: .28, att: .14, def: .10 } }
+    ],
+    tactics: {
+      mentality: ['Ultra défensif', 'Prudent', 'Équilibré', 'Offensif', 'Kamikaze'],
+      pressing: ['Repli sur le T', 'Polyvalent', 'Prend le T de force'],
+      style: ['Jeu long', 'Jeu équilibré', 'Jeu d\'accélération']
+    },
+    economy: {
+      clubCost: 8.0e5, gateBase: 2.5e4, sponsorBase: 4.0e4,
+      prizeWin: 3.0e4, prizeDraw: 0, prizeLoss: 1.0e4,
+      wageBase: 8000, valueMul: 0.06, tvSeason: 8.0e5,
+      flagshipPrice: 5.0e6 /* sport confidentiel, plus grand club du PSA World Tour */
+    },
+    leagueSize: 8,
+    countries: ['EGY', 'GBR', 'MYS', 'FRA', 'NZL', 'PAK', 'DEU', 'USA', 'IND',
+      'AUS', 'COL', 'NLD', 'CHE', 'CAN', 'ESP'],
+    divisionNames: ['Championnat du monde', 'PSA Platinum', 'PSA Gold', 'PSA Silver',
+      'PSA Bronze', 'Challenger 30', 'Challenger 20', 'Challenger 15',
+      'Challenger 10', 'Challenger 5'],
+    divisionTags: ['Mondial', 'Plat.', 'Gold', 'Silver', 'Bronze', 'C30', 'C20', 'C15', 'C10', 'C5'],
+    internationalLabel: 'Championnat du monde par équipes'
+  },
+
+  /* -------------------------------------------------- TENNIS DE TABLE --- */
+  {
+    id: 'tennisdetable', name: 'Tennis de table', icon: '🏓', type: 'team',
+    unit: 'manche', unitPlural: 'manches',
+    squadSize: 8, lineupSize: 4,
+    duration: 30, segments: 12, periods: 5,
+    avgEvents: 14, spread: 0.7,
+    scoreEvents: [{ label: 'Manche remportée', pts: 1, w: 1 }],
+    attW: { att: 0.48, mid: 0.34, def: 0.18 },
+    defW: { def: 0.46, mid: 0.34, att: 0.20 },
+    positions: [
+      { code: 'S1', name: 'Simple n°1', role: 'att', need: 1, w: { tec: .38, men: .26, phy: .18, att: .14, def: .04 } },
+      { code: 'S2', name: 'Simple n°2', role: 'att', need: 1, w: { tec: .36, men: .24, phy: .18, att: .16, def: .06 } },
+      { code: 'S3', name: 'Simple n°3', role: 'mid', need: 1, w: { tec: .34, men: .22, phy: .20, att: .16, def: .08 } },
+      { code: 'D', name: 'Double', role: 'def', need: 1, w: { tec: .30, men: .20, phy: .20, att: .18, def: .12 } }
+    ],
+    tactics: {
+      mentality: ['Défensif', 'Prudent', 'Équilibré', 'Offensif', 'Tout en attaque'],
+      pressing: ['Recul de table', 'Mi-distance', 'Collé à la table'],
+      style: ['Jeu de défense', 'Jeu équilibré', 'Jeu de vitesse']
+    },
+    economy: {
+      clubCost: 1.0e6, gateBase: 3.0e4, sponsorBase: 5.0e4,
+      prizeWin: 4.0e4, prizeDraw: 0, prizeLoss: 1.2e4,
+      wageBase: 9000, valueMul: 0.07, tvSeason: 1.0e6,
+      flagshipPrice: 8.0e6 /* sport confidentiel, plus grand club du WTT */
+    },
+    leagueSize: 10,
+    countries: ['CHN', 'JPN', 'KOR', 'DEU', 'SWE', 'FRA', 'PRT', 'BRA', 'SGP',
+      'HRV', 'ROU', 'NGA', 'EGY', 'USA', 'IND', 'POL', 'AUT', 'CHE', 'DNK', 'ESP'],
+    divisionNames: ['WTT Grand Smash', 'WTT Champions', 'WTT Star Contender', 'WTT Contender',
+      'WTT Feeder', 'Open national élite', 'Circuit régional', 'Circuit départemental',
+      'Critérium fédéral', 'Circuit amateur'],
+    divisionTags: ['Smash', 'Champ.', 'Star', 'Cont.', 'Feeder', 'Élite', 'Région', 'Dépt', 'Crit.', 'Amateur'],
+    internationalLabel: 'Coupe Swaythling / Coupe Corbillon'
+  },
+
+  /* ------------------------------------------------------------- PADEL --- */
+  {
+    id: 'padel', name: 'Padel', icon: '🥎', type: 'team',
+    unit: 'manche', unitPlural: 'manches',
+    squadSize: 6, lineupSize: 4,
+    duration: 90, segments: 14, periods: 3,
+    avgEvents: 6, spread: 1.0,
+    scoreEvents: [{ label: 'Manche remportée', pts: 1, w: 1 }],
+    attW: { att: 0.46, mid: 0.34, def: 0.20 },
+    defW: { def: 0.44, mid: 0.34, att: 0.22 },
+    positions: [
+      { code: 'P1', name: 'Paire n°1', role: 'att', need: 2, w: { tec: .32, men: .24, phy: .22, att: .16, def: .06 } },
+      { code: 'P2', name: 'Paire n°2', role: 'mid', need: 2, w: { tec: .30, men: .22, phy: .22, att: .16, def: .10 } }
+    ],
+    tactics: {
+      mentality: ['Ultra défensif', 'Prudent', 'Équilibré', 'Offensif', 'Tout au filet'],
+      pressing: ['Fond de court', 'Polyvalent', 'Monte au filet'],
+      style: ['Jeu de contre', 'Jeu équilibré', 'Jeu de vitres']
+    },
+    economy: {
+      clubCost: 2.0e6, gateBase: 6.0e4, sponsorBase: 1.0e5,
+      prizeWin: 7.0e4, prizeDraw: 0, prizeLoss: 2.0e4,
+      wageBase: 15000, valueMul: 0.12, tvSeason: 2.0e6,
+      flagshipPrice: 2.0e7 /* sport en pleine expansion, plus grand club de Premier Padel */
+    },
+    leagueSize: 8,
+    countries: ['ESP', 'ARG', 'ITA', 'FRA', 'PRT', 'SWE', 'BEL', 'MEX', 'BRA',
+      'QAT', 'USA', 'NLD', 'CHL', 'AND'],
+    divisionNames: ['Premier Padel Major', 'Premier Padel P1', 'Premier Padel P2',
+      'World Padel Tour Open', 'Challenger international', 'Open international',
+      'Circuit national élite', 'Circuit national', 'Circuit régional', 'Circuit départemental'],
+    divisionTags: ['Major', 'P1', 'P2', 'WPT', 'Chall.', 'Open', 'Nat. élite', 'National', 'Régional', 'Départ.'],
+    internationalLabel: 'Championnat du monde par équipes'
   }
 ];
 

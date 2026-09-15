@@ -93,7 +93,17 @@ G.match = (function () {
     basket: ['plante un tir à mi-distance', 'enchaîne un and-one', 'dunke sur la tête de la défense',
       'sanctionne à trois points'],
     handball: ['arme une roucoulette imparable', 'marque sur l\'aile', 'transforme le jet de sept mètres',
-      'conclut en pivot']
+      'conclut en pivot'],
+    tennis: ['claque un ace', 'conclut l\'échange d\'un passing gagnant', 'remporte un jeu décisif',
+      'enchaîne un smash imparable'],
+    badminton: ['place un smash foudroyant', 'gagne l\'échange au filet', 'trompe l\'adversaire d\'un amorti',
+      'remporte un jeu décisif'],
+    squash: ['place un coup gagnant en fond de court', 'prend le T et fait l\'échange',
+      'gagne l\'échange d\'un lob précis', 'conclut d\'un boast imparable'],
+    tennisdetable: ['claque un smash gagnant', 'trompe l\'adversaire d\'un service coupé',
+      'remporte un échange rapide au-dessus de la table', 'conclut d\'un top-spin imparable'],
+    padel: ['conclut à la vitre', 'place une bandeja gagnante', 'gagne l\'échange d\'une víbora',
+      'remporte le point sur une chiquita']
   };
 
   var MISS_TXT = ['manque de peu', 'trouve le montant', 'voit sa tentative repoussée',

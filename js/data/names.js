@@ -47,7 +47,12 @@ G.DATA.clubSuffixes = {
   volleyball: ['Volley', 'VB', 'Spike', 'Smash'],
   hockey: ['HC', 'Hockey Club', 'Ice', 'Glaciers'],
   baseball: ['BC', 'Baseball Club', 'Sluggers', 'Diamond'],
-  cyclisme: ['Cycling Team', 'Vélo Club', 'Pro Team', 'Cyclisme']
+  cyclisme: ['Cycling Team', 'Vélo Club', 'Pro Team', 'Cyclisme'],
+  tennis: ['Tennis Club', 'TC', 'Academy', 'Country Club'],
+  badminton: ['Badminton Club', 'BC', 'Shuttle Club'],
+  squash: ['Squash Club', 'SC', 'Racket Club'],
+  tennisdetable: ['Ping-Pong Club', 'TTC', 'Table Tennis Club'],
+  padel: ['Padel Club', 'PC', 'Padel Academy']
 };
 
 /* Pays jouables pour l'onglet gouvernement. */

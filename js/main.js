@@ -17,10 +17,14 @@ window.G = window.G || {};
       'volatiles. Les collections d\'objets de prestige donnent en plus des bonus ' +
       'permanents à tout le reste du jeu.'],
     ['🏟️', 'Diriger des clubs',
-      '10 sports, des dizaines de pays. Achetez un club en Départementale 3 pour ' +
-      'pas cher, ou visez d\'emblée plus haut (D2 à Élite) si votre fortune le ' +
-      'permet — plus la division est relevée, plus le prix explose. Vous pouvez ' +
-      'aussi racheter la fédération d\'un pays pour jouer les compétitions ' +
+      '15 sports (foot, rugby, basket, hand, water-polo, sport auto, volley, ' +
+      'hockey, baseball, cyclisme, et les sports de raquette : tennis, ' +
+      'badminton, squash, tennis de table, padel), des dizaines de pays. Le ' +
+      'prix d\'un club est calé sur la valeur du plus grand club réel de la ' +
+      'discipline (façon PSG ou Grand Chelem), divisé par 3 à chaque palier ' +
+      'en dessous — commencez en bas (D3 ou circuit amateur) pour pas cher, ou ' +
+      'visez d\'emblée plus haut si votre fortune le permet. Vous pouvez aussi ' +
+      'racheter la fédération d\'un pays pour jouer les compétitions ' +
       'internationales, fusionner deux clubs, signer des sponsors, et posséder ' +
       'plusieurs clubs à la fois.'],
     ['🎮', 'Jouer les matchs vous-même',

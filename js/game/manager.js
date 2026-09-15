@@ -87,13 +87,18 @@ G.manager = (function () {
     return u.clamp(85 - (u.clamp(div, MIN_DIVISION, MAX_DIVISION) - 1) * 5, 30, 85);
   }
 
+  /** Certains sports (raquette notamment) ont leurs propres noms de paliers,
+   * calqués sur leurs circuits professionnels réels (Grand Chelem, Masters
+   * 1000...) plutôt que sur la pyramide générique des clubs amateurs. */
   function divisionName(sport, div) {
-    if (div === 0) return 'Équipe nationale';
+    if (div === 0) return (sport && sport.internationalLabel) || 'Équipe nationale';
+    if (sport && sport.divisionNames) return sport.divisionNames[div - 1] || ('Division ' + div);
     return DIVISION_NAMES[div - 1] || ('Division ' + div);
   }
 
-  function divisionShort(div) {
+  function divisionShort(sport, div) {
     if (div === 0) return 'Nat.';
+    if (sport && sport.divisionTags) return sport.divisionTags[div - 1] || ('D' + div);
     return DIVISION_SHORT[div - 1] || ('D' + div);
   }
 
@@ -101,7 +106,7 @@ G.manager = (function () {
     var nation = G.DATA.worldById[club.country];
     var sport = sportDef(club.sport);
     if (club.division === 0) {
-      return (nation ? nation.n : '') + ' · Compétition internationale';
+      return (nation ? nation.n : '') + ' · ' + (sport.internationalLabel || 'Compétition internationale');
     }
     return (nation ? nation.n : '') + ' · ' + divisionName(sport, club.division);
   }
