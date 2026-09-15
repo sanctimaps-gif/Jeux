@@ -775,6 +775,9 @@ G.manager = (function () {
     var sport = sportDef(club.sport);
     var rank = rankOf(club);
     var s = G.state;
+    /* Les commentaires de l'entraîneur ne se répètent pas au sein d'une même
+       saison, mais reviennent librement l'année suivante. */
+    club.commentsUsed = {};
     var nTeams = club.league.teams.length;
     var international = club.division === 0;
     var mult = countryCoef(sport, club.country) * divisionCoef(club.division);

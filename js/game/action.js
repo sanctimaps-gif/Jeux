@@ -1,12 +1,9 @@
-/* Mode action : on joue soi-même la rencontre.
- *
- * Vue de dessus, caméra qui suit le ballon, joystick virtuel à gauche et
- * boutons d'action à droite. On contrôle le joueur le plus proche du ballon ;
- * les coéquipiers se démarquent, les adversaires pressent, le gardien sort.
- *
- * Ce n'est pas un moteur 3D — c'est un jeu d'arcade lisible au doigt, où vos
- * gestes décident réellement du score, qui alimente ensuite le championnat et
- * les finances du club.
+/* Mode action : anime la rencontre en vue de dessus, entièrement pilotée par
+ * l'IA des deux côtés — le joueur n'est que spectateur, depuis le mode
+ * « Diriger depuis le banc ». Caméra qui suit le ballon, coéquipiers qui se
+ * démarquent, adversaires qui pressent, gardien qui sort : ce n'est pas un
+ * moteur 3D, mais une simulation d'arcade lisible qui alimente ensuite le
+ * championnat et les finances du club.
  */
 window.G = window.G || {};
 
@@ -60,8 +57,7 @@ G.action = (function () {
       running: false, done: false, paused: false,
       players: [], ball: null,
       cam: { x: F.w / 2, y: F.h / 2 },
-      user: null,                    // joueur contrôlé
-      input: { dx: 0, dy: 0, sprint: false },
+      user: null,                    // joueur le plus proche du ballon, pour la caméra
       feed: [],
       stats: { youShots: 0, oppShots: 0, poss: 50, possYou: 0, possTot: 0 },
       lastTouch: null,
@@ -248,22 +244,16 @@ G.action = (function () {
 
   function updatePlayer(M, p, dt) {
     var F = M.F, b = M.ball;
-    var ax = 0, ay = 0;
     var speed = p.speed;
 
-    if (p === M.user && M.restart <= 0) {
-      /* Joueur humain : direction du joystick. */
-      ax = M.input.dx;
-      ay = M.input.dy;
-      if (M.input.sprint) speed *= 1.35;
-    } else {
-      var t = aiTarget(M, p);
-      var dx = t.x - p.x, dy = t.y - p.y;
-      var d = Math.hypot(dx, dy) || 1;
-      ax = dx / d; ay = dy / d;
-      if (d < 0.6) { ax = 0; ay = 0; }
-      if (t.sprint) speed *= 1.2;
-    }
+    /* Simple spectateur : les deux équipes sont pilotées par l'IA, y compris
+       le joueur le plus proche du ballon côté club du joueur. */
+    var t = aiTarget(M, p);
+    var dx = t.x - p.x, dy = t.y - p.y;
+    var d = Math.hypot(dx, dy) || 1;
+    var ax = dx / d, ay = dy / d;
+    if (d < 0.6) { ax = 0; ay = 0; }
+    if (t.sprint) speed *= 1.2;
 
     p.vx = u.lerp(p.vx, ax * speed, Math.min(1, dt * 7));
     p.vy = u.lerp(p.vy, ay * speed, Math.min(1, dt * 7));
@@ -279,9 +269,6 @@ G.action = (function () {
     if (b.owner && b.owner.team !== p.team &&
       dist(p, b.owner) < (1.2 + tackle * 0.25) * scale) {
       var chance = 0.9 * dt * tackle * tackleMult * (0.5 + (p.ovr - b.owner.ovr + 20) / 60);
-      /* Le porteur qui sprinte se dégage plus facilement : c'est le rôle du
-         bouton « percer » au rugby et du sprint dans les autres sports. */
-      if (b.owner === M.user && M.input.sprint) chance *= 0.55;
       if (u.chance(u.clamp(chance, 0.02, 0.9))) {
         var victim = b.owner;
         b.owner = p;
@@ -362,8 +349,8 @@ G.action = (function () {
       b.x = b.owner.x + b.owner.vx / sp * 0.7;
       b.y = b.owner.y + b.owner.vy / sp * 0.7;
       b.vx = 0; b.vy = 0;
-      /* L'IA adverse tire ou passe quand elle est en position. */
-      if (b.owner.team === 1) aiDecision(M, b.owner, dt);
+      /* L'IA tire ou passe quand elle est en position, dans les deux équipes. */
+      aiDecision(M, b.owner, dt);
       /* Indispensable au rugby : l'essai se marque ballon en main. */
       checkGoal(M);
       return;
@@ -463,57 +450,6 @@ G.action = (function () {
       var nvx = b.vx * cos - b.vy * sin;
       b.vy = b.vx * sin + b.vy * cos;
       b.vx = nvx;
-    }
-  }
-
-  /** Passe du joueur humain : vers le coéquipier le mieux placé dans l'axe visé. */
-  function userPass(M) {
-    var p = M.user, b = M.ball;
-    if (!p || b.owner !== p) return;
-    var dirX = M.input.dx, dirY = M.input.dy;
-    var best = null, bestScore = -1e9;
-    for (var i = 0; i < M.players.length; i++) {
-      var m = M.players[i];
-      if (m.team !== 0 || m === p) continue;
-      var dx = m.x - p.x, dy = m.y - p.y;
-      var len = Math.hypot(dx, dy) || 1;
-      if (len > 35) continue;
-      var align = (dirX || dirY) ? (dx / len * dirX + dy / len * dirY) : (dy / len);
-      var forward = (m.y - p.y) / 20;
-      var score = align * 2 + forward - len / 60;
-      if (score > bestScore) { bestScore = score; best = m; }
-    }
-    if (best) passTo(M, p, best);
-  }
-
-  function userShoot(M, power) {
-    var p = M.user, b = M.ball;
-    if (!p || b.owner !== p) return;
-    if (M.F.goal === 'tryline') {
-      /* Au rugby on ne tire pas : on accélère vers la ligne. */
-      M.input.sprint = true;
-      return;
-    }
-    shoot(M, p, power);
-  }
-
-  function hasPossession(M) {
-    var b = M.ball;
-    var p = M.user;
-    if (!p) return false;
-    return b.owner === p;
-  }
-
-  function userDefend(M) {
-    var p = M.user, b = M.ball;
-    if (!p || b.owner === p || b.owner === null) return;
-    for (var i = 0; i < M.players.length; i++) {
-      var opp = M.players[i];
-      if (opp.team === p.team) continue;
-      if (Math.hypot(opp.x - p.x, opp.y - p.y) > 15) continue;
-      p.vx = (opp.x - p.x) * 0.5;
-      p.vy = (opp.y - p.y) * 0.5;
-      break;
     }
   }
 
@@ -836,9 +772,8 @@ G.action = (function () {
   return {
     FIELDS: FIELDS, fieldOf: fieldOf, supports: supports,
     create: create, update: update, draw: draw,
-    userPass: userPass, userShoot: userShoot, shoot: shoot, passTo: passTo,
+    shoot: shoot, passTo: passTo,
     finish: finish, skipToEnd: skipToEnd, push: push,
-    hasPossession: hasPossession, userDefend: userDefend,
     giveCard: giveCard, substitute: substitute
   };
 })();

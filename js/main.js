@@ -48,11 +48,15 @@ window.G = window.G || {};
       'division deviennent automatiquement rivaux : ils se retrouvent dans le ' +
       'calendrier et avancent au même rythme pour pouvoir s\'affronter. Ce ' +
       'derby-là, vous ne le jouez ni ne le coachez : vous n\'êtes que spectateur.'],
-    ['🎮', 'Jouer les matchs vous-même',
-      'Football, rugby, water-polo, basket, handball : joystick à gauche, tirer ' +
-      'et passer à droite, la caméra suit le ballon. En sport automobile, vous ' +
-      'pilotez la voiture. Vous pouvez aussi rester sur le banc et donner les ' +
-      'consignes, ou simuler la rencontre.'],
+    ['👀', 'Regarder ses matchs',
+      'Football, rugby, water-polo, basket, handball : « Diriger depuis le banc » ' +
+      'affiche l\'animation du match en vue de dessus, jouée entièrement par ' +
+      'l\'IA des deux côtés — vous regardez, vous n\'intervenez jamais. Pour les ' +
+      'autres sports, un suivi en direct textuel joue le même rôle. Les ' +
+      'commentaires de l\'entraîneur changent à chaque match sans jamais se ' +
+      'répéter dans la même saison ; ils ne reviennent que l\'année suivante. ' +
+      'En sport automobile, vous pilotez vous-même la voiture ou dirigez ' +
+      'la stratégie depuis le stand. Vous pouvez aussi simuler la rencontre.'],
     ['🌍', 'Prendre le pouvoir',
       '194 pays réels sur une mappemonde interactive. Impôts, budgets, ressources, ' +
       'usines, centrales, armée, guerres, annexions, ONU, technologies, merveilles ' +

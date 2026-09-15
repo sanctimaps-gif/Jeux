@@ -326,7 +326,6 @@ window.G = window.G || {};
 
   function nextMatchCard(club, sp) {
     var h = '<div class="card">';
-    var playable = sp.type === 'race' || G.action.supports(club.sport);
 
     if (sp.type === 'race') {
       var evt = G.race.nextRace(club);
@@ -355,14 +354,15 @@ window.G = window.G || {};
       }
     }
 
-    h += '<div class="grid2" style="margin-top:10px">';
-    if (playable) {
-      h += '<button class="btn primary" data-act="mg.action">🎮 ' +
-        (sp.type === 'race' ? 'Piloter' : 'Jouer le match') + '</button>';
+    if (sp.type === 'race') {
+      h += '<div class="grid2" style="margin-top:10px">' +
+        '<button class="btn primary" data-act="mg.action">🎮 Piloter</button>' +
+        '<button class="btn" data-act="mg.coach">📋 Diriger depuis le banc</button></div>';
+    } else {
+      h += '<button class="btn primary full" style="margin-top:10px" data-act="mg.coach">' +
+        '👀 Regarder le match</button>';
     }
-    h += '<button class="btn" data-act="mg.coach">📋 Diriger depuis le banc</button>' +
-      '</div>' +
-      '<button class="btn sm full" style="margin-top:6px" data-act="mg.sim">' +
+    h += '<button class="btn sm full" style="margin-top:6px" data-act="mg.sim">' +
       '⏩ Simuler la rencontre</button>';
 
     var injured = club.players.filter(function (p) { return p.injury > 0; }).length;
@@ -839,9 +839,7 @@ window.G = window.G || {};
   ui.act('mg.action', function () {
     var club = activeClub();
     if (!club) return;
-    var sp = G.DATA.sportById[club.sport];
-    if (sp.type === 'race') G.play.startRace(club);
-    else G.play.startMatch(club);
+    G.play.startRace(club);
   });
 
   ui.act('mg.sim', function () {
@@ -876,26 +874,51 @@ window.G = window.G || {};
   ui.act('mg.coach', function () {
     var club = activeClub();
     var sp = G.DATA.sportById[club.sport];
-    var isRace = sp.type === 'race';
-    live = isRace ? G.race.create(club) : G.match.create(club);
+
+    if (sp.type === 'race') {
+      live = G.race.create(club);
+      if (!live) { ui.toast('📅 Saison terminée', 'Le calendrier est bouclé', 'bad'); return; }
+      paused = false;
+      ui.modal('🏁 ' + u.esc(live.circuit), matchHtml(live, true), {
+        onClose: function () {
+          stopTimer();
+          if (live && !live.done) {
+            var guard = 0;
+            while (!live.done && guard++ < 400) {
+              if (live.decision) G.race.decide(live, 1);
+              else G.race.step(live);
+            }
+            if (!live.done) G.race.finish(live);
+          }
+          live = null;
+        }
+      });
+      tickMatch(true);
+      return;
+    }
+
+    /* Sports animés en canevas : on regarde le match, sans y intervenir. */
+    if (G.action.supports(club.sport)) {
+      if (!G.play.watchMatch(club)) { /* toast déjà affiché par watchMatch */ }
+      return;
+    }
+
+    /* Autres sports : suivi textuel du match, sans intervention possible. */
+    live = G.match.create(club);
     if (!live) { ui.toast('📅 Saison terminée', 'Le calendrier est bouclé', 'bad'); return; }
     paused = false;
-    ui.modal(isRace ? '🏁 ' + u.esc(live.circuit) : '⚔️ Match en direct',
-      matchHtml(live, isRace), {
+    ui.modal('⚔️ Match en direct', matchHtml(live, false), {
       onClose: function () {
         stopTimer();
         if (live && !live.done) {
-          var guard = 0;
-          while (!live.done && guard++ < 400) {
-            if (live.decision) (isRace ? G.race : G.match).decide(live, 1);
-            else (isRace ? G.race : G.match).step(live);
-          }
-          if (!live.done) (isRace ? G.race : G.match).finish(live);
+          var guard2 = 0;
+          while (!live.done && guard2++ < 400) G.match.step(live);
+          if (!live.done) G.match.finish(live);
         }
         live = null;
       }
     });
-    tickMatch(isRace);
+    tickMatch(false);
   });
 
   function tickMatch(isRace) {
@@ -932,15 +955,15 @@ window.G = window.G || {};
       ui.stat('Dynamique', M.mom > 0.15 ? 'Pour vous' : M.mom < -0.15 ? 'Contre vous' : 'Neutre',
         M.mom > 0.15 ? 'good' : M.mom < -0.15 ? 'bad' : '') + '</div>';
 
-    if (M.decision) h += decisionHtml(M.decision);
-    else if (!M.done) {
+    if (!M.done) {
       h += '<div class="grid3" style="margin-bottom:9px">' +
         '<button class="btn sm" data-act="mg.pause">' + (paused ? '▶️ Reprendre' : '⏸️ Pause') +
         '</button>' +
         '<button class="btn sm" data-act="mg.step">⏭️ Séquence</button>' +
         '<button class="btn sm" data-act="mg.rush">⏩ Fin du match</button></div>';
+    } else {
+      h += resultBlock(M, false);
     }
-    if (M.done) h += resultBlock(M, false);
 
     h += '<div class="card tight"><div class="feed">';
     for (var i = 0; i < M.feed.length; i++) {

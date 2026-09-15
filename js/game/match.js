@@ -115,7 +115,7 @@ G.match = (function () {
 
   /** Fait avancer le match d'une séquence. */
   function step(M) {
-    if (M.done || M.decision) return M;
+    if (M.done) return M;
 
     var sport = M.sport;
     var minPerSeg = segmentMinutes(M);
@@ -168,7 +168,7 @@ G.match = (function () {
 
     maybeDecision(M);
 
-    if (M.seg >= M.segments && !M.decision) finish(M);
+    if (M.seg >= M.segments) finish(M);
     return M;
   }
 
@@ -226,224 +226,255 @@ G.match = (function () {
     return u.pick(FLAVOR);
   }
 
-  /* --------------------------------------------------------- décisions -- */
+  /* ----------------------------------------- commentaires de l'entraîneur -- */
 
-  function maybeDecision(M) {
-    if (M.decision) return;
-    var seg = M.seg, total = M.segments;
-    var half = Math.floor(total / 2);
-
-    if (seg === Math.floor(total * 0.28) && !M.decisionsDone.early) {
-      M.decisionsDone.early = true;
-      M.decision = earlyDecision(M);
-      return;
+  /**
+   * Choisit un texte dans un lot sans le répéter avant que celui-ci soit
+   * épuisé ; la liste des textes déjà vus n'est remise à zéro qu'à chaque
+   * nouvelle saison (voir G.manager.endSeason), jamais à chaque match — les
+   * commentaires varient donc match après match tout en revenant chaque année.
+   */
+  function pickComment(club, bank, pool) {
+    if (!club.commentsUsed) club.commentsUsed = {};
+    var used = club.commentsUsed[bank] || (club.commentsUsed[bank] = []);
+    var avail = [];
+    for (var i = 0; i < pool.length; i++) if (used.indexOf(i) < 0) avail.push(i);
+    if (!avail.length) {
+      used.length = 0;
+      for (i = 0; i < pool.length; i++) avail.push(i);
     }
-    if (seg === half && !M.decisionsDone.half) {
-      M.decisionsDone.half = true;
-      M.decision = halfTimeDecision(M);
-      return;
-    }
-    if (seg === Math.floor(total * 0.78) && !M.decisionsDone.late) {
-      M.decisionsDone.late = true;
-      M.decision = lateDecision(M);
-      return;
-    }
-    /* Incident aléatoire propre au sport. */
-    if (seg > 2 && seg < total - 1 && !M.decisionsDone['inc' + seg] && u.chance(0.10)) {
-      M.decisionsDone['inc' + seg] = true;
-      M.decision = incidentDecision(M);
-    }
+    var idx = u.pick(avail);
+    used.push(idx);
+    return pool[idx];
   }
 
-  function opt(label, hint, apply) {
-    return { label: label, hint: hint, apply: apply };
+  function unitWord(sport, plural) {
+    return (plural ? sport.unitPlural : sport.unit) || (plural ? 'points' : 'point');
   }
 
-  function earlyDecision(M) {
+  var EARLY_AHEAD = [
+    'Sur le banc, on savoure cette entame idéale sans relâcher la vigilance.',
+    'Bon départ salué depuis la touche : « on garde ce rythme, pas de relâchement ».',
+    'L\'encadrement technique reste concentré malgré l\'avantage pris d\'entrée.',
+    'Léger sourire côté banc : l\'entame est maîtrisée, il faut confirmer.',
+    'Consigne depuis le banc : consolider cet avantage sans se précipiter.'
+  ];
+  var EARLY_BEHIND = [
+    'Le ton monte déjà sur le banc : il faut hausser le rythme immédiatement.',
+    'Visage fermé côté encadrement, qui réclame plus d\'engagement dans les duels.',
+    'On garde son calme malgré cette entame ratée et on recentre le groupe.',
+    'Depuis la touche, on demande davantage d\'intensité sans changer le plan.',
+    'Premiers ajustements déjà réclamés : il reste largement le temps de réagir.'
+  ];
+  var EARLY_LEVEL = [
+    'Sur le banc, on observe, satisfait de l\'équilibre affiché en ce début de rencontre.',
+    'Rien à signaler côté encadrement, qui laisse le plan de jeu se dérouler.',
+    'On demande de la patience : le premier {u} pourrait décider de beaucoup de choses.',
+    'Ajustements discrets réclamés sur le placement, sans rien bouleverser.',
+    'Consignes de départ rappelées depuis le banc, sans le moindre changement pour l\'instant.'
+  ];
+
+  var HALF_LOSING = [
+    'Vestiaire tendu à la pause : il va falloir réagir, et vite.',
+    'Ton plus ferme dans les vestiaires : la seconde période ne pardonnera pas.',
+    'On tente de rassurer un groupe visiblement affecté par ce retard au score.',
+    'Ajustements tactiques discutés à la pause pour repartir plus fort.',
+    'Message clair à la pause : le match reste totalement ouvert.'
+  ];
+  var HALF_WINNING = [
+    'On demande de la rigueur pour gérer cette avance en seconde période.',
+    'Satisfaction contenue à la pause : rien n\'est joué, il faut continuer ainsi.',
+    'Consignes de gestion données au vestiaire, sans excès de confiance.',
+    'On rappelle que ce genre d\'avance s\'est déjà envolé par le passé.',
+    'Petits ajustements et grandes félicitations pour cette première période.'
+  ];
+  var HALF_LEVEL = [
+    'Tout reste à faire pour la seconde période, rappelle-t-on au vestiaire.',
+    'Analyse à froid à la pause : les débats restent totalement équilibrés.',
+    'On recharge les organismes et on peaufine quelques détails tactiques.',
+    'Le discours de la pause insiste sur la patience et la discipline collective.',
+    'Rien de dramatique à la pause, juste quelques ajustements de détail.'
+  ];
+
+  var LATE_AHEAD = [
+    'On demande de faire durer les {u} pour ne rien lâcher dans le money-time.',
+    'Consigne claire pour le money-time : gérer l\'avance sans prendre de risque inutile.',
+    'On sent la nervosité gagner le banc à l\'approche du terme.',
+    'Dernières consignes données pour verrouiller ce résultat qui se dessine.',
+    'On fait les gros yeux au moindre relâchement en cette fin de rencontre.'
+  ];
+  var LATE_BEHIND = [
+    'Il ne reste plus beaucoup de temps : tout est tenté pour revenir au score.',
+    'On pousse le groupe à prendre tous les risques dans ce sprint final.',
+    'Dernier quart d\'heure à quitte ou double, réclame-t-on depuis le banc.',
+    'On hausse encore le ton : il n\'y a plus rien à perdre désormais.',
+    'On sent le groupe se crisper à mesure que le temps s\'écoule.'
+  ];
+  var LATE_LEVEL = [
+    'On sent que ce money-time va faire basculer la rencontre d\'un côté ou de l\'autre.',
+    'Dernières consignes tactiques distillées avant ce sprint final décisif.',
+    'On appelle à la lucidité collective dans ces derniers instants serrés.',
+    'Le banc pousse son équipe à faire la différence dans le temps qu\'il reste.',
+    'On rappelle que le moindre détail peut faire basculer cette fin de match.'
+  ];
+
+  var INCIDENT_GENERIC = [
+    'Petit coup de tension sur le banc après une décision arbitrale contestée.',
+    'On profite d\'un temps mort naturel dans le jeu pour glisser quelques consignes.',
+    'L\'encadrement technique s\'agite après une occasion manquée de peu.',
+    'On salue une belle séquence collective depuis le banc.',
+    'Changement de position réclamé pour perturber les habitudes adverses.',
+    'On hausse le ton après un relâchement défensif passager.'
+  ];
+
+  /** Applique un effet tactique mineur et pousse le commentaire correspondant. */
+  function comment(M, bank, pool, effect) {
+    var text = pickComment(M.club, bank, pool).replace(/\{u\}/g, unitWord(M.sport, false));
+    if (effect) effect(M);
+    push(M, M.minute, '🗣️ ' + text, 'info');
+  }
+
+  function situationBank(diff) {
+    return diff > 0 ? 'ahead' : diff < 0 ? 'behind' : 'level';
+  }
+
+  function earlyComment(M) {
     var diff = M.score.you - M.score.opp;
-    return {
-      title: 'Consigne depuis le banc',
-      text: 'Premier quart d\'heure d\'observation. ' +
-        (diff >= 0 ? 'Vos joueurs tiennent le choc.' : 'L\'entame est compliquée.') +
-        ' Quel message passez-vous ?',
-      options: [
-        opt('Monter d\'un cran', 'Attaque +3, défense -1,5',
-          function (m) { m.mods.att += 3; m.mods.def -= 1.5; }),
-        opt('Verrouiller derrière', 'Défense +3, attaque -1,5',
-          function (m) { m.mods.def += 3; m.mods.att -= 1.5; }),
-        opt('Garder le plan de jeu', 'Fraîcheur préservée : +1 partout en fin de match',
-          function (m) { m.mods.energy += 1; m.mods.att += 1; m.mods.def += 1; })
-      ]
+    var sit = situationBank(diff);
+    var pools = { ahead: EARLY_AHEAD, behind: EARLY_BEHIND, level: EARLY_LEVEL };
+    var effects = {
+      ahead: function (m) { m.mods.def += 2; m.mods.att -= 0.8; },
+      behind: function (m) { m.mods.att += 2; m.mods.def -= 0.8; },
+      level: function (m) { m.mods.energy += 0.6; m.mods.att += 0.6; m.mods.def += 0.6; }
     };
+    comment(M, 'early:' + sit, pools[sit], effects[sit]);
   }
 
-  function halfTimeDecision(M) {
+  function halfTimeComment(M) {
     var diff = M.score.you - M.score.opp;
-    var losing = diff < 0;
-    return {
-      title: 'Causerie de mi-temps',
-      text: scoreLine(M) + '. ' + (losing
-        ? 'Le vestiaire est tendu, il faut réagir.'
-        : diff === 0 ? 'Tout reste à faire dans cette seconde période.'
-          : 'Vous menez : il faut maintenant gérer.'),
-      options: [
-        opt('Coup de gueule', 'Dynamique +0,45 mais moral fragilisé',
-          function (m) {
-            m.mom = u.clamp(m.mom + 0.45, -1, 1);
-            m.mods.att += 2;
-            m.postMoraleRisk = true;
-          }),
-        opt('Rassurer le groupe', 'Moral +, régularité sur la 2e période',
-          function (m) { m.mods.att += 1.2; m.mods.def += 1.2; m.postMoraleBoost = true; }),
-        opt(losing ? 'Tout changer tactiquement' : 'Fermer le match',
-          losing ? 'Attaque +5, défense -4' : 'Défense +5, attaque -3',
-          function (m) {
-            if (losing) { m.mods.att += 5; m.mods.def -= 4; }
-            else { m.mods.def += 5; m.mods.att -= 3; }
-          })
-      ]
+    var sit = situationBank(diff);
+    var pools = { ahead: HALF_WINNING, behind: HALF_LOSING, level: HALF_LEVEL };
+    var effects = {
+      ahead: function (m) { m.mods.def += 3.5; m.mods.att -= 2; m.postMoraleBoost = true; },
+      behind: function (m) {
+        m.mods.att += 3.5; m.mods.def -= 2.5;
+        m.mom = u.clamp(m.mom + 0.3, -1, 1);
+        if (u.chance(0.4)) m.postMoraleRisk = true; else m.postMoraleBoost = true;
+      },
+      level: function (m) { m.mods.att += 1; m.mods.def += 1; m.postMoraleBoost = true; }
     };
+    comment(M, 'half:' + sit, pools[sit], effects[sit]);
   }
 
-  function lateDecision(M) {
+  function lateComment(M) {
     var diff = M.score.you - M.score.opp;
-    var options = [];
+    var sit = situationBank(diff);
+    var pools = { ahead: LATE_AHEAD, behind: LATE_BEHIND, level: LATE_LEVEL };
+
+    /* L'encadrement fait parfois entrer un remplaçant de sa propre initiative :
+       le joueur n'est ici que spectateur, il ne choisit rien. */
     var benchList = G.manager.bench(M.club);
     var sport = M.sport;
-
-    if (M.subsLeft > 0 && benchList.length) {
-      var best = u.sortBy(benchList, function (p) {
-        return G.manager.effOvr(p, sport);
-      }, true)[0];
-      var tired = u.sortBy(G.manager.starters(M.club), function (p) {
-        return p.energy;
-      })[0];
-      if (best && tired) {
-        options.push(opt('Faire entrer ' + best.name,
-          'Remplace ' + tired.name + ' (énergie ' + Math.round(tired.energy) + ')',
-          function (m) {
-            m.subsLeft--;
-            tired.starter = false;
-            best.starter = true;
-            tired.energy = u.clamp(tired.energy + 12, 0, 100);
-            var delta = (G.manager.effOvr(best, sport) - G.manager.effOvr(tired, sport)) * 0.10;
-            m.mods.att += delta;
-            m.mods.def += delta * 0.8;
-            push(m, m.minute, '🔁 Changement : ' + best.name + ' remplace ' + tired.name, 'info');
-          }));
+    if (M.subsLeft > 0 && benchList.length && u.chance(0.55)) {
+      var best = u.sortBy(benchList, function (p) { return G.manager.effOvr(p, sport); }, true)[0];
+      var tired = u.sortBy(G.manager.starters(M.club), function (p) { return p.energy; })[0];
+      if (best && tired && tired.energy < 70) {
+        M.subsLeft--;
+        tired.starter = false;
+        best.starter = true;
+        tired.energy = u.clamp(tired.energy + 12, 0, 100);
+        var delta = (G.manager.effOvr(best, sport) - G.manager.effOvr(tired, sport)) * 0.10;
+        M.mods.att += delta;
+        M.mods.def += delta * 0.8;
+        push(M, M.minute, '🔁 Changement à l\'initiative du banc : ' + best.name +
+          ' remplace ' + tired.name, 'info');
       }
     }
 
-    options.push(opt(diff >= 0 ? 'Faire tourner le ballon' : 'Jeter toutes les forces',
-      diff >= 0 ? 'Défense +4, attaque -3' : 'Attaque +6, défense -5',
-      function (m) {
-        if (diff >= 0) { m.mods.def += 4; m.mods.att -= 3; }
-        else { m.mods.att += 6; m.mods.def -= 5; }
-      }));
-
-    options.push(opt('Ne rien toucher', 'Aucun risque pris', function () { }));
-
-    return {
-      title: 'Dernier quart d\'heure',
-      text: scoreLine(M) + '. C\'est le moment des choix.',
-      options: options
+    var effects = {
+      ahead: function (m) { m.mods.def += 3; m.mods.att -= 2; },
+      behind: function (m) { m.mods.att += 4.5; m.mods.def -= 3.5; },
+      level: function (m) { m.mods.att += 0.8; m.mods.def += 0.8; }
     };
+    comment(M, 'late:' + sit, pools[sit], effects[sit]);
   }
 
-  function incidentDecision(M) {
-    var sport = M.sport;
-    var id = sport.id;
+  var INCIDENT_BANKS = {
+    rugby: [
+      { text: 'Pénalité obtenue à 35 mètres : les perches sont visées sans hésiter.',
+        effect: function (m) {
+          if (u.chance(0.72)) { m.score.you += 3; push(m, m.minute, '🟢 Pénalité passée — ' + scoreLine(m), 'good'); }
+          else { push(m, m.minute, '😖 Pénalité manquée', 'warn'); m.mom -= 0.15; }
+        } },
+      { text: 'Pénalité à cinq mètres : le buteur tente la touche pour chercher l\'essai.',
+        effect: function (m) {
+          if (u.chance(0.42)) {
+            var pts = 5 + (u.chance(0.75) ? 2 : 0);
+            m.score.you += pts; m.mom = u.clamp(m.mom + 0.4, -1, 1);
+            push(m, m.minute, '🟢 Essai sur maul pénétrant ! — ' + scoreLine(m), 'good');
+          } else { push(m, m.minute, '😖 Le ballon est gratté dans l\'en-but', 'warn'); m.mom -= 0.25; }
+        } },
+      { text: 'Pénaltouche jouée rapidement pour prendre la défense adverse de vitesse.',
+        effect: function (m) { m.mom = u.clamp(m.mom + 0.3, -1, 1); m.mods.att += 1.5; } }
+    ],
+    football: [
+      { text: 'Penalty obtenu ! Le buteur en titre s\'avance, sûr de lui.',
+        effect: function (m) { convertPenalty(m, 0.80); } },
+      { text: 'Penalty obtenu ! Le tireur spécialiste des grandes occasions se présente.',
+        effect: function (m) { convertPenalty(m, 0.86); } },
+      { text: 'Penalty obtenu ! Un jeune joueur de 19 ans réclame le ballon avec aplomb.',
+        effect: function (m) {
+          if (convertPenalty(m, 0.68)) { m.mom = u.clamp(m.mom + 0.25, -1, 1); m.mods.att += 2; }
+        } }
+    ],
+    waterpolo: [
+      { text: 'Exclusion temporaire adverse : la supériorité numérique est jouée vite et bien.',
+        effect: function (m) {
+          if (u.chance(0.55)) { m.score.you += 1; push(m, m.minute, '🟢 But en supériorité — ' + scoreLine(m), 'good'); }
+          else push(m, m.minute, '😖 Tir contré en supériorité', 'warn');
+        } },
+      { text: 'Exclusion temporaire adverse : la possession est longuement travaillée.',
+        effect: function (m) {
+          if (u.chance(0.44)) { m.score.you += 1; push(m, m.minute, '🟢 But après une longue possession — ' + scoreLine(m), 'good'); }
+          m.mods.def += 2;
+        } }
+    ],
+    handball: [
+      { text: 'Exclusion temporaire adverse : le jeu rapide en supériorité est privilégié.',
+        effect: function (m) {
+          if (u.chance(0.55)) { m.score.you += 1; push(m, m.minute, '🟢 But en supériorité — ' + scoreLine(m), 'good'); }
+          else push(m, m.minute, '😖 Tir contré en supériorité', 'warn');
+        } },
+      { text: 'Exclusion temporaire adverse : on préfère faire tourner et user la défense.',
+        effect: function (m) {
+          if (u.chance(0.44)) { m.score.you += 1; push(m, m.minute, '🟢 But après une longue possession — ' + scoreLine(m), 'good'); }
+          m.mods.def += 2;
+        } }
+    ],
+    basket: [
+      { text: 'Temps mort sifflé : le cinq majeur adverse vient d\'être relancé.',
+        effect: function (m) { m.mods.att += 4; m.mods.def -= 2; m.mods.energy -= 2; } },
+      { text: 'Temps mort : consignes données pour resserrer la zone 2-3.',
+        effect: function (m) { m.mods.def += 4; m.mods.att -= 2; } },
+      { text: 'Temps mort : le système est construit pour le meilleur marqueur du soir.',
+        effect: function (m) { m.mom = u.clamp(m.mom + 0.4, -1, 1); } }
+    ]
+  };
 
-    if (id === 'rugby') {
-      return {
-        title: 'Pénalité obtenue à 35 mètres',
-        text: 'Vous avez le choix entre assurer trois points ou tenter la touche pour aller chercher l\'essai.',
-        options: [
-          opt('Tenter les perches', '~72 % de réussite pour 3 points', function (m) {
-            if (u.chance(0.72)) {
-              m.score.you += 3;
-              push(m, m.minute, '🟢 Pénalité passée — ' + scoreLine(m), 'good');
-            } else {
-              push(m, m.minute, '😖 Pénalité manquée', 'warn');
-              m.mom -= 0.15;
-            }
-          }),
-          opt('Touche à cinq mètres', '~42 % pour 5 à 7 points', function (m) {
-            if (u.chance(0.42)) {
-              var pts = 5 + (u.chance(0.75) ? 2 : 0);
-              m.score.you += pts;
-              m.mom = u.clamp(m.mom + 0.4, -1, 1);
-              push(m, m.minute, '🟢 Essai sur maul pénétrant ! — ' + scoreLine(m), 'good');
-            } else {
-              push(m, m.minute, '😖 Le ballon est gratté dans l\'en-but', 'warn');
-              m.mom -= 0.25;
-            }
-          }),
-          opt('Jouer la pénaltouche rapidement', 'Dynamique +0,3, aucun point immédiat',
-            function (m) { m.mom = u.clamp(m.mom + 0.3, -1, 1); m.mods.att += 1.5; })
-        ]
-      };
+  function incidentComment(M) {
+    var bank = INCIDENT_BANKS[M.sport.id];
+    if (bank) {
+      var entry = pickComment(M.club, 'incident:' + M.sport.id, bank);
+      push(M, M.minute, '🗣️ ' + entry.text, 'info');
+      if (entry.effect) entry.effect(M);
+      return;
     }
-
-    if (id === 'football') {
-      return {
-        title: 'Penalty accordé !',
-        text: 'Qui se charge de la sentence ?',
-        options: [
-          opt('Le buteur en titre', '~80 % de réussite', function (m) {
-            convertPenalty(m, 0.80, 1);
-          }),
-          opt('Le tireur spécialiste', '~86 %, mais moral du buteur en baisse',
-            function (m) { convertPenalty(m, 0.86, 1); }),
-          opt('Le jeune de 19 ans', '~68 %, énorme si ça rentre', function (m) {
-            var ok = convertPenalty(m, 0.68, 1);
-            if (ok) { m.mom = u.clamp(m.mom + 0.25, -1, 1); m.mods.att += 2; }
-          })
-        ]
-      };
-    }
-
-    if (id === 'waterpolo' || id === 'handball') {
-      return {
-        title: 'Supériorité numérique',
-        text: 'Exclusion temporaire adverse : trente secondes pour en profiter.',
-        options: [
-          opt('Jeu rapide', '~55 % de marquer immédiatement', function (m) {
-            if (u.chance(0.55)) { m.score.you += 1; push(m, m.minute, '🟢 But en supériorité — ' + scoreLine(m), 'good'); }
-            else push(m, m.minute, '😖 Tir contré en supériorité', 'warn');
-          }),
-          opt('Faire tourner et user', '~44 % de marquer, +défense ensuite', function (m) {
-            if (u.chance(0.44)) { m.score.you += 1; push(m, m.minute, '🟢 But après une longue possession — ' + scoreLine(m), 'good'); }
-            m.mods.def += 2;
-          }),
-          opt('Temps mort tactique', 'Dynamique +0,35', function (m) {
-            m.mom = u.clamp(m.mom + 0.35, -1, 1);
-          })
-        ]
-      };
-    }
-
-    if (id === 'basket') {
-      return {
-        title: 'Temps mort',
-        text: scoreLine(M) + '. Le coach adverse vient de relancer son cinq majeur.',
-        options: [
-          opt('Presser tout terrain', 'Attaque +4, défense -2, fatigue accrue',
-            function (m) { m.mods.att += 4; m.mods.def -= 2; m.mods.energy -= 2; }),
-          opt('Zone 2-3', 'Défense +4, attaque -2',
-            function (m) { m.mods.def += 4; m.mods.att -= 2; }),
-          opt('Systèmes pour le franchise player', 'Dynamique +0,4',
-            function (m) { m.mom = u.clamp(m.mom + 0.4, -1, 1); })
-        ]
-      };
-    }
-
-    return earlyDecision(M);
+    comment(M, 'incident:generic', INCIDENT_GENERIC, null);
   }
 
-  function convertPenalty(m, p, pts) {
+  function convertPenalty(m, p) {
     if (u.chance(p)) {
-      m.score.you += pts;
+      m.score.you += 1;
       push(m, m.minute, '🟢 Penalty transformé — ' + scoreLine(m), 'good');
       return true;
     }
@@ -452,10 +483,41 @@ G.match = (function () {
     return false;
   }
 
-  /** Applique le choix du joueur et relance le match. */
+  /**
+   * Places clés du match où l'encadrement technique commente et ajuste
+   * légèrement les organismes — le joueur n'intervient jamais : il regarde.
+   */
+  function maybeDecision(M) {
+    var seg = M.seg, total = M.segments;
+    var half = Math.floor(total / 2);
+
+    if (seg === Math.floor(total * 0.28) && !M.decisionsDone.early) {
+      M.decisionsDone.early = true;
+      earlyComment(M);
+      return;
+    }
+    if (seg === half && !M.decisionsDone.half) {
+      M.decisionsDone.half = true;
+      halfTimeComment(M);
+      return;
+    }
+    if (seg === Math.floor(total * 0.78) && !M.decisionsDone.late) {
+      M.decisionsDone.late = true;
+      lateComment(M);
+      return;
+    }
+    /* Incident aléatoire propre au sport. */
+    if (seg > 2 && seg < total - 1 && !M.decisionsDone['inc' + seg] && u.chance(0.10)) {
+      M.decisionsDone['inc' + seg] = true;
+      incidentComment(M);
+    }
+  }
+
+  /** Conservée pour compatibilité (matchs joués en direct) : n'a plus jamais
+   * de choix à appliquer puisque M.decision n'est plus jamais renseigné. */
   function decide(M, index) {
     if (!M.decision) return M;
-    var o = M.decision.options[index];
+    var o = M.decision.options && M.decision.options[index];
     M.decision = null;
     if (o && o.apply) o.apply(M);
     if (M.seg >= M.segments) finish(M);
@@ -494,15 +556,7 @@ G.match = (function () {
     var M = create(club);
     if (!M) return null;
     var guard = 0;
-    while (!M.done && guard < 500) {
-      if (M.decision) {
-        /* L'adjoint tranche à votre place : option médiane. */
-        decide(M, Math.min(1, M.decision.options.length - 1));
-      } else {
-        step(M);
-      }
-      guard++;
-    }
+    while (!M.done && guard < 500) { step(M); guard++; }
     if (!M.done) finish(M);
     return M;
   }
