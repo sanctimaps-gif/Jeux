@@ -31,8 +31,7 @@ window.G = window.G || {};
 
     h += '<div class="grid2" style="margin-bottom:10px">' +
       '<button class="btn primary" data-act="bz.found">🏗️ Fonder une entreprise</button>' +
-      '<button class="btn" data-act="bz.merge"' +
-      (G.business.canMergeAny() ? '' : ' disabled') + '>🤝 Fusions</button>' +
+      '<button class="btn" data-act="bz.merge">🤝 Fusions</button>' +
       '</div>';
 
     /* Emplacements commerciaux. */
@@ -98,10 +97,28 @@ window.G = window.G || {};
     if (G.tax.pay()) ui.refresh();
   });
 
+  function fleetCard(c, t, sector) {
+    var n = G.business.fleetVehicleCount(c);
+    return '<div class="co-card" data-act="bz.open" data-uid="' + c.uid + '">' +
+      '<div class="co-icon">' + t.icon + '</div>' +
+      '<div class="item-main">' +
+      '<div class="t">' + u.esc(c.name) + '</div>' +
+      '<div class="s">' + t.name + ' · ' + sector.icon + ' ' + sector.name + '</div>' +
+      '<div class="mute2" style="margin-top:3px">🚦 ' + n + ' véhicule' + (n > 1 ? 's' : '') +
+      ' sur ' + c.fleetCapacity +
+      (c.merged > 1 ? ' · fusion ×' + u.dec(c.merged, 2) : '') + '</div>' +
+      ui.bar(n / c.fleetCapacity * 100, n >= c.fleetCapacity ? 'green' : '') +
+      '<div class="co-rev">' + u.fmtMoney(G.business.hourly(c)) +
+      ' <span class="mute2">par heure</span></div>' +
+      '</div>' +
+      '<div class="item-side"><span class="co-badge on">🚗</span></div></div>';
+  }
+
   function companyCard(c) {
     var t = G.business.typeDef(c.type);
     if (!t) return '';
     var sector = G.DATA.sectors[t.sector] || { name: '', icon: '' };
+    if (t.fleet) return fleetCard(c, t, sector);
     var maxed = c.lvl >= t.maxLvl;
     var can = G.state.money >= G.business.upgradeCost(c);
     var upgrading = G.business.isUpgrading(c);
@@ -156,8 +173,10 @@ window.G = window.G || {};
         h += '<div class="item"><div class="item-icon">' + ty.icon + '</div>' +
           '<div class="item-main"><div class="t">' + ty.name + '</div>' +
           '<div class="s">' + u.esc(ty.desc) + '</div>' +
-          '<div class="mute2">' + u.fmtMoney(ty.rev) + '/h au niveau 1 · ' +
-          ty.maxLvl + ' paliers</div></div>' +
+          '<div class="mute2">' + (ty.fleet
+            ? 'Garage de ' + ty.fleet.baseCapacity + ' places · véhicules achetés un par un'
+            : u.fmtMoney(ty.rev) + '/h au niveau 1 · ' + ty.maxLvl + ' paliers') +
+          '</div></div>' +
           '<div class="item-side"><button class="btn sm ' + (can ? 'primary' : '') +
           '" data-act="bz.pick" data-id="' + ty.id + '"' + (can ? '' : ' disabled') + '>' +
           u.fmtMoney(ty.cost) + '</button></div></div>';
@@ -181,8 +200,11 @@ window.G = window.G || {};
       '<div class="row" style="gap:6px;margin-top:6px">' +
       '<button class="btn xs" data-act="bz.suggest">🎲 Autre proposition</button></div>';
     h += '<div class="grid2" style="margin-top:12px">' +
-      ui.stat('Capital requis', u.fmtMoney(t.cost)) +
-      ui.stat('Revenu de départ', u.fmtMoney(t.rev) + '/h', 'good') + '</div>';
+      (t.fleet
+        ? ui.stat('Capital requis', u.fmtMoney(t.cost)) +
+          ui.stat('Garage de départ', t.fleet.baseCapacity + ' places')
+        : ui.stat('Capital requis', u.fmtMoney(t.cost)) +
+          ui.stat('Revenu de départ', u.fmtMoney(t.rev) + '/h', 'good')) + '</div>';
     h += '<button class="btn primary full" style="margin-top:12px" data-act="bz.create">' +
       'Créer l\'entreprise</button>';
     ui.modal('Nouvelle entreprise', h, {});
@@ -214,15 +236,8 @@ window.G = window.G || {};
 
   /* ==================================================== FICHE ENTREPRISE == */
 
-  function companyDetailHtml(uid) {
-    var c = G.business.byUid(uid);
-    if (!c) return '';
-    var t = G.business.typeDef(c.type);
-    var sector = G.DATA.sectors[t.sector];
-    var maxed = c.lvl >= t.maxLvl;
-    var upgrading = G.business.isUpgrading(c);
-
-    var h = '<div class="row" style="gap:10px;margin-bottom:10px">' +
+  function fleetHeaderHtml(c, t, sector, uid) {
+    return '<div class="row" style="gap:10px;margin-bottom:10px">' +
       '<div class="co-icon big">' + t.icon + '</div>' +
       '<div style="flex:1;min-width:0">' +
       '<div style="font-size:18px;font-weight:800">' + u.esc(c.name) + '</div>' +
@@ -230,6 +245,83 @@ window.G = window.G || {};
       '</div>' +
       '<button class="btn xs" data-act="bz.rename" data-uid="' + uid + '">✏️</button>' +
       '</div>';
+  }
+
+  function fleetSellFooter(c, uid) {
+    return '<div class="hr"></div>' +
+      '<div class="grid2">' +
+      '<button class="btn" data-act="bz.rename" data-uid="' + uid + '">✏️ Renommer</button>' +
+      '<button class="btn danger" data-act="bz.sell" data-uid="' + uid + '">' +
+      '💱 Vendre (' + u.fmtMoney(G.business.saleValue(c)) + ')</button></div>';
+  }
+
+  /** Fiche de gestion d'une entreprise à flotte de véhicules (taxis, transport, maritime). */
+  function fleetDetailHtml(uid) {
+    var c = G.business.byUid(uid);
+    if (!c) return '';
+    var t = G.business.typeDef(c.type);
+    var sector = G.DATA.sectors[t.sector];
+    var n = G.business.fleetVehicleCount(c);
+    var full = n >= c.fleetCapacity;
+
+    var h = fleetHeaderHtml(c, t, sector, uid);
+
+    h += '<div class="grid3" style="margin-bottom:10px">' +
+      ui.stat('Revenu horaire', u.fmtMoney(G.business.hourly(c)), 'good') +
+      ui.stat('Véhicules', n + ' / ' + c.fleetCapacity) +
+      ui.stat('Capital investi', u.fmtMoney(c.invested)) +
+      '</div>';
+    h += ui.bar(n / c.fleetCapacity * 100, full ? 'green' : '');
+    if (c.merged > 1) {
+      h += '<div class="mute2" style="margin-top:6px">Bonus de fusion : ×' + u.dec(c.merged, 2) + '</div>';
+    }
+
+    h += '<div class="card-head" style="margin-top:14px">🚗 Acheter un véhicule</div>';
+    if (full) {
+      h += '<div class="mute2" style="margin-bottom:6px">Garage complet : augmentez la capacité ' +
+        'pour accueillir plus de véhicules.</div>';
+    }
+    for (var i = 0; i < t.fleet.categories.length; i++) {
+      var cat = t.fleet.categories[i];
+      var owned = (c.fleetVehicles[cat.id] || 0);
+      var cost = G.business.fleetVehicleCost(c, cat.id);
+      var can = !full && G.state.money >= cost;
+      h += '<div class="item"><div class="item-icon">' + cat.icon + '</div>' +
+        '<div class="item-main"><div class="t">' + cat.name + '</div>' +
+        '<div class="s">' + owned + ' possédé' + (owned > 1 ? 's' : '') + ' · ' +
+        u.fmtMoney(cat.rev) + '/h chacun</div></div>' +
+        '<div class="item-side"><button class="btn sm ' + (can ? 'primary' : '') +
+        '" data-act="bz.fleetbuy" data-uid="' + uid + '" data-cat="' + cat.id + '"' +
+        (can ? '' : ' disabled') + '>' + u.fmtMoney(cost) + '</button></div></div>';
+    }
+
+    h += '<div class="card-head" style="margin-top:14px">🏗️ Agrandir le garage</div>';
+    h += '<div class="grid3" style="gap:6px">';
+    for (var j = 0; j < t.fleet.capSteps.length; j++) {
+      var step = t.fleet.capSteps[j];
+      var capCost = G.business.fleetCapacityCost(c, step.n);
+      var canCap = G.state.money >= capCost;
+      h += '<button class="btn sm ' + (canCap ? 'primary' : '') + '" data-act="bz.fleetcap" ' +
+        'data-uid="' + uid + '" data-n="' + step.n + '"' + (canCap ? '' : ' disabled') + '>' +
+        '<span class="btn-col"><span>+' + step.n + ' places</span>' +
+        '<span class="k">' + u.fmtMoney(capCost) + '</span></span></button>';
+    }
+    h += '</div>';
+
+    h += fleetSellFooter(c, uid);
+    return h;
+  }
+
+  function companyDetailHtml(uid) {
+    var c = G.business.byUid(uid);
+    if (!c) return '';
+    var t = G.business.typeDef(c.type);
+    if (t.fleet) return fleetDetailHtml(uid);
+    var sector = G.DATA.sectors[t.sector];
+    var maxed = c.lvl >= t.maxLvl;
+    var upgrading = G.business.isUpgrading(c);
+
+    var h = fleetHeaderHtml(c, t, sector, uid);
 
     h += '<div class="grid3" style="margin-bottom:10px">' +
       ui.stat('Revenu horaire', u.fmtMoney(G.business.hourly(c)), 'good') +
@@ -281,12 +373,7 @@ window.G = window.G || {};
       }
     }
 
-    h += '<div class="hr"></div>';
-    h += '<div class="grid2">' +
-      '<button class="btn" data-act="bz.rename" data-uid="' + uid + '">✏️ Renommer</button>' +
-      '<button class="btn danger" data-act="bz.sell" data-uid="' + uid + '">' +
-      '💱 Vendre (' + u.fmtMoney(G.business.saleValue(c)) + ')</button></div>';
-
+    h += fleetSellFooter(c, uid);
     return h;
   }
 
@@ -323,6 +410,14 @@ window.G = window.G || {};
     if (G.business.invest(d.uid)) openCompany(d.uid);
   });
 
+  ui.act('bz.fleetbuy', function (d) {
+    if (G.business.fleetBuyVehicle(d.uid, d.cat)) openCompany(d.uid);
+  });
+
+  ui.act('bz.fleetcap', function (d) {
+    if (G.business.fleetBuyCapacity(d.uid, parseInt(d.n, 10))) openCompany(d.uid);
+  });
+
   ui.act('bz.rename', function (d) {
     var c = G.business.byUid(d.uid);
     if (!c) return;
@@ -351,16 +446,50 @@ window.G = window.G || {};
 
   /* ============================================================ FUSIONS === */
 
+  /** Carte d'un conglomérat né de la fusion de plusieurs entreprises différentes. */
+  function mergerCard(t) {
+    var prog = G.business.mergerProgress(t.id);
+    var canOpen = G.business.mergerCanOpen(t.id);
+    var h = '<div class="card tight" style="margin-bottom:8px">' +
+      '<div class="row" style="gap:8px"><div style="font-size:22px">' + t.icon + '</div>' +
+      '<div class="item-main"><div class="t">' + t.name + '</div>' +
+      '<div class="s">' + u.esc(t.desc) + '</div></div></div>';
+    for (var i = 0; i < prog.length; i++) {
+      var r = prog[i];
+      h += '<div class="mute2" style="margin-top:8px">' + r.label +
+        (r.met ? ' ✅' : ' · ' + r.have + '/' + r.need) + '</div>' +
+        ui.bar(r.have / r.need * 100, r.met ? 'green' : '');
+    }
+    h += '<div class="row between" style="margin-top:10px">' +
+      '<span class="mute2">Investissement d\'ouverture</span>' +
+      '<b class="' + (G.state.money >= t.cost ? 'good' : '') + '">' + u.fmtMoney(t.cost) + '</b></div>';
+    h += '<button class="btn full ' + (canOpen ? 'primary' : '') + '" style="margin-top:8px" ' +
+      'data-act="bz.mergerpick" data-id="' + t.id + '"' + (canOpen ? '' : ' disabled') + '>' +
+      (canOpen ? '🤝 Fusionner' : '🔒 Conditions non réunies') + '</button>';
+    h += '</div>';
+    return h;
+  }
+
   ui.act('bz.merge', function () {
     var list = G.business.all();
-    var h = '<p class="muted">Deux entreprises identiques arrivées au niveau ' +
+    var h = '';
+    var mergers = G.business.mergerTypes();
+    if (mergers.length) {
+      h += '<div class="card-head">🏛️ Nouveaux conglomérats</div>';
+      h += '<p class="muted">Combinez plusieurs entreprises et flottes différentes ' +
+        'pour débloquer une entreprise plus grande, sans perdre celles qui ont servi.</p>';
+      for (var k = 0; k < mergers.length; k++) h += mergerCard(mergers[k]);
+    }
+
+    h += '<div class="card-head" style="margin-top:14px">🔁 Fusion de doublons</div>';
+    h += '<p class="muted">Deux entreprises identiques arrivées au niveau ' +
       'maximum peuvent fusionner : le rendement se cumule et un emplacement ' +
       'se libère.</p>';
     var found = false;
     for (var i = 0; i < list.length; i++) {
       var c = list[i];
       var t = G.business.typeDef(c.type);
-      if (c.lvl < t.maxLvl) continue;
+      if (!t || t.fleet || c.lvl < t.maxLvl) continue;
       var cands = G.business.mergeCandidates(c);
       if (!cands.length) continue;
       found = true;
@@ -373,7 +502,7 @@ window.G = window.G || {};
       }
       h += '</div>';
     }
-    if (!found) h += ui.empty('🤝', 'Aucune fusion possible pour le moment.');
+    if (!found) h += ui.empty('🤝', 'Aucune fusion de doublons possible pour le moment.');
     ui.modal('🤝 Fusions d\'entreprises', h, {});
   });
 
@@ -381,6 +510,38 @@ window.G = window.G || {};
     if (G.business.merge(d.a, d.b)) {
       ui.closeModal();
       ui.refresh();
+    }
+  });
+
+  ui.act('bz.mergerpick', function (d) {
+    if (!G.business.mergerCanOpen(d.id)) return;
+    foundType = d.id;
+    var t = G.business.typeDef(d.id);
+    var suggested = G.business.suggestName(d.id);
+    var h = '<div class="row" style="gap:10px;margin-bottom:10px">' +
+      '<div style="font-size:34px">' + t.icon + '</div>' +
+      '<div><div class="t" style="font-weight:700">' + t.name + '</div>' +
+      '<div class="mute2">' + u.esc(t.desc) + '</div></div></div>';
+    h += '<label class="field">Nom de votre conglomérat</label>' +
+      '<input type="text" id="bz-name" maxlength="28" value="' + u.esc(suggested) + '">' +
+      '<div class="row" style="gap:6px;margin-top:6px">' +
+      '<button class="btn xs" data-act="bz.suggest">🎲 Autre proposition</button></div>';
+    h += '<div class="grid2" style="margin-top:12px">' +
+      ui.stat('Investissement', u.fmtMoney(t.cost)) +
+      ui.stat('Revenu de départ', u.fmtMoney(t.rev) + '/h', 'good') + '</div>';
+    h += '<button class="btn primary full" style="margin-top:12px" data-act="bz.mergercreate">' +
+      'Fusionner et créer</button>';
+    ui.modal('🤝 Nouveau conglomérat', h, {});
+  });
+
+  ui.act('bz.mergercreate', function () {
+    var input = document.getElementById('bz-name');
+    var name = input ? input.value.trim() : '';
+    var c = G.business.mergerOpen(foundType, name);
+    if (c) {
+      ui.closeModal();
+      ui.toast('🤝 Fusion réalisée', c.name, 'good');
+      openCompany(c.uid);
     }
   });
 

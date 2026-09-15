@@ -56,6 +56,44 @@ G.DATA.companyTypes = [
     cost: 3.0e6, rev: 5.2e6, maxLvl: 20, up: 0.33,
     desc: 'Houblon local, canettes design, distribution nationale.' },
 
+  /* ------------------------------------------------- flottes de véhicules */
+  { id: 'taxis', name: 'Compagnie de taxis', icon: '🚕', sector: 'transport',
+    cost: 8000,
+    desc: 'Une flotte de taxis qui roule jour et nuit. On achète les véhicules un par un.',
+    fleet: {
+      baseCapacity: 5,
+      capSteps: [{ n: 5, cost: 15000 }, { n: 10, cost: 40000 }, { n: 20, cost: 100000 }],
+      categories: [
+        { id: 'standard', name: 'Berline standard', icon: '🚖', baseCost: 15000, rev: 900, costMult: 1.13 },
+        { id: 'premium', name: 'Berline premium (VTC)', icon: '🚘', baseCost: 55000, rev: 2600, costMult: 1.15 }
+      ]
+    }
+  },
+  { id: 'routier', name: 'Transport routier', icon: '🚚', sector: 'transport',
+    cost: 20000,
+    desc: 'Fourgons urbains et poids lourds longue distance, achetés un par un.',
+    fleet: {
+      baseCapacity: 5,
+      capSteps: [{ n: 5, cost: 30000 }, { n: 10, cost: 80000 }, { n: 20, cost: 200000 }],
+      categories: [
+        { id: 'ville', name: 'Fourgon urbain', icon: '🚐', baseCost: 30000, rev: 1750, costMult: 1.13 },
+        { id: 'longue', name: 'Poids lourd', icon: '🚛', baseCost: 110000, rev: 3800, costMult: 1.15 }
+      ]
+    }
+  },
+  { id: 'maritime', name: 'Compagnie maritime', icon: '⛴️', sector: 'transport',
+    cost: 150000,
+    desc: 'Vedettes côtières et cargos : un investissement lourd, mais très rentable.',
+    fleet: {
+      baseCapacity: 4,
+      capSteps: [{ n: 4, cost: 150000 }, { n: 8, cost: 400000 }, { n: 16, cost: 1000000 }],
+      categories: [
+        { id: 'cotier', name: 'Vedette côtière', icon: '🚤', baseCost: 250000, rev: 12000, costMult: 1.16 },
+        { id: 'cargo', name: 'Cargo', icon: '🚢', baseCost: 1400000, rev: 55000, costMult: 1.18 }
+      ]
+    }
+  },
+
   /* ------------------------------------------------------- services ---- */
   { id: 'salle', name: 'Salle de sport', icon: '🏋️', sector: 'sport',
     cost: 4.0e6, rev: 6.8e6, maxLvl: 20, up: 0.32,
@@ -69,6 +107,18 @@ G.DATA.companyTypes = [
   { id: 'hotel', name: 'Chaîne hôtelière', icon: '🏨', sector: 'immo',
     cost: 7.0e7, rev: 1.0e8, maxLvl: 25, up: 0.31,
     desc: 'Quatre étoiles, taux d\'occupation soigneusement optimisé.' },
+
+  /* ---------------------------------------------- fusion d'entreprises -- */
+  { id: 'conglotextile', name: 'Empire du Textile', icon: '👕', sector: 'commerce',
+    cost: 3.5e6, rev: 5.8e6, maxLvl: 20, up: 0.32,
+    desc: 'Naît de la fusion d\'une boutique de mode, d\'une supérette et d\'une flotte de transport.',
+    mergerOnly: true,
+    mergerRequires: [
+      { kind: 'companyLevel', type: 'mode', lvl: 10, label: 'Boutique de mode niveau 10' },
+      { kind: 'companyLevel', type: 'superette', lvl: 8, label: 'Supérette de quartier niveau 8' },
+      { kind: 'fleetVehicles', fleet: 'routier', category: 'ville', n: 4, label: '4 fourgons urbains' },
+      { kind: 'fleetVehicles', fleet: 'routier', category: 'longue', n: 2, label: '2 poids lourds' }
+    ] },
 
   /* ------------------------------------------------------------ tech --- */
   { id: 'studio', name: 'Studio de jeux vidéo', icon: '🎮', sector: 'tech',
@@ -116,7 +166,18 @@ G.DATA.companyTypes = [
     desc: 'Lanceurs réutilisables et constellations privées.' },
   { id: 'conglo', name: 'Conglomérat mondial', icon: '🏛️', sector: 'finance',
     cost: 8.0e12, rev: 8.6e12, maxLvl: 62, up: 0.26,
-    desc: 'Plus une holding qu\'une entreprise : elle possède les autres.' }
+    desc: 'Plus une holding qu\'une entreprise : elle possède les autres.' },
+  { id: 'grouperospatial', name: 'Groupe Aérospatial', icon: '🛰️', sector: 'tech',
+    cost: 2.5e12, rev: 3.6e12, maxLvl: 45, up: 0.27,
+    desc: 'Naît de la fusion d\'une usine robotisée, d\'un géant de la tech et ' +
+      'd\'une flotte maritime et routière.',
+    mergerOnly: true,
+    mergerRequires: [
+      { kind: 'companyLevel', type: 'usine', lvl: 25, label: 'Usine robotisée niveau 25' },
+      { kind: 'companyLevel', type: 'geanttech', lvl: 10, label: 'Géant de la technologie niveau 10' },
+      { kind: 'fleetVehicles', fleet: 'maritime', category: 'cargo', n: 3, label: '3 cargos' },
+      { kind: 'fleetVehicles', fleet: 'routier', category: 'longue', n: 10, label: '10 poids lourds' }
+    ] }
 ];
 
 G.DATA.companyById = (function () {

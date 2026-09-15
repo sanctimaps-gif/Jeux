@@ -11,7 +11,15 @@ window.G = window.G || {};
     ['🏢', 'Fonder ses entreprises',
       'Choisissez un type d\'entreprise dans le catalogue, donnez-lui le nom que ' +
       'vous voulez, puis touchez-la pour investir palier par palier. Chaque palier ' +
-      'lance un chantier ; les revenus sont ensuite versés en continu sur votre compte.'],
+      'lance un chantier ; les revenus sont ensuite versés en continu sur votre compte. ' +
+      'Les flottes (taxis, transport routier, compagnie maritime) fonctionnent autrement : ' +
+      'on y achète des véhicules un par un, dans la limite de la capacité du garage, ' +
+      'qui s\'agrandit contre paiement.'],
+    ['🏛️', 'Fusionner ses entreprises',
+      'Certains grands conglomérats ne s\'achètent pas directement : ils naissent de la ' +
+      'fusion de plusieurs de vos entreprises et flottes existantes (niveaux atteints, ' +
+      'véhicules possédés), plus un investissement d\'ouverture. Les entreprises fusionnées ' +
+      'restent à vous : rien n\'est perdu dans l\'opération.'],
     ['📈', 'Placer son argent',
       'Actions cotées, immobilier dans douze villes et cryptomonnaies très ' +
       'volatiles. Les collections d\'objets de prestige donnent en plus des bonus ' +
