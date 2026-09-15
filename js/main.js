@@ -44,7 +44,10 @@ window.G = window.G || {};
       'visez d\'emblée plus haut si votre fortune le permet. Vous pouvez aussi ' +
       'racheter la fédération d\'un pays pour jouer les compétitions ' +
       'internationales, fusionner deux clubs, signer des sponsors, et posséder ' +
-      'plusieurs clubs à la fois.'],
+      'plusieurs clubs à la fois. Deux de vos clubs dans le même sport, pays et ' +
+      'division deviennent automatiquement rivaux : ils se retrouvent dans le ' +
+      'calendrier et avancent au même rythme pour pouvoir s\'affronter. Ce ' +
+      'derby-là, vous ne le jouez ni ne le coachez : vous n\'êtes que spectateur.'],
     ['🎮', 'Jouer les matchs vous-même',
       'Football, rugby, water-polo, basket, handball : joystick à gauche, tirer ' +
       'et passer à droite, la caméra suit le ballon. En sport automobile, vous ' +

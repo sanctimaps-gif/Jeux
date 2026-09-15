@@ -465,6 +465,36 @@ G.manager = (function () {
     return { teams: teams, fixtures: makeFixtures(teams.length), round: 0, international: true };
   }
 
+  /**
+   * Deux clubs possédés dans le même sport, pays et division sont de vrais
+   * rivaux : ils se retrouvent l'un l'autre dans leur calendrier (à l'indice
+   * 1) plutôt que de jouer chacun contre des adversaires fictifs distincts.
+   * On ne lie que des paires (le premier arrivé garde son jumeau).
+   */
+  function findOrLinkTwin(club) {
+    if (club.twinUid) {
+      var existing = byUid(club.twinUid);
+      if (existing && existing.sport === club.sport && existing.country === club.country &&
+          existing.division === club.division) {
+        return existing;
+      }
+      /* Promotion/relégation les a séparés : plus jumeaux. */
+      unlinkTwin(club);
+    }
+    if (!club.division) return null;
+    var list = clubs();
+    for (var i = 0; i < list.length; i++) {
+      var o = list[i];
+      if (o.uid === club.uid || o.twinUid) continue;
+      if (o.sport === club.sport && o.country === club.country && o.division === club.division) {
+        club.twinUid = o.uid;
+        o.twinUid = club.uid;
+        return o;
+      }
+    }
+    return null;
+  }
+
   function makeLeague(club, sport) {
     if (sport.type === 'race') return G.race.makeSeason(club, sport);
     if (club.division === 0) return makeInternational(club, sport);
@@ -483,6 +513,19 @@ G.manager = (function () {
       teams[i].pts = 0; teams[i].w = 0; teams[i].d = 0; teams[i].l = 0;
       teams[i].sf = 0; teams[i].sa = 0; teams[i].played = 0;
     }
+
+    var twin = findOrLinkTwin(club);
+    if (twin && n > 1) {
+      teams[1].name = twin.name;
+      teams[1].str = Math.round(teamRatings(twin).ovr);
+      teams[1].twinUid = twin.uid;
+      if (twin.league && twin.league.teams && twin.league.teams[1]) {
+        twin.league.teams[1].name = club.name;
+        twin.league.teams[1].str = Math.round(teamRatings(club).ovr);
+        twin.league.teams[1].twinUid = club.uid;
+      }
+    }
+
     return { teams: teams, fixtures: makeFixtures(n), round: 0 };
   }
 
@@ -493,10 +536,12 @@ G.manager = (function () {
     var round = lg.fixtures[lg.round];
     for (var i = 0; i < round.length; i++) {
       if (round[i][0] === 0 || round[i][1] === 0) {
+        var opp = lg.teams[round[i][0] === 0 ? round[i][1] : round[i][0]];
         return {
           home: round[i][0], away: round[i][1],
           youHome: round[i][0] === 0,
-          opp: lg.teams[round[i][0] === 0 ? round[i][1] : round[i][0]]
+          opp: opp,
+          twin: !!(opp && opp.twinUid)
         };
       }
     }
@@ -586,7 +631,7 @@ G.manager = (function () {
 
   /* ===================================================== APRÈS-MATCH ===== */
 
-  function finishMatch(club, res) {
+  function finishMatch(club, res, skipTwin, homeOverride) {
     var sport = sportDef(club.sport);
     var s = G.state;
     var won = res.you > res.opp, drew = res.you === res.opp;
@@ -600,7 +645,11 @@ G.manager = (function () {
       club.league.round++;
     }
 
-    var inc = matchIncome(club, fx ? fx.youHome : true, won, drew);
+    /* Un derby entre deux de vos clubs impose son propre domicile/extérieur
+     * (les deux calendriers, symétriques, se déclareraient sinon chacun
+     * « à domicile »). */
+    var isHome = homeOverride !== undefined ? homeOverride : (fx ? fx.youHome : true);
+    var inc = matchIncome(club, isHome, won, drew);
     var bill = wageBill(club);
     var net = inc.total - bill;
 
@@ -664,7 +713,7 @@ G.manager = (function () {
     club.results.unshift({
       season: club.season, round: club.league.round,
       you: res.you, opp: res.opp, oppName: res.oppName,
-      home: fx ? fx.youHome : true, net: net
+      home: isHome, net: net
     });
     if (club.results.length > 40) club.results.length = 40;
 
@@ -672,7 +721,45 @@ G.manager = (function () {
 
     if (club.league.round >= club.league.fixtures.length) endSeason(club);
 
+    /* Le club jumeau (même sport/pays/division) doit progresser du même
+     * nombre de matchs : on l'avance automatiquement d'un tour, le joueur
+     * n'étant coach d'aucun des deux pendant ce tour-ci. */
+    if (!skipTwin && club.twinUid) {
+      var twin = byUid(club.twinUid);
+      if (twin && twin.league && !twin.league.isRace) {
+        var twinFx = nextFixture(twin);
+        if (twinFx && !twinFx.twin) {
+          var tSport = sportDef(twin.sport);
+          var tStr = teamRatings(twin).ovr, oStr = twinFx.opp.str;
+          var tAtt = tStr + (twinFx.youHome ? 3 : 0), oAtt = oStr + (twinFx.youHome ? 0 : 3);
+          var tGoals = simScore(tAtt, oStr, tSport), oGoals = simScore(oAtt, tStr, tSport);
+          finishMatch(twin, { you: tGoals, opp: oGoals, oppName: twinFx.opp.name }, true);
+        }
+      }
+    }
+
     return { income: inc, wages: bill, net: net };
+  }
+
+  /**
+   * Résout le derby entre deux clubs jumeaux : un seul résultat, calculé une
+   * fois, appliqué aux deux championnats. Le joueur n'est coach d'aucun des
+   * deux camps, il ne fait qu'observer.
+   */
+  function resolveDerby(club) {
+    var fx = nextFixture(club);
+    if (!fx || !fx.twin) return null;
+    var twin = byUid(fx.opp.twinUid);
+    if (!twin) return null;
+    var sport = sportDef(club.sport);
+    var strA = teamRatings(club).ovr, strB = teamRatings(twin).ovr;
+    var homeIsA = fx.youHome;
+    var attA = strA + (homeIsA ? 3 : 0), attB = strB + (homeIsA ? 0 : 3);
+    var sA = simScore(attA, strB, sport);
+    var sB = simScore(attB, strA, sport);
+    finishMatch(club, { you: sA, opp: sB, oppName: twin.name }, true, homeIsA);
+    finishMatch(twin, { you: sB, opp: sA, oppName: club.name }, true, !homeIsA);
+    return { a: club, b: twin, sa: sA, sb: sB, homeIsA: homeIsA };
   }
 
   function bumpAttr(p, sport, delta) {
@@ -1003,9 +1090,27 @@ G.manager = (function () {
     return true;
   }
 
+  /** Détache un club de son jumeau (revente, fusion) : l'autre récupère un
+   * adversaire fictif ordinaire à la place. */
+  function unlinkTwin(club) {
+    if (!club.twinUid) return;
+    var twin = byUid(club.twinUid);
+    club.twinUid = null;
+    if (twin) {
+      twin.twinUid = null;
+      if (twin.league && twin.league.teams && twin.league.teams[1] &&
+          twin.league.teams[1].twinUid === club.uid) {
+        var sport = sportDef(twin.sport);
+        twin.league.teams[1].name = clubNameFor(sport.id, twin.country);
+        delete twin.league.teams[1].twinUid;
+      }
+    }
+  }
+
   function sellClub(uid) {
     var club = byUid(uid);
     if (!club) return false;
+    unlinkTwin(club);
     var v = clubValue(club) * 0.85;
     var l = clubs();
     l.splice(l.indexOf(club), 1);
@@ -1046,6 +1151,7 @@ G.manager = (function () {
     G.eco.earn(absorbed, 'manager:' + a.sport, 'Fusion · ' + b.name + ' → ' + a.name, true);
     a.rep = u.clamp(a.rep + (sameSport ? 10 : 5), 1, 100);
 
+    unlinkTwin(b);
     var list = clubs();
     list.splice(list.indexOf(b), 1);
     if (G.state.manager.active === b.uid) G.state.manager.active = a.uid;
@@ -1088,7 +1194,7 @@ G.manager = (function () {
     makeLeague: makeLeague, nextFixture: nextFixture, standings: standings,
     rankOf: rankOf, pointsFor: pointsFor, simScore: simScore,
     pickScoreValue: pickScoreValue, matchIncome: matchIncome,
-    finishMatch: finishMatch, endSeason: endSeason,
+    finishMatch: finishMatch, endSeason: endSeason, resolveDerby: resolveDerby,
     refreshTransfers: refreshTransfers, signPlayer: signPlayer,
     sellPlayer: sellPlayer, buyClub: buyClub, buyNationalTeam: buyNationalTeam,
     renameClub: renameClub, sellClub: sellClub,

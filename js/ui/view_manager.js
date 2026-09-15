@@ -344,6 +344,15 @@ window.G = window.G || {};
         '<div class="team r">' + u.esc(fx.youHome ? fx.opp.name : club.name) + '</div></div>' +
         '<div class="mute2">Adversaire évalué à ' + Math.round(fx.opp.str) +
         ' · votre équipe à ' + Math.round(G.manager.teamRatings(club).ovr) + '</div>';
+
+      if (fx.twin) {
+        h += '<div class="card tight" style="margin-top:10px;border-color:rgba(240,180,41,.4)">' +
+          '<div class="mute2">👀 Derby entre deux de vos clubs : vous n\'êtes ni l\'un ni ' +
+          'l\'autre, vous assistez juste au résultat.</div></div>';
+        h += '<button class="btn primary full" style="margin-top:10px" data-act="mg.derby">' +
+          '👀 Regarder le derby</button>';
+        return h + '</div>';
+      }
     }
 
     h += '<div class="grid2" style="margin-top:10px">';
@@ -843,6 +852,25 @@ window.G = window.G || {};
     live = M;
     ui.modal(sp.type === 'race' ? '🏁 Résultat du Grand Prix' : '📋 Résultat',
       matchHtml(M, sp.type === 'race'), { onClose: function () { live = null; } });
+  });
+
+  ui.act('mg.derby', function () {
+    var club = activeClub();
+    if (!club) return;
+    var r = G.manager.resolveDerby(club);
+    if (!r) { ui.toast('📅 Indisponible', 'Ce derby n\'est plus jouable', 'bad'); return; }
+    var homeName = r.homeIsA ? r.a.name : r.b.name;
+    var awayName = r.homeIsA ? r.b.name : r.a.name;
+    var homeScore = r.homeIsA ? r.sa : r.sb;
+    var awayScore = r.homeIsA ? r.sb : r.sa;
+    var h = '<div class="mute2" style="text-align:center;margin-bottom:6px">' +
+      '👀 Vous n\'êtes ni l\'un ni l\'autre : simple spectateur</div>' +
+      '<div class="scorebar"><div class="team">' + u.esc(homeName) + '</div>' +
+      '<div class="min" style="font-size:22px;font-weight:800">' + homeScore + ' - ' + awayScore + '</div>' +
+      '<div class="team r">' + u.esc(awayName) + '</div></div>' +
+      '<button class="btn primary full" style="margin-top:14px" data-act="ui.close">Fermer</button>';
+    ui.modal('👀 Résultat du derby', h, {});
+    ui.refresh();
   });
 
   ui.act('mg.coach', function () {

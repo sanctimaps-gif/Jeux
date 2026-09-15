@@ -1,5 +1,5 @@
 /* Service worker : met tout le jeu en cache pour un usage 100 % hors ligne. */
-var CACHE = 'empire-total-v23';
+var CACHE = 'empire-total-v24';
 
 var ASSETS = [
   './',
