@@ -33,6 +33,7 @@ G.loop = (function () {
     G.tax.tick(dt, silent);
     var biz = G.business.tick(dt, silent);
     var rent = G.realestate.tick(dt);
+    if (G.manager) G.manager.tickProgrammed(dt);
     return biz + rent;
   }
 

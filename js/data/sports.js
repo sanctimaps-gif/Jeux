@@ -88,7 +88,7 @@ G.DATA.sports = [
     economy: {
       clubCost: 9.0e6, gateBase: 4.2e5, sponsorBase: 6.5e5,
       prizeWin: 6.2e5, prizeDraw: 3.5e5, prizeLoss: 1.2e5,
-      wageBase: 38000, valueMul: 0.35, tvSeason: 1.1e7,
+      wageBase: 38000, valueMul: 0.04, tvSeason: 1.1e7,
       flagshipPrice: 2.0e8 /* pas de marché comparable au foot ; grand club de rugby pro */
     },
     leagueSize: 12,
@@ -123,7 +123,7 @@ G.DATA.sports = [
     economy: {
       clubCost: 1.2e6, gateBase: 4.5e4, sponsorBase: 7.0e4,
       prizeWin: 9.0e4, prizeDraw: 5.0e4, prizeLoss: 1.8e4,
-      wageBase: 9000, valueMul: 0.07, tvSeason: 1.2e6,
+      wageBase: 9000, valueMul: 0.0024, tvSeason: 1.2e6,
       flagshipPrice: 1.2e7 /* sport confidentiel, type Pro Recco */
     },
     leagueSize: 10,
@@ -161,7 +161,7 @@ G.DATA.sports = [
     economy: {
       clubCost: 1.4e7, gateBase: 5.2e5, sponsorBase: 9.0e5,
       prizeWin: 9.5e5, prizeDraw: 0, prizeLoss: 2.0e5,
-      wageBase: 75000, valueMul: 0.55, tvSeason: 1.8e7,
+      wageBase: 75000, valueMul: 1.6, tvSeason: 1.8e7,
       flagshipPrice: 8.0e9 /* plus grosse franchise NBA, type Golden State Warriors */
     },
     leagueSize: 12,
@@ -198,7 +198,7 @@ G.DATA.sports = [
     economy: {
       clubCost: 4.0e6, gateBase: 1.4e5, sponsorBase: 2.4e5,
       prizeWin: 2.5e5, prizeDraw: 1.4e5, prizeLoss: 5.0e4,
-      wageBase: 20000, valueMul: 0.18, tvSeason: 4.0e6,
+      wageBase: 20000, valueMul: 0.009, tvSeason: 4.0e6,
       flagshipPrice: 4.5e7 /* grand club européen, type THW Kiel / FC Barcelone handball */
     },
     leagueSize: 12,
@@ -245,7 +245,7 @@ G.DATA.sports = [
       clubCost: 8.0e7, gateBase: 0, sponsorBase: 5.5e6,
       prizeWin: 0, prizeDraw: 0, prizeLoss: 0,
       prizePerPoint: 4.2e5,
-      wageBase: 1.2e6, valueMul: 2.4, tvSeason: 6.0e7,
+      wageBase: 1.2e6, valueMul: 0.9, tvSeason: 6.0e7,
       flagshipPrice: 4.5e9 /* écurie de F1 la plus valorisée, type Ferrari/Mercedes */
     },
     leagueSize: 7,
@@ -278,7 +278,7 @@ G.DATA.sports = [
     economy: {
       clubCost: 2.5e6, gateBase: 1.0e5, sponsorBase: 1.6e5,
       prizeWin: 1.6e5, prizeDraw: 0, prizeLoss: 4.0e4,
-      wageBase: 14000, valueMul: 0.12, tvSeason: 2.5e6,
+      wageBase: 14000, valueMul: 0.005, tvSeason: 2.5e6,
       flagshipPrice: 2.5e7 /* sport confidentiel, grand club type Sada Cruzeiro */
     },
     leagueSize: 12,
@@ -311,7 +311,7 @@ G.DATA.sports = [
     economy: {
       clubCost: 6.0e6, gateBase: 2.2e5, sponsorBase: 3.2e5,
       prizeWin: 3.0e5, prizeDraw: 1.0e5, prizeLoss: 6.0e4,
-      wageBase: 32000, valueMul: 0.22, tvSeason: 6.0e6,
+      wageBase: 32000, valueMul: 0.64, tvSeason: 6.0e6,
       flagshipPrice: 3.2e9 /* plus grosse franchise NHL, type Toronto Maple Leafs */
     },
     leagueSize: 12,
@@ -344,7 +344,7 @@ G.DATA.sports = [
     economy: {
       clubCost: 1.0e7, gateBase: 3.5e5, sponsorBase: 5.0e5,
       prizeWin: 4.5e5, prizeDraw: 0, prizeLoss: 1.0e5,
-      wageBase: 45000, valueMul: 0.30, tvSeason: 1.0e7,
+      wageBase: 45000, valueMul: 1.4, tvSeason: 1.0e7,
       flagshipPrice: 7.0e9 /* plus grosse franchise MLB, type New York Yankees */
     },
     leagueSize: 12,
@@ -387,7 +387,7 @@ G.DATA.sports = [
       clubCost: 1.8e7, gateBase: 0, sponsorBase: 2.0e6,
       prizeWin: 0, prizeDraw: 0, prizeLoss: 0,
       prizePerPoint: 1.2e5,
-      wageBase: 3.5e5, valueMul: 0.9, tvSeason: 1.4e7,
+      wageBase: 3.5e5, valueMul: 0.02, tvSeason: 1.4e7,
       flagshipPrice: 1.0e8 /* plus grosse équipe World Tour, type UAE Team Emirates/Ineos */
     },
     leagueSize: 10,
@@ -397,19 +397,16 @@ G.DATA.sports = [
 
   /* ------------------------------------------------------------ TENNIS --- */
   {
-    id: 'tennis', name: 'Tennis', icon: '🎾', type: 'team',
+    id: 'tennis', name: 'Tennis', icon: '🎾', type: 'team', individual: true,
     unit: 'manche', unitPlural: 'manches',
-    squadSize: 8, lineupSize: 4,
+    squadSize: 1, lineupSize: 1,
     duration: 120, segments: 18, periods: 3,
     avgEvents: 5, spread: 1.2,
     scoreEvents: [{ label: 'Manche remportée', pts: 1, w: 1 }],
     attW: { att: 0.50, mid: 0.34, def: 0.16 },
     defW: { def: 0.46, mid: 0.34, att: 0.20 },
     positions: [
-      { code: 'S1', name: 'Simple n°1', role: 'att', need: 1, w: { tec: .36, men: .28, phy: .20, att: .12, def: .04 } },
-      { code: 'S2', name: 'Simple n°2', role: 'att', need: 1, w: { tec: .34, men: .26, phy: .22, att: .14, def: .04 } },
-      { code: 'D1', name: 'Double n°1', role: 'mid', need: 1, w: { tec: .32, men: .24, phy: .20, att: .18, def: .06 } },
-      { code: 'D2', name: 'Double n°2', role: 'mid', need: 1, w: { tec: .32, men: .24, phy: .20, att: .18, def: .06 } }
+      { code: 'J', name: 'Joueur', role: 'att', need: 1, w: { tec: .335, men: .255, phy: .205, att: .155, def: .05 } }
     ],
     tactics: {
       mentality: ['Ultra défensif', 'Prudent', 'Équilibré', 'Offensif', 'Tout ou rien'],
@@ -419,7 +416,7 @@ G.DATA.sports = [
     economy: {
       clubCost: 5.0e6, gateBase: 1.5e5, sponsorBase: 3.0e5,
       prizeWin: 2.0e5, prizeDraw: 0, prizeLoss: 5.0e4,
-      wageBase: 40000, valueMul: 0.30, tvSeason: 6.0e6,
+      wageBase: 40000, valueMul: 0.06, tvSeason: 6.0e6,
       flagshipPrice: 3.0e8 /* plus grosse académie/écurie mondiale, échelle Grand Chelem */
     },
     leagueSize: 12,
@@ -436,20 +433,16 @@ G.DATA.sports = [
 
   /* --------------------------------------------------------- BADMINTON --- */
   {
-    id: 'badminton', name: 'Badminton', icon: '🏸', type: 'team',
+    id: 'badminton', name: 'Badminton', icon: '🏸', type: 'team', individual: true,
     unit: 'manche', unitPlural: 'manches',
-    squadSize: 10, lineupSize: 5,
+    squadSize: 1, lineupSize: 1,
     duration: 60, segments: 15, periods: 3,
     avgEvents: 8, spread: 0.9,
     scoreEvents: [{ label: 'Manche remportée', pts: 1, w: 1 }],
     attW: { att: 0.48, mid: 0.34, def: 0.18 },
     defW: { def: 0.44, mid: 0.34, att: 0.22 },
     positions: [
-      { code: 'S1', name: 'Simple n°1', role: 'att', need: 1, w: { tec: .36, men: .26, phy: .22, att: .12, def: .04 } },
-      { code: 'S2', name: 'Simple n°2', role: 'att', need: 1, w: { tec: .34, men: .24, phy: .24, att: .14, def: .04 } },
-      { code: 'S3', name: 'Simple n°3', role: 'mid', need: 1, w: { tec: .32, men: .22, phy: .24, att: .16, def: .06 } },
-      { code: 'D1', name: 'Double n°1', role: 'mid', need: 1, w: { tec: .30, men: .22, phy: .24, att: .18, def: .06 } },
-      { code: 'D2', name: 'Double n°2', role: 'def', need: 1, w: { tec: .28, men: .20, phy: .26, att: .18, def: .08 } }
+      { code: 'J', name: 'Joueur', role: 'att', need: 1, w: { tec: .32, men: .228, phy: .24, att: .156, def: .056 } }
     ],
     tactics: {
       mentality: ['Défensif', 'Prudent', 'Équilibré', 'Offensif', 'Rythme maximal'],
@@ -459,7 +452,7 @@ G.DATA.sports = [
     economy: {
       clubCost: 1.5e6, gateBase: 5.0e4, sponsorBase: 8.0e4,
       prizeWin: 6.0e4, prizeDraw: 0, prizeLoss: 1.5e4,
-      wageBase: 12000, valueMul: 0.10, tvSeason: 1.5e6,
+      wageBase: 12000, valueMul: 0.003, tvSeason: 1.5e6,
       flagshipPrice: 1.5e7 /* plus grand club/académie du BWF World Tour */
     },
     leagueSize: 10,
@@ -475,18 +468,16 @@ G.DATA.sports = [
 
   /* ------------------------------------------------------------ SQUASH --- */
   {
-    id: 'squash', name: 'Squash', icon: '🥍', type: 'team',
+    id: 'squash', name: 'Squash', icon: '🥍', type: 'team', individual: true,
     unit: 'manche', unitPlural: 'manches',
-    squadSize: 6, lineupSize: 3,
+    squadSize: 1, lineupSize: 1,
     duration: 45, segments: 12, periods: 5,
     avgEvents: 10, spread: 0.8,
     scoreEvents: [{ label: 'Manche remportée', pts: 1, w: 1 }],
     attW: { att: 0.50, mid: 0.32, def: 0.18 },
     defW: { def: 0.48, mid: 0.32, att: 0.20 },
     positions: [
-      { code: 'S1', name: 'Simple n°1', role: 'att', need: 1, w: { tec: .34, men: .28, phy: .24, att: .10, def: .04 } },
-      { code: 'S2', name: 'Simple n°2', role: 'mid', need: 1, w: { tec: .32, men: .24, phy: .26, att: .12, def: .06 } },
-      { code: 'S3', name: 'Simple n°3', role: 'def', need: 1, w: { tec: .28, men: .20, phy: .28, att: .14, def: .10 } }
+      { code: 'J', name: 'Joueur', role: 'att', need: 1, w: { tec: .3133, men: .24, phy: .26, att: .12, def: .0667 } }
     ],
     tactics: {
       mentality: ['Ultra défensif', 'Prudent', 'Équilibré', 'Offensif', 'Kamikaze'],
@@ -496,7 +487,7 @@ G.DATA.sports = [
     economy: {
       clubCost: 8.0e5, gateBase: 2.5e4, sponsorBase: 4.0e4,
       prizeWin: 3.0e4, prizeDraw: 0, prizeLoss: 1.0e4,
-      wageBase: 8000, valueMul: 0.06, tvSeason: 8.0e5,
+      wageBase: 8000, valueMul: 0.001, tvSeason: 8.0e5,
       flagshipPrice: 5.0e6 /* sport confidentiel, plus grand club du PSA World Tour */
     },
     leagueSize: 8,
@@ -511,19 +502,16 @@ G.DATA.sports = [
 
   /* -------------------------------------------------- TENNIS DE TABLE --- */
   {
-    id: 'tennisdetable', name: 'Tennis de table', icon: '🏓', type: 'team',
+    id: 'tennisdetable', name: 'Tennis de table', icon: '🏓', type: 'team', individual: true,
     unit: 'manche', unitPlural: 'manches',
-    squadSize: 8, lineupSize: 4,
+    squadSize: 1, lineupSize: 1,
     duration: 30, segments: 12, periods: 5,
     avgEvents: 14, spread: 0.7,
     scoreEvents: [{ label: 'Manche remportée', pts: 1, w: 1 }],
     attW: { att: 0.48, mid: 0.34, def: 0.18 },
     defW: { def: 0.46, mid: 0.34, att: 0.20 },
     positions: [
-      { code: 'S1', name: 'Simple n°1', role: 'att', need: 1, w: { tec: .38, men: .26, phy: .18, att: .14, def: .04 } },
-      { code: 'S2', name: 'Simple n°2', role: 'att', need: 1, w: { tec: .36, men: .24, phy: .18, att: .16, def: .06 } },
-      { code: 'S3', name: 'Simple n°3', role: 'mid', need: 1, w: { tec: .34, men: .22, phy: .20, att: .16, def: .08 } },
-      { code: 'D', name: 'Double', role: 'def', need: 1, w: { tec: .30, men: .20, phy: .20, att: .18, def: .12 } }
+      { code: 'J', name: 'Joueur', role: 'att', need: 1, w: { tec: .345, men: .23, phy: .19, att: .16, def: .075 } }
     ],
     tactics: {
       mentality: ['Défensif', 'Prudent', 'Équilibré', 'Offensif', 'Tout en attaque'],
@@ -533,7 +521,7 @@ G.DATA.sports = [
     economy: {
       clubCost: 1.0e6, gateBase: 3.0e4, sponsorBase: 5.0e4,
       prizeWin: 4.0e4, prizeDraw: 0, prizeLoss: 1.2e4,
-      wageBase: 9000, valueMul: 0.07, tvSeason: 1.0e6,
+      wageBase: 9000, valueMul: 0.0016, tvSeason: 1.0e6,
       flagshipPrice: 8.0e6 /* sport confidentiel, plus grand club du WTT */
     },
     leagueSize: 10,
@@ -548,17 +536,16 @@ G.DATA.sports = [
 
   /* ------------------------------------------------------------- PADEL --- */
   {
-    id: 'padel', name: 'Padel', icon: '🥎', type: 'team',
+    id: 'padel', name: 'Padel', icon: '🥎', type: 'team', individual: true,
     unit: 'manche', unitPlural: 'manches',
-    squadSize: 6, lineupSize: 4,
+    squadSize: 1, lineupSize: 1,
     duration: 90, segments: 14, periods: 3,
     avgEvents: 6, spread: 1.0,
     scoreEvents: [{ label: 'Manche remportée', pts: 1, w: 1 }],
     attW: { att: 0.46, mid: 0.34, def: 0.20 },
     defW: { def: 0.44, mid: 0.34, att: 0.22 },
     positions: [
-      { code: 'P1', name: 'Paire n°1', role: 'att', need: 2, w: { tec: .32, men: .24, phy: .22, att: .16, def: .06 } },
-      { code: 'P2', name: 'Paire n°2', role: 'mid', need: 2, w: { tec: .30, men: .22, phy: .22, att: .16, def: .10 } }
+      { code: 'J', name: 'Joueur', role: 'att', need: 1, w: { tec: .31, men: .23, phy: .22, att: .16, def: .08 } }
     ],
     tactics: {
       mentality: ['Ultra défensif', 'Prudent', 'Équilibré', 'Offensif', 'Tout au filet'],
@@ -568,7 +555,7 @@ G.DATA.sports = [
     economy: {
       clubCost: 2.0e6, gateBase: 6.0e4, sponsorBase: 1.0e5,
       prizeWin: 7.0e4, prizeDraw: 0, prizeLoss: 2.0e4,
-      wageBase: 15000, valueMul: 0.12, tvSeason: 2.0e6,
+      wageBase: 15000, valueMul: 0.004, tvSeason: 2.0e6,
       flagshipPrice: 2.0e7 /* sport en pleine expansion, plus grand club de Premier Padel */
     },
     leagueSize: 8,

@@ -210,7 +210,7 @@ G.manager = (function () {
    * reste peu cher, mais un très bon joueur coûte une fortune, comme dans
    * la vraie vie (les superstars valent 100-200 M€, pas 15-20 M€).
    */
-  function value(p, sport) {
+  function value(p, sport, club) {
     var o = ovr(p, sport);
     var base = Math.pow(o / 50, 12) * 50000 * sport.economy.valueMul;
     var ageF;
@@ -218,7 +218,12 @@ G.manager = (function () {
     else if (p.age <= 25) ageF = 1.10 + (p.pot - o) * 0.012;
     else if (p.age <= 29) ageF = 1.0;
     else ageF = Math.max(0.18, 1 - (p.age - 29) * 0.14);
-    return Math.round(base * u.clamp(ageF, 0.15, 1.9));
+    var v = base * u.clamp(ageF, 0.15, 1.9);
+    /* Un joueur de division amateur n'a, comme dans la vraie vie, quasiment
+       aucune valeur de transfert : on recale sur le même barème réaliste
+       que le prix d'achat des clubs (divisé par 3 à chaque palier). */
+    if (club) v *= divisionPriceMult(club.division);
+    return Math.round(v);
   }
 
   function wage(p, sport, club) {
@@ -231,7 +236,7 @@ G.manager = (function () {
   function refreshPlayerEconomics(club) {
     var sport = sportDef(club.sport);
     for (var i = 0; i < club.players.length; i++) {
-      club.players[i].value = value(club.players[i], sport);
+      club.players[i].value = value(club.players[i], sport, club);
       club.players[i].wage = wage(club.players[i], sport, club);
     }
   }
@@ -345,15 +350,19 @@ G.manager = (function () {
   }
 
   function clubValue(club) {
-    var sport = sportDef(club.sport);
     var squad = u.sum(club.players, function (p) { return p.value; });
     var infra = 0;
     for (var f in club.facilities) {
       infra += facilityCost(club, f) * (club.facilities[f] - 1) * 0.5;
     }
-    return squad + infra +
-      sport.economy.clubCost * countryCoef(sport, club.country) *
-      divisionCoef(club.division) * 0.9;
+    /* Le socle « fonds de commerce » est calé sur le prix d'achat réel d'un
+       club équivalent, pas sur une constante déconnectée : on ne peut plus
+       racheter un club amateur pour rien puis le revendre avec un profit
+       énorme, sa valeur de revente suit ce qu'il coûterait à acheter. */
+    var base = club.national
+      ? nationalTeamPrice(club.sport, club.country)
+      : clubPrice(club.sport, club.country, club.division);
+    return squad + infra + base * 0.2;
   }
 
   /* ================================================== INSTALLATIONS ====== */
@@ -414,6 +423,8 @@ G.manager = (function () {
   /* ==================================================== CHAMPIONNAT ====== */
 
   function clubNameFor(sportId, countryCode) {
+    var sport = sportDef(sportId);
+    if (sport && sport.individual) return playerName();
     var sfx = G.DATA.clubSuffixes[sportId] || ['Club'];
     var nation = G.DATA.worldById[countryCode];
     var cities = (nation && G.DATA.cityNamesByCountry[countryCode]) || G.DATA.cityNames;
@@ -607,11 +618,32 @@ G.manager = (function () {
 
   /* ====================================================== FINANCES ======= */
 
+  /** Disciplines distinctes présentes dans le groupe omnisports du club
+   * (lui-même inclus). Un club seul ne forme un groupe d'une discipline. */
+  function groupSports(club) {
+    if (!club.groupId) return [club.sport];
+    var set = {};
+    set[club.sport] = true;
+    var list = clubs();
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].groupId === club.groupId) set[list[i].sport] = true;
+    }
+    return Object.keys(set);
+  }
+
+  /** Bonus de revenus lié aux fusions multi-sports : +8 % par discipline
+   * différente réunie sous le même groupe, jusqu'à +32 % (5 disciplines). */
+  function groupBonusMult(club) {
+    var n = groupSports(club).length;
+    if (n <= 1) return 1;
+    return 1 + Math.min(n - 1, 4) * 0.08;
+  }
+
   function matchIncome(club, isHome, won, drew) {
     var sport = sportDef(club.sport);
     var e = sport.economy;
     var repF = 0.35 + club.rep / 70;
-    var mult = countryCoef(sport, club.country) * divisionCoef(club.division);
+    var mult = countryCoef(sport, club.country) * divisionCoef(club.division) * groupBonusMult(club);
     var sponsorBonus = 1 + G.eco.bonus('sponsor');
 
     var gate = 0;
@@ -897,6 +929,7 @@ G.manager = (function () {
       var q = 38 + club.rep * 0.30 + scout * 2.6 + u.rfloat(-9, 11) +
         (3 - club.division) * 5;
       var p = makePlayer(sport, u.clamp(q, 28, ceiling), {});
+      p.value = value(p, sport, club);
       p.wage = wage(p, sport, club);
       p.askPrice = Math.round(p.value * u.rfloat(1.05, 1.45));
       list.push(p);
@@ -1126,16 +1159,21 @@ G.manager = (function () {
 
   /* ========================================================== FUSIONS ==== */
 
-  /** Deux équipes nationales, ou une nationale + un club, ne se fusionnent pas. */
+  /** Deux équipes nationales, ou une nationale + un club, ne se fusionnent pas ;
+   * deux clubs déjà réunis dans le même groupe omnisports non plus. */
   function canMergeClubs(a, b) {
-    return !!a && !!b && a.uid !== b.uid && !a.national && !b.national;
+    if (!a || !b || a.uid === b.uid || a.national || b.national) return false;
+    if (a.sport !== b.sport && a.groupId && a.groupId === b.groupId) return false;
+    return true;
   }
 
   /**
-   * Fusionne deux clubs en un seul, plus gros. Même sport : les effectifs
-   * sont combinés (on garde les meilleurs) et la meilleure division est
-   * conservée. Sports différents : la valeur du club absorbé se transforme
-   * en capital et en réputation pour le club qui survit.
+   * Fusionne deux clubs. Même sport : ils deviennent un seul club, les
+   * effectifs sont combinés (on garde les meilleurs) et la meilleure
+   * division est conservée ; le club absorbé disparaît. Sports différents :
+   * les deux clubs restent en activité, chacun dans son propre championnat,
+   * mais rejoignent le même groupe omnisports, ce qui augmente durablement
+   * les recettes (guichets, sponsors, primes) de tous ses membres.
    */
   function mergeClub(uidA, uidB) {
     var a = byUid(uidA), b = byUid(uidB);
@@ -1148,24 +1186,46 @@ G.manager = (function () {
       combined = u.sortBy(combined, function (p) { return ovr(p, sport); }, true);
       a.players = combined.slice(0, sport.squadSize + 6);
       a.division = Math.min(a.division, b.division);
+
+      var absorbed = clubValue(b) * 0.55;
+      G.eco.earn(absorbed, 'manager:' + a.sport, 'Fusion · ' + b.name + ' → ' + a.name, true);
+      a.rep = u.clamp(a.rep + 10, 1, 100);
+
+      unlinkTwin(b);
+      var list = clubs();
+      list.splice(list.indexOf(b), 1);
+      if (G.state.manager.active === b.uid) G.state.manager.active = a.uid;
+
+      autoLineup(a);
+      refreshPlayerEconomics(a);
+      a.league = makeLeague(a, sport);
+
+      if (G.ui) {
+        G.ui.toast('🤝 Fusion réalisée', b.name + ' rejoint ' + a.name +
+          ' · ' + u.fmtMoney(absorbed) + ' absorbés', 'good');
+      }
+      return true;
     }
 
-    var absorbed = clubValue(b) * (sameSport ? 0.55 : 0.75);
-    G.eco.earn(absorbed, 'manager:' + a.sport, 'Fusion · ' + b.name + ' → ' + a.name, true);
-    a.rep = u.clamp(a.rep + (sameSport ? 10 : 5), 1, 100);
+    /* Sports différents : constitution (ou extension) d'un groupe omnisports.
+     * Les deux clubs, et tous ceux déjà rattachés à l'un ou l'autre groupe,
+     * partagent désormais le même groupId. */
+    var groupId = a.groupId || a.uid;
+    a.groupId = groupId;
+    var oldBGroup = b.groupId || b.uid;
+    var all = clubs();
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].uid === b.uid || all[i].groupId === oldBGroup) all[i].groupId = groupId;
+    }
+    a.rep = u.clamp(a.rep + 5, 1, 100);
+    b.rep = u.clamp(b.rep + 5, 1, 100);
 
-    unlinkTwin(b);
-    var list = clubs();
-    list.splice(list.indexOf(b), 1);
-    if (G.state.manager.active === b.uid) G.state.manager.active = a.uid;
-
-    autoLineup(a);
-    refreshPlayerEconomics(a);
-    a.league = makeLeague(a, sport);
-
+    var nDisc = groupSports(a).length;
+    var bonusPct = Math.round((groupBonusMult(a) - 1) * 100);
     if (G.ui) {
-      G.ui.toast('🤝 Fusion réalisée', b.name + ' rejoint ' + a.name +
-        ' · ' + u.fmtMoney(absorbed) + ' absorbés', 'good');
+      G.ui.toast('🤝 Groupe omnisports formé', a.name + ' et ' + b.name +
+        ' partagent leurs revenus · +' + bonusPct + '% pour les ' + nDisc +
+        ' disciplines du groupe', 'good');
     }
     return true;
   }
@@ -1175,6 +1235,60 @@ G.manager = (function () {
     for (var i = 0; i < club.players.length; i++) {
       var p = club.players[i];
       p.energy = u.clamp(p.energy + 4 + lvl, 0, 100);
+    }
+  }
+
+  /* ================================================ MATCHS PROGRAMMÉS ==== */
+
+  var PROGRAM_DURATION = 240;   // 4 minutes réelles par match programmé
+  var MAX_PROGRAMMED = 5;       // on ne peut pas en mettre plus de 5 en attente
+
+  /** Programme jusqu'à 5 matchs à venir : ils se joueront tout seuls, sans
+   * aucune intervention possible, à raison d'un match toutes les 4 minutes
+   * réelles, même hors ligne. */
+  function programMatches(club, n) {
+    n = u.clamp(Math.round(n) || 0, 1, MAX_PROGRAMMED);
+    var current = club.programmed && club.programmed.count > 0 ? club.programmed.count : 0;
+    var total = u.clamp(current + n, 0, MAX_PROGRAMMED);
+    if (total === current) return false;
+    var timeLeft = current > 0 ? club.programmed.timeLeft : PROGRAM_DURATION;
+    club.programmed = { count: total, timeLeft: timeLeft };
+    return true;
+  }
+
+  function cancelProgrammed(club) {
+    club.programmed = null;
+  }
+
+  /** Résout un seul match programmé, sans jamais passer par une interface
+   * jouable : un derby entre deux clubs jumeaux reste géré à part, pour que
+   * le résultat unique s'applique bien aux deux championnats. */
+  function resolveProgrammed(club) {
+    var sport = sportDef(club.sport);
+    if (sport.type === 'race') {
+      if (G.race && G.race.quickSim) G.race.quickSim(club);
+      return;
+    }
+    var fx = nextFixture(club);
+    if (fx && fx.twin) { resolveDerby(club); return; }
+    if (G.match && G.match.quickSim) G.match.quickSim(club);
+  }
+
+  /** Avance le compte à rebours des matchs programmés de tous les clubs. */
+  function tickProgrammed(dt) {
+    var list = clubs();
+    for (var i = 0; i < list.length; i++) {
+      var club = list[i];
+      var q = club.programmed;
+      if (!q || q.count <= 0) continue;
+      q.timeLeft -= dt;
+      var guard = 0;
+      while (q.timeLeft <= 0 && q.count > 0 && guard++ < MAX_PROGRAMMED + 1) {
+        resolveProgrammed(club);
+        q.count--;
+        if (q.count > 0) q.timeLeft += PROGRAM_DURATION;
+      }
+      if (q.count <= 0) club.programmed = null;
     }
   }
 
@@ -1202,7 +1316,11 @@ G.manager = (function () {
     sellPlayer: sellPlayer, buyClub: buyClub, buyNationalTeam: buyNationalTeam,
     renameClub: renameClub, sellClub: sellClub,
     canMergeClubs: canMergeClubs, mergeClub: mergeClub,
+    groupSports: groupSports, groupBonusMult: groupBonusMult,
     restDay: restDay, clubNameFor: clubNameFor,
+    PROGRAM_DURATION: PROGRAM_DURATION, MAX_PROGRAMMED: MAX_PROGRAMMED,
+    programMatches: programMatches, cancelProgrammed: cancelProgrammed,
+    tickProgrammed: tickProgrammed,
     refreshPlayerEconomics: refreshPlayerEconomics
   };
 })();

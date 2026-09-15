@@ -18,8 +18,17 @@ window.G = window.G || {};
 
   /* ==================================================== ACQUISITION ====== */
 
+  /** « club » ou « joueur » selon que la discipline s'achète en individuel. */
+  function entityWord(sportId, cap) {
+    var sport = G.DATA.sportById[sportId];
+    var indiv = sport && sport.individual;
+    if (cap) return indiv ? 'Joueur' : 'Club';
+    return indiv ? 'joueur' : 'club';
+  }
+
   function renderShop() {
-    var h = '<div class="card"><div class="card-head">🏅 Racheter un club</div>' +
+    var word = shop.sport ? entityWord(shop.sport) : 'club';
+    var h = '<div class="card"><div class="card-head">🏅 Racheter un ' + word + '</div>' +
       '<div class="mute2">Choisissez une discipline, un pays, puis une division de ' +
       'départ — de la <b>Départementale 3</b>, accessible, jusqu\'à l\'<b>Élite</b>, ' +
       'hors de prix. On peut aussi racheter la fédération d\'un pays pour jouer des ' +
@@ -43,7 +52,7 @@ window.G = window.G || {};
     /* Étape 2 : le pays. */
     h += '<div class="card-head" style="margin-top:12px">2 · Pays</div>';
     h += '<div class="card tight"><div class="mute2">Plus le championnat national ' +
-      'est relevé, plus les clubs de ce pays coûtent cher et rapportent gros.</div></div>';
+      'est relevé, plus les ' + word + 's de ce pays coûtent cher et rapportent gros.</div></div>';
 
     for (var c = 0; c < sport.countries.length; c++) {
       var code = sport.countries[c];
@@ -116,6 +125,7 @@ window.G = window.G || {};
     var div = parseInt(d.div, 10);
     var price = G.manager.clubPrice(shop.sport, shop.country, div);
     var suggested = G.manager.clubNameFor(shop.sport, shop.country);
+    var word = entityWord(shop.sport);
 
     var h = '<div class="row" style="gap:10px;margin-bottom:10px">' +
       '<div style="font-size:32px">' + sport.icon + '</div><div>' +
@@ -123,13 +133,13 @@ window.G = window.G || {};
       '<div class="mute2">' + nation.f + ' ' + nation.n + ' · ' +
       G.manager.divisionName(sport, div) + '</div></div></div>';
 
-    h += '<label class="field">Nom du club</label>' +
+    h += '<label class="field">Nom du ' + word + '</label>' +
       '<input type="text" id="mg-name" maxlength="30" value="' + u.esc(suggested) + '">' +
       '<button class="btn xs" style="margin-top:6px" data-act="mg.shopname">' +
       '🎲 Autre proposition</button>';
 
     h += '<div class="grid2" style="margin-top:12px">' +
-      ui.stat('Prix du club', u.fmtMoney(price)) +
+      ui.stat('Prix du ' + word, u.fmtMoney(price)) +
       ui.stat('Recettes par match', u.fmtMoney(
         (sport.economy.gateBase + sport.economy.sponsorBase) *
         G.manager.countryCoef(sport, shop.country) * G.manager.divisionCoef(div)), 'good') +
@@ -141,8 +151,8 @@ window.G = window.G || {};
     }
 
     h += '<button class="btn primary full" style="margin-top:12px" data-act="mg.dobuy" ' +
-      'data-div="' + div + '">Racheter le club</button>';
-    ui.modal('Acquisition d\'un club', h, {});
+      'data-div="' + div + '">Racheter le ' + word + '</button>';
+    ui.modal('Acquisition d\'un ' + word, h, {});
   });
 
   ui.act('mg.shopname', function () {
@@ -158,7 +168,8 @@ window.G = window.G || {};
       ui.closeModal();
       sub = 'club';
       shopMode = false;
-      ui.toast('🏟️ Club acquis !', club.name, 'good');
+      var indiv = G.DATA.sportById[shop.sport] && G.DATA.sportById[shop.sport].individual;
+      ui.toast(indiv ? '🎾 Joueur recruté !' : '🏟️ Club acquis !', club.name, 'good');
       ui.refresh();
     }
   });
@@ -372,6 +383,33 @@ window.G = window.G || {};
         (injured ? '🚑 ' + injured + ' blessé(s). ' : '') +
         (tired ? '😮‍💨 ' + tired + ' titulaire(s) à court de jus.' : '') + '</div>';
     }
+    h += programmedHtml(club);
+    return h + '</div>';
+  }
+
+  /** Matchs programmés : ils se jouent tout seuls, sans aucune intervention,
+   * un toutes les 4 minutes réelles, même hors ligne. */
+  function programmedHtml(club) {
+    var q = club.programmed;
+    var max = G.manager.MAX_PROGRAMMED;
+    if (q && q.count > 0) {
+      var pct = (1 - q.timeLeft / G.manager.PROGRAM_DURATION) * 100;
+      return '<div class="card-head" style="margin-top:14px">📅 Matchs programmés</div>' +
+        '<div class="mute2">' + q.count + ' match' + (q.count > 1 ? 's' : '') +
+        ' en attente · prochain dans ' + u.fmtDuration(Math.max(0, q.timeLeft) * 1000) +
+        '</div>' + ui.bar(pct, 'blue') +
+        '<div class="mute2" style="margin-top:4px">Aucune intervention possible : ils se ' +
+        'jouent tout seuls, même hors ligne.</div>' +
+        '<button class="btn sm full" style="margin-top:6px" data-act="mg.cancelprog">' +
+        '✕ Annuler</button>';
+    }
+    var h = '<div class="card-head" style="margin-top:14px">📅 Programmer des matchs</div>' +
+      '<div class="mute2">4 minutes réelles par match, jusqu\'à ' + max +
+      ' à la suite, sans aucune intervention possible.</div>' +
+      '<div class="grid3" style="margin-top:6px">';
+    [1, 3, max].forEach(function (n) {
+      h += '<button class="btn sm" data-act="mg.program" data-n="' + n + '">+' + n + '</button>';
+    });
     return h + '</div>';
   }
 
@@ -712,18 +750,39 @@ window.G = window.G || {};
       '" data-act="mg.sponsor"' + (canSp ? '' : ' disabled') + '>' +
       (maxed ? 'MAX' : u.fmtMoney(spCost)) + '</button></div></div></div>';
 
+    /* Groupe omnisports : bonus de revenus si le club est fusionné avec des
+     * clubs d'autres disciplines. */
+    var groupSports = G.manager.groupSports(club);
+    if (club.groupId && groupSports.length > 1) {
+      var groupBonus = Math.round((G.manager.groupBonusMult(club) - 1) * 100);
+      var groupNames = groupSports.map(function (s) {
+        var gsp = G.DATA.sportById[s];
+        return gsp ? gsp.icon + ' ' + gsp.name : s;
+      }).join(' · ');
+      h += '<div class="card"><div class="card-head">🌐 Groupe omnisports</div>' +
+        '<div class="mute2">' + groupNames + '</div>' +
+        '<div class="good" style="font-weight:800;margin-top:4px">+' + groupBonus +
+        '% sur les recettes de tous les clubs du groupe</div></div>';
+    }
+
     /* Fusion avec un autre club possédé. */
     var others = clubs().filter(function (c) { return c.uid !== club.uid && !c.national; });
+    others = others.filter(function (c) {
+      return G.manager.canMergeClubs(club, c);
+    });
     if (!club.national && others.length) {
       h += '<div class="card"><div class="card-head">🤝 Fusionner</div>' +
-        '<div class="mute2">Absorbez un autre de vos clubs : même sport, les effectifs ' +
-        'se combinent ; sport différent, sa valeur se transforme en capital.</div>';
+        '<div class="mute2">Même sport : les effectifs se combinent en un seul club, ' +
+        'plus fort. Sport différent : les deux clubs restent en activité chacun dans ' +
+        'son championnat, mais rejoignent un même groupe omnisports qui augmente ' +
+        'durablement leurs recettes.</div>';
       for (var m = 0; m < others.length; m++) {
         var osp = G.DATA.sportById[others[m].sport];
+        var sameSport = others[m].sport === club.sport;
         h += '<div class="item"><div class="item-icon">' + osp.icon + '</div>' +
           '<div class="item-main"><div class="t">' + u.esc(others[m].name) + '</div>' +
-          '<div class="s">' + osp.name + ' · valeur ' +
-          u.fmtMoney(G.manager.clubValue(others[m])) + '</div></div>' +
+          '<div class="s">' + osp.name + (sameSport ? ' · valeur ' +
+          u.fmtMoney(G.manager.clubValue(others[m])) : ' · groupe omnisports') + '</div></div>' +
           '<div class="item-side"><button class="btn sm" data-act="mg.merge" ' +
           'data-a="' + club.uid + '" data-b="' + others[m].uid + '">Fusionner</button></div></div>';
       }
@@ -778,8 +837,9 @@ window.G = window.G || {};
       a.sport === b.sport
         ? 'Les effectifs se combinent (les meilleurs joueurs sont conservés) et ' +
           a.name + ' garde la meilleure des deux divisions. ' + b.name + ' disparaît.'
-        : b.name + ' disparaît : sa valeur est convertie en capital et en réputation ' +
-          'pour ' + a.name + '.',
+        : a.name + ' et ' + b.name + ' restent tous les deux en activité, chacun dans ' +
+          'son propre championnat, mais rejoignent un même groupe omnisports : leurs ' +
+          'recettes augmentent durablement.',
       function () {
         if (G.manager.mergeClub(d.a, d.b)) ui.refresh();
       }, 'Fusionner');
@@ -868,6 +928,23 @@ window.G = window.G || {};
       '<div class="team r">' + u.esc(awayName) + '</div></div>' +
       '<button class="btn primary full" style="margin-top:14px" data-act="ui.close">Fermer</button>';
     ui.modal('👀 Résultat du derby', h, {});
+    ui.refresh();
+  });
+
+  ui.act('mg.program', function (d) {
+    var club = activeClub();
+    if (!club) return;
+    if (G.manager.programMatches(club, parseInt(d.n, 10))) {
+      ui.toast('📅 Matchs programmés', club.programmed.count + ' match(s) en attente, ' +
+        'aucune intervention possible', 'good');
+      ui.refresh();
+    }
+  });
+
+  ui.act('mg.cancelprog', function () {
+    var club = activeClub();
+    if (!club) return;
+    G.manager.cancelProgrammed(club);
     ui.refresh();
   });
 
@@ -1083,6 +1160,7 @@ window.G = window.G || {};
 
   G.ui.register('manager', {
     icon: '🏟️', label: 'Manager',
+    live: true, liveEvery: 1.0,
     render: function () {
       var h = '<div class="view-title">Manager</div>';
       var club = activeClub();
