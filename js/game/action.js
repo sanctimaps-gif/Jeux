@@ -33,6 +33,17 @@ G.action = (function () {
       goal: 'shot', speed: 0.85, ballSpeed: 22, clock: 60, realSeconds: 170,
       aiShoot: 2.8, aiRange: 0.55, tackle: 0.8, view: 35,
       texture: 'indoor', ball: '#c0392b', ballLine: '#3a0d08' },
+    hockey: { w: 26, h: 61, goalW: 1.83, surface: '#dff1fb', line: '#1565c0',
+      goal: 'shot', speed: 0.9, ballSpeed: 30, clock: 60, realSeconds: 180,
+      aiShoot: 2.0, aiRange: 0.50, tackle: 1.5, view: 30,
+      texture: 'ice', ball: '#111111', ballLine: '#000000', ballScale: 0.55 },
+
+    /* Volleyball : une équipe complète de chaque côté, mais un échange se
+       joue comme au filet (voir F.netTeam) plutôt qu'un ballon disputé au
+       contact — on ne « tacle » pas au volley. */
+    volleyball: { w: 9, h: 18, surface: '#d9a96c', line: '#ffffff',
+      netTeam: true, net: true, speed: 1.0, ballSpeed: 20, clock: 60, realSeconds: 170, view: 9,
+      texture: 'wood', ball: '#f7e017', ballLine: '#8a6d00' },
 
     /* Sports de raquette : un joueur de chaque côté, terrain adapté à
        chaque discipline (dimensions réelles), échange simulé point par
@@ -46,7 +57,13 @@ G.action = (function () {
     tennisdetable: { w: 1.525, h: 2.74, surface: '#0d4f8b', line: '#ffffff',
       racket: true, net: true, speed: 2.4, ballSpeed: 10, clock: 30, realSeconds: 140, view: 1.525 },
     padel: { w: 10, h: 20, surface: '#2373a6', line: '#ffffff',
-      racket: true, net: true, speed: 1.0, ballSpeed: 26, clock: 90, realSeconds: 200, view: 10 }
+      racket: true, net: true, speed: 1.0, ballSpeed: 26, clock: 90, realSeconds: 200, view: 10 },
+
+    /* Baseball : pas de ballon disputé en continu, mais une succession de
+       face-à-face lanceur/frappeur sur un losange (voir F.diamond). */
+    baseball: { w: 90, h: 90, surface: '#5a8f3c', line: '#ffffff',
+      diamond: true, clock: 9, view: 95,
+      ball: '#ffffff', ballLine: '#c0392b', ballScale: 0.5 }
   };
 
   function fieldOf(sportId) { return FIELDS[sportId] || FIELDS.football; }
@@ -94,6 +111,13 @@ G.action = (function () {
       buildRacketMatch(M, club, sport, mine, oppStr, fx.opp.name);
       push(M, 'Début de la rencontre — ' + club.name + ' contre ' + fx.opp.name, 'info');
       startRally(M, u.chance(0.5) ? 0 : 1);
+    } else if (F.netTeam) {
+      buildTeams(M, club, sport, mine, oppStr);
+      push(M, 'Début du set — ' + club.name + ' contre ' + fx.opp.name, 'info');
+      startNetRally(M, u.chance(0.5) ? 0 : 1);
+    } else if (F.diamond) {
+      buildDiamondMatch(M, club, sport, mine, oppStr);
+      push(M, 'Début de partie — ' + club.name + ' contre ' + fx.opp.name, 'info');
     } else {
       buildTeams(M, club, sport, mine, oppStr);
       kickoff(M, 1);
@@ -246,6 +270,16 @@ G.action = (function () {
     if (M.done || M.paused) return;
     var F = M.F;
 
+    /* Le base-ball ne se découpe pas en un temps continu, mais en manches et
+       en retraits : sa propre logique gère l'horloge (M.clock progresse à
+       chaque demi-manche) et la fin de partie. */
+    if (F.diamond) {
+      pickUserPlayer(M);
+      updateDiamond(M, dt);
+      updateCamera(M, dt);
+      return;
+    }
+
     /* Appliquer les tactiques si changement. */
     if (M.tactics && M.tactics.style) {
       var style = M.tactics.style;
@@ -261,11 +295,14 @@ G.action = (function () {
       M.clock += minutesPerSecond * dt;
     }
 
-    /* Mi-temps (pause entre les manches pour les sports de raquette). */
+    /* Mi-temps (pause entre les manches pour les sports de raquette ou de
+       filet). */
     if (!M.halfDone && M.clock >= F.clock / 2) {
       M.halfDone = true;
       push(M, 'Mi-temps — ' + M.score.you + ' - ' + M.score.opp, 'info');
-      if (F.racket) startRally(M, u.chance(0.5) ? 0 : 1); else kickoff(M, -1);
+      if (F.racket) startRally(M, u.chance(0.5) ? 0 : 1);
+      else if (F.netTeam) startNetRally(M, u.chance(0.5) ? 0 : 1);
+      else kickoff(M, -1);
     }
     if (M.clock >= F.clock) { finish(M); return; }
 
@@ -280,13 +317,16 @@ G.action = (function () {
 
     pickUserPlayer(M);
     for (var i = 0; i < M.players.length; i++) updatePlayer(M, M.players[i], dt);
-    if (F.racket) updateRally(M, dt); else updateBall(M, dt);
+    if (F.racket) updateRally(M, dt);
+    else if (F.netTeam) updateNetRally(M, dt);
+    else updateBall(M, dt);
     separatePlayers(M);
     updateCamera(M, dt);
 
     /* Statistiques de possession (part des points gagnés, pour les sports de
-       raquette qui n'ont pas de porteur de balle disputé au contact). */
-    if (F.racket) {
+       raquette et de filet qui n'ont pas de porteur de balle disputé au
+       contact). */
+    if (F.racket || F.netTeam) {
       var tot = M.score.you + M.score.opp;
       M.stats.poss = tot ? Math.round(M.score.you / tot * 100) : 50;
     } else {
@@ -354,6 +394,17 @@ G.action = (function () {
   /** Le joueur contrôle le porteur, ou le plus proche du ballon. */
   function pickUserPlayer(M) {
     if (M.F.racket) { M.user = M.players[0]; return; }
+    if (M.F.netTeam) {
+      var r = M.rally;
+      M.user = (r && r.hitter && r.hitter.team === 0) ? r.hitter : nearestPlayer(M, M.ball.x, M.ball.y, 0);
+      return;
+    }
+    if (M.F.diamond) {
+      M.user = (M.currentBatter && M.diamond.battingTeam === 0)
+        ? M.players[M.players.length - 1]
+        : M.players[0];
+      return;
+    }
     var b = M.ball;
     if (b.owner && b.owner.team === 0) {
       M.user = b.owner;
@@ -393,9 +444,10 @@ G.action = (function () {
     p.x = u.clamp(p.x + p.vx * dt, 0.4, F.w - 0.4);
     p.y = u.clamp(p.y + p.vy * dt, 0.4, F.h - 0.4);
 
-    /* Les sports de raquette n'ont pas de ballon disputé au contact : chaque
-       échange se résout dans updateRally, pas ici. */
-    if (F.racket) return;
+    /* Les sports de raquette et de filet n'ont pas de ballon disputé au
+       contact : chaque échange se résout dans updateRally/updateNetRally,
+       pas ici. */
+    if (F.racket || F.netTeam) return;
 
     /* Duel : récupérer le ballon à l'adversaire. */
     /* Les distances de contact suivent la taille du terrain : sur un bassin
@@ -430,21 +482,33 @@ G.action = (function () {
    * qui est qui. Le porteur du ballon garde sa trajectoire ; c'est l'autre
    * qui s'écarte. */
   function separatePlayers(M) {
-    var minSep = 1.0;
-    var list = M.players, F = M.F;
+    var F = M.F;
+    /* L'écart minimal doit être assez grand en unités de terrain pour rester
+       visible à l'écran une fois converti en pixels (le rayon d'une pastille
+       ne descend jamais sous 7 px, quel que soit le zoom) : sinon deux
+       joueurs peuvent être « séparés » sur le papier tout en restant
+       parfaitement superposés à l'affichage. Le duel au contact garde en
+       revanche une portée resserrée, sur la distance de tacle elle-même,
+       pour ne pas empêcher les défenseurs d'approcher le porteur. */
+    var scale = F.w / 68;
+    var tackle = F.tackle === undefined ? 1 : F.tackle;
+    var closeSep = (1.3 + tackle * 0.25) * scale;
+    var minSep = Math.max(closeSep, (F.view || F.w * 0.5) * 0.08);
     var owner = M.ball.owner;
+    var list = M.players;
     for (var i = 0; i < list.length; i++) {
       for (var j = i + 1; j < list.length; j++) {
         var a = list[i], b = list[j];
+        var sep = (a === owner || b === owner) ? closeSep : minSep;
         var dx = b.x - a.x, dy = b.y - a.y;
         var d = Math.hypot(dx, dy);
-        if (d >= minSep) continue;
+        if (d >= sep) continue;
         var nx, ny;
         if (d > 1e-4) { nx = dx / d; ny = dy / d; } else {
           var ang = (i * 2.4 + j * 5.1) % (Math.PI * 2);
           nx = Math.cos(ang); ny = Math.sin(ang);
         }
-        var push = (minSep - d);
+        var push = (sep - d);
         if (a === owner) { b.x += nx * push; b.y += ny * push; }
         else if (b === owner) { a.x -= nx * push; a.y -= ny * push; }
         else {
@@ -468,6 +532,17 @@ G.action = (function () {
       var r = M.rally;
       if (r && r.receiver === p) {
         return { x: u.clamp(r.toX, 0.5, F.w - 0.5), y: p.home.y };
+      }
+      return { x: p.home.x, y: p.home.y };
+    }
+
+    if (F.netTeam) {
+      /* L'équipe qui reçoit se resserre un peu vers le point de chute
+         attendu, celle qui vient de frapper regagne sa position. */
+      var rn = M.rally;
+      if (rn && p.team === rn.receivingTeam) {
+        var pull = p === rn.receiver ? 0.85 : 0.30;
+        return { x: u.clamp(p.home.x * (1 - pull) + rn.toX * pull, 1, F.w - 1), y: p.home.y };
       }
       return { x: p.home.x, y: p.home.y };
     }
@@ -789,13 +864,305 @@ G.action = (function () {
     startRally(M, team);
   }
 
+  /* ======================================= SPORTS COLLECTIFS AU FILET ===== */
+
+  /** Volleyball : une équipe complète de chaque côté (formation posée par
+   * buildTeams), mais l'échange se joue comme au filet plutôt que comme un
+   * ballon disputé au contact — pas de tacle, pas de dribble. */
+  function startNetRally(M, servingTeam) {
+    var F = M.F;
+    var serverY = servingTeam === 0 ? F.h * 0.95 : F.h * 0.05;
+    var hitter = nearestPlayer(M, F.w / 2, serverY, servingTeam);
+    var receiver = nearestPlayer(M, F.w / 2, servingTeam === 0 ? F.h * 0.25 : F.h * 0.75, 1 - servingTeam);
+    if (!hitter || !receiver) return;
+    M.ball.x = hitter.x; M.ball.y = hitter.y;
+    aimNetShot(M, hitter, receiver, true);
+    M.restart = 0.5;
+  }
+
+  function aimNetShot(M, hitter, receiver, isServe) {
+    var F = M.F;
+    var acc = u.clamp((hitter.ovr - 35) / 65, 0.08, 0.95);
+    var spread = (1 - acc) * F.w * 0.22 + F.w * 0.08;
+    var tx = u.clamp(F.w / 2 + u.gauss(0, spread), F.w * 0.06, F.w * 0.94);
+    var receivingTeam = receiver.team;
+    var ty = receivingTeam === 0 ? F.h * u.rfloat(0.58, 0.9) : F.h * u.rfloat(0.1, 0.42);
+    M.rally = {
+      hitter: hitter, receiver: receiver, receivingTeam: receivingTeam,
+      fromX: M.ball.x, fromY: M.ball.y, toX: tx, toY: ty,
+      t: 0, dur: Math.max(0.5, F.h / F.ballSpeed)
+    };
+    if (!isServe) push(M, hitter.name + ' renvoie', 'info');
+  }
+
+  function updateNetRally(M, dt) {
+    if (!M.rally) { startNetRally(M, u.chance(0.5) ? 0 : 1); return; }
+    if (M.restart > 0) return;
+    var r = M.rally;
+    r.t += dt;
+    var frac = u.clamp(r.t / r.dur, 0, 1);
+    M.ball.x = u.lerp(r.fromX, r.toX, frac);
+    M.ball.y = u.lerp(r.fromY, r.toY, frac);
+    if (frac >= 1) resolveNetRallyShot(M);
+  }
+
+  function resolveNetRallyShot(M) {
+    var r = M.rally, F = M.F;
+    var placementDiff = Math.abs(r.toX - r.receiver.home.x) / (F.w * 0.5);
+    var skillGap = (r.hitter.ovr - r.receiver.ovr) / 100;
+    var failChance = u.clamp(0.16 + placementDiff * 0.26 + skillGap * 0.30, 0.05, 0.80);
+    if (u.chance(failChance)) {
+      scoreNetRally(M, r.hitter.team);
+    } else {
+      /* Le relanceur devient le frappeur ; il vise un adversaire proche de
+         sa position d'origine pour la suite de l'échange. */
+      var mate = nearestPlayer(M, r.toX + u.rfloat(-2, 2), r.receiver.home.y, r.receiver.team) || r.receiver;
+      var target = nearestPlayer(M, F.w / 2, r.hitter.home.y, r.hitter.team) || r.hitter;
+      aimNetShot(M, mate, target, false);
+    }
+  }
+
+  var NET_MISS = ['la balle tombe au sol', 'sort du terrain', 'touche le filet',
+    'n\'est pas rattrapée à temps'];
+
+  function scoreNetRally(M, losingTeam) {
+    var team = 1 - losingTeam;
+    var sport = M.sport;
+    var verb = (G.match.pools.SCORE_VERBS[sport.id] && u.pick(G.match.pools.SCORE_VERBS[sport.id])) || 'marque le point';
+    var scorer = nearestPlayer(M, M.F.w / 2, team === 0 ? M.F.h * 0.75 : M.F.h * 0.25, team);
+    if (team === 0) {
+      M.score.you += 1;
+      M.stats.youShots++;
+      push(M, '🟢 ' + (scorer ? scorer.name + ' ' : '') + verb + ' — ' + M.score.you + '-' + M.score.opp, 'good');
+      if (scorer && scorer.ref) {
+        scorer.ref.seasonScored = (scorer.ref.seasonScored || 0) + 1;
+        scorer.ref.scored = (scorer.ref.scored || 0) + 1;
+      }
+    } else {
+      M.score.opp += 1;
+      M.stats.oppShots++;
+      push(M, '🔴 ' + M.oppName + ' ' + verb + ' — ' + M.score.you + '-' + M.score.opp, 'bad');
+    }
+    if (u.chance(0.3)) push(M, u.pick(NET_MISS), 'info');
+    M.rally = null;
+    startNetRally(M, team);   // au volley, l'équipe qui vient de marquer sert
+  }
+
+  /* ================================================== BASEBALL (LOSANGE) == */
+
+  /* Positions relatives au terrain (fractions de F.w/F.h), pour le losange,
+     les bases et les postes défensifs — partagées par la logique de jeu et
+     le rendu, afin que les coureurs et les joueurs restent cohérents. */
+  var DIAMOND = {
+    home: { x: 0.5, y: 0.70 },
+    first: { x: 0.68, y: 0.50 },
+    second: { x: 0.5, y: 0.30 },
+    third: { x: 0.32, y: 0.50 },
+    mound: { x: 0.5, y: 0.50 },
+    fielders: [
+      { x: 0.5, y: 0.50 },    // 0 lanceur
+      { x: 0.5, y: 0.80 },    // 1 receveur
+      { x: 0.64, y: 0.46 },   // 2 1ère base
+      { x: 0.58, y: 0.28 },   // 3 2e base
+      { x: 0.42, y: 0.28 },   // 4 arrêt-court
+      { x: 0.36, y: 0.46 },   // 5 3e base
+      { x: 0.24, y: 0.14 },   // 6 champ gauche
+      { x: 0.5, y: 0.06 },    // 7 champ centre
+      { x: 0.76, y: 0.14 }    // 8 champ droit
+    ]
+  };
+
+  function buildDiamondMatch(M, club, sport, mine, oppStr) {
+    var F = M.F;
+    var line = G.manager.starters(club);
+    var n = Math.max(1, Math.min(line.length, sport.lineupSize));
+    var myLineup = [], i;
+    for (i = 0; i < 9; i++) {
+      var src = line[i % n];
+      myLineup.push({
+        id: (src && src.id) || u.uid('you'), name: (src && src.name) || ('Joueur ' + (i + 1)),
+        ovr: src ? G.manager.effOvr(src, sport) : u.clamp(mine.att, 20, 95), ref: src || null
+      });
+    }
+    var oppLineup = [];
+    for (i = 0; i < 9; i++) {
+      oppLineup.push({
+        id: 'o' + i, name: u.pick(G.DATA.firstNames)[0] + '. ' + u.pick(G.DATA.lastNames),
+        ovr: u.clamp(oppStr + u.gauss(0, 6), 20, 95), ref: null
+      });
+    }
+    M.lineups = [myLineup, oppLineup];
+    M.diamond = {
+      inning: 1, battingTeam: M.youHome ? 1 : 0,
+      outs: 0, bases: [false, false, false], lineupIdx: [0, 0], half: 0
+    };
+    M.ball = { x: F.w * DIAMOND.mound.x, y: F.h * DIAMOND.mound.y, vx: 0, vy: 0, owner: null };
+    refreshDiamondPlayers(M);
+  }
+
+  /** Replace les 9 défenseurs de l'équipe au champ, plus le frappeur du
+   * moment au marbre — appelé à chaque nouveau frappeur ou changement de
+   * demi-manche. */
+  function refreshDiamondPlayers(M) {
+    var F = M.F, d = M.diamond;
+    var fieldingTeam = 1 - d.battingTeam;
+    var fielders = M.lineups[fieldingTeam];
+    M.players = [];
+    for (var i = 0; i < 9 && i < fielders.length; i++) {
+      var s = DIAMOND.fielders[i];
+      var pos = { x: s.x * F.w, y: s.y * F.h };
+      M.players.push({
+        id: fielders[i].id, name: fielders[i].name, num: i + 1,
+        team: fieldingTeam, role: i === 0 ? 'gk' : 'def',
+        home: pos, x: pos.x, y: pos.y, vx: 0, vy: 0,
+        ovr: fielders[i].ovr, speed: 0, ref: fielders[i].ref
+      });
+    }
+    var batter = M.lineups[d.battingTeam][d.lineupIdx[d.battingTeam] % 9];
+    var bpos = { x: F.w * DIAMOND.home.x, y: F.h * DIAMOND.home.y };
+    M.players.push({
+      id: batter.id, name: batter.name, num: 0, team: d.battingTeam, role: 'att',
+      home: bpos, x: bpos.x, y: bpos.y, vx: 0, vy: 0, ovr: batter.ovr, speed: 0, ref: batter.ref
+    });
+    M.currentBatter = batter;
+    M.currentPitcher = fielders[0];
+  }
+
+  function startAtBat(M) {
+    var F = M.F;
+    M.rally = {
+      t: 0, dur: 1.1,
+      fromX: F.w * DIAMOND.mound.x, fromY: F.h * DIAMOND.mound.y,
+      toX: F.w * DIAMOND.home.x, toY: F.h * DIAMOND.home.y
+    };
+    M.ball.x = M.rally.fromX; M.ball.y = M.rally.fromY;
+  }
+
+  function updateDiamond(M, dt) {
+    if (M.restart > 0) { M.restart -= dt; return; }
+    if (!M.rally) { startAtBat(M); return; }
+    var r = M.rally;
+    r.t += dt;
+    var frac = u.clamp(r.t / r.dur, 0, 1);
+    M.ball.x = u.lerp(r.fromX, r.toX, frac);
+    M.ball.y = u.lerp(r.fromY, r.toY, frac);
+    if (frac >= 1) { M.rally = null; M.restart = 0.7; resolveAtBat(M); }
+  }
+
+  /** Répartit les coureurs déjà sur les bases (et le frappeur) selon le
+   * nombre de bases gagnées ; renvoie les points marqués. */
+  function advanceRunners(M, adv, batterRuns) {
+    var d = M.diamond;
+    var runs = 0;
+    if (adv >= 4) {
+      runs = d.bases.filter(Boolean).length + (batterRuns ? 1 : 0);
+      d.bases = [false, false, false];
+    } else {
+      var newBases = [false, false, false];
+      for (var b = 2; b >= 0; b--) {
+        if (d.bases[b]) {
+          var pos = b + adv;
+          if (pos >= 3) runs++; else newBases[pos] = true;
+        }
+      }
+      if (batterRuns) {
+        var bp = adv - 1;
+        if (bp >= 3) runs++; else newBases[bp] = true;
+      }
+      d.bases = newBases;
+    }
+    if (runs > 0) {
+      if (d.battingTeam === 0) M.score.you += runs; else M.score.opp += runs;
+      push(M, '🏃 ' + runs + ' point' + (runs > 1 ? 's' : '') + ' inscrit' + (runs > 1 ? 's' : '') +
+        ' — ' + M.score.you + '-' + M.score.opp, 'good');
+    }
+  }
+
+  function nextBatter(M) {
+    var d = M.diamond;
+    d.lineupIdx[d.battingTeam] = (d.lineupIdx[d.battingTeam] + 1) % 9;
+    refreshDiamondPlayers(M);
+  }
+
+  function endHalfInning(M) {
+    var d = M.diamond;
+    d.outs = 0;
+    d.bases = [false, false, false];
+    d.battingTeam = 1 - d.battingTeam;
+    d.half++;
+    if (d.half % 2 === 0) {
+      push(M, '⚾ Fin de la ' + d.inning + 'e manche — ' + M.score.you + '-' + M.score.opp, 'info');
+      d.inning++;
+    }
+    M.clock = d.half / 2;
+    if (d.inning > 12 || (d.inning > 9 && M.score.you !== M.score.opp)) {
+      finish(M);
+      return;
+    }
+    refreshDiamondPlayers(M);
+  }
+
+  function endAtBatCheck(M) {
+    if (M.diamond.outs >= 3) endHalfInning(M); else nextBatter(M);
+  }
+
+  var GROUNDOUT_TXT = ['est retiré au sol', 'est retiré au champ extérieur',
+    'voit sa frappe captée', 'est retiré sur un double jeu'];
+
+  /** Résout un face-à-face lanceur/frappeur : retrait, but sur balles ou
+   * coup sûr, avec avancée des coureurs le cas échéant. */
+  function resolveAtBat(M) {
+    if (M.done) return;
+    var d = M.diamond;
+    var batter = M.currentBatter, pitcher = M.currentPitcher;
+    var gap = (batter.ovr - pitcher.ovr) / 100;
+
+    var pK = u.clamp(0.22 - gap * 0.14, 0.08, 0.40);
+    var pBB = u.clamp(0.09 + gap * 0.05, 0.03, 0.18);
+    var pOut = u.clamp((1 - pK - pBB) * (0.60 - gap * 0.18), 0.08, 0.80);
+    var pHit = Math.max(0.02, 1 - pK - pBB - pOut);
+    var tot = pK + pBB + pOut + pHit;
+    pK /= tot; pBB /= tot; pOut /= tot;
+
+    var roll = u.rnd();
+    if (roll < pK) {
+      d.outs++;
+      push(M, '🔴 ' + batter.name + ' retiré sur trois prises', 'bad');
+      endAtBatCheck(M);
+    } else if (roll < pK + pBB) {
+      push(M, '🟢 ' + batter.name + ' au premier but sur balles', 'good');
+      advanceRunners(M, 1, true);
+      nextBatter(M);
+    } else if (roll < pK + pBB + pOut) {
+      d.outs++;
+      push(M, '🔴 ' + batter.name + ' ' + u.pick(GROUNDOUT_TXT), 'bad');
+      endAtBatCheck(M);
+    } else {
+      var single = 0.62 - gap * 0.12, double = 0.20, triple = 0.05, hr = 0.13 + gap * 0.12;
+      var s = single + double + triple + hr;
+      single /= s; double /= s; triple /= s;
+      var hitRoll = u.rnd();
+      var bases = hitRoll < single ? 1 : hitRoll < single + double ? 2 :
+        hitRoll < single + double + triple ? 3 : 4;
+      var label = bases === 1 ? 'simple' : bases === 2 ? 'double' : bases === 3 ? 'triple' : 'coup de circuit';
+      push(M, '🟢 ' + batter.name + ' claque un ' + label + ' !', 'good');
+      if (batter.ref) {
+        batter.ref.seasonScored = (batter.ref.seasonScored || 0) + 1;
+        batter.ref.scored = (batter.ref.scored || 0) + 1;
+      }
+      M.stats[d.battingTeam === 0 ? 'youShots' : 'oppShots']++;
+      advanceRunners(M, bases, true);
+      nextBatter(M);
+    }
+  }
+
   /* ============================================================== FIN ===== */
 
   function finish(M) {
     if (M.done) return M;
     M.done = true;
     M.running = false;
-    push(M, 'Coup de sifflet final — ' + M.score.you + '-' + M.score.opp,
+    push(M, (M.F.diamond ? 'Fin de partie' : 'Coup de sifflet final') + ' — ' + M.score.you + '-' + M.score.opp,
       M.score.you > M.score.opp ? 'good' : M.score.you === M.score.opp ? 'info' : 'bad');
     M.result = G.manager.finishMatch(M.club, {
       you: M.score.you, opp: M.score.opp, oppName: M.oppName
@@ -840,6 +1207,7 @@ G.action = (function () {
    */
   function draw(M, ctx, cw, ch) {
     var F = M.F;
+    if (F.diamond) { drawDiamond(M, ctx, cw, ch); return; }
     /* Caméra rapprochée : on suit l'action de près, comme dans un jeu de
        sport mobile, plutôt que de regarder tout le terrain de loin. */
     var visibleW = Math.min(F.w, F.view || F.w * 0.5);
@@ -865,7 +1233,7 @@ G.action = (function () {
     ctx.lineWidth = Math.max(1.5, scale * 0.12);
     ctx.strokeRect(sx(0), sy(F.h), F.w * scale, F.h * scale);
 
-    if (F.racket) {
+    if (F.racket || F.netTeam) {
       drawRacketCourt(F, ctx, sx, sy, scale);
     } else {
       drawFieldMarkings(M.sport.id, F, ctx, sx, sy, scale);
@@ -935,21 +1303,22 @@ G.action = (function () {
     var ballColor = F.ball || '#ffffff';
     var ballLine = F.ballLine || '#333333';
     var oval = F.ballShape === 'oval';
+    var bScale = (F.ballScale || 1) * r;
     ctx.fillStyle = 'rgba(0,0,0,.3)';
     ctx.beginPath();
-    ctx.ellipse(bx + 2, by + 3, r * (oval ? 0.5 : 0.42), r * (oval ? 0.24 : 0.28), 0, 0, Math.PI * 2);
+    ctx.ellipse(bx + 2, by + 3, bScale * (oval ? 0.5 : 0.42), bScale * (oval ? 0.24 : 0.28), 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = ballColor;
     ctx.beginPath();
-    ctx.ellipse(bx, by, r * (oval ? 0.5 : 0.42), r * (oval ? 0.28 : 0.42), 0, 0, Math.PI * 2);
+    ctx.ellipse(bx, by, bScale * (oval ? 0.5 : 0.42), bScale * (oval ? 0.28 : 0.42), 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = ballLine;
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    /* --- flèche vers le but adverse (sans objet pour les sports de raquette,
-       qui n'ont pas de but) --- */
-    if (!F.racket) {
+    /* --- flèche vers le but adverse (sans objet pour les sports de raquette
+       et de filet, qui n'ont pas de but) --- */
+    if (!F.racket && !F.netTeam) {
       var goal = goalOf(M, 0);
       var gy = sy(goal.y);
       if (gy < 0) {
@@ -1116,7 +1485,134 @@ G.action = (function () {
       });
       drawNetGoal(F, ctx, sx, sy, scale, 0, -1, 0.8);
       drawNetGoal(F, ctx, sx, sy, scale, F.h, 1, 0.8);
+    } else if (sportId === 'hockey') {
+      ctx.strokeStyle = '#e53935';
+      hLine(F.h / 2);
+      ctx.beginPath();
+      ctx.arc(sx(F.w / 2), sy(F.h / 2), 4.5 * scale, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = '#1565c0';
+      hLine(F.h * 0.28); hLine(F.h * 0.72);
+      ctx.strokeStyle = F.line;
+      [0, F.h].forEach(function (gy, side) {
+        arcFromEnd(gy, side ? -1 : 1, 1.8);
+      });
+      drawNetGoal(F, ctx, sx, sy, scale, 0, -1, 1.2);
+      drawNetGoal(F, ctx, sx, sy, scale, F.h, 1, 1.2);
     }
+  }
+
+  /** Rendu dédié au base-ball : un losange (terre battue, marbre et 3
+   * bases) plutôt qu'un terrain rectangulaire, avec les coureurs affichés
+   * sur les bases occupées. */
+  function drawDiamond(M, ctx, cw, ch) {
+    var F = M.F;
+    var scale = Math.min(cw / F.w, ch / F.h) * 0.92;
+    var offX = (cw - F.w * scale) / 2, offY = (ch - F.h * scale) / 2;
+    function sx(x) { return x * scale + offX; }
+    function sy(y) { return y * scale + offY; }
+    function fx(p) { return sx(p.x * F.w); }
+    function fy(p) { return sy(p.y * F.h); }
+
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.fillStyle = F.surface;
+    ctx.fillRect(0, 0, cw, ch);
+
+    /* Terre battue du losange intérieur. */
+    ctx.fillStyle = '#c8955a';
+    ctx.beginPath();
+    ctx.moveTo(fx(DIAMOND.home), fy(DIAMOND.home));
+    ctx.lineTo(fx(DIAMOND.first), fy(DIAMOND.first));
+    ctx.lineTo(fx(DIAMOND.second), fy(DIAMOND.second));
+    ctx.lineTo(fx(DIAMOND.third), fy(DIAMOND.third));
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = Math.max(1.5, scale * F.w * 0.0035);
+    ctx.stroke();
+
+    /* Lignes de champ (fausses balles), prolongées depuis le marbre. */
+    ctx.beginPath();
+    [DIAMOND.first, DIAMOND.third].forEach(function (base) {
+      ctx.moveTo(fx(DIAMOND.home), fy(DIAMOND.home));
+      ctx.lineTo(
+        fx(DIAMOND.home) + (fx(base) - fx(DIAMOND.home)) * 2.6,
+        fy(DIAMOND.home) + (fy(base) - fy(DIAMOND.home)) * 2.6
+      );
+    });
+    ctx.stroke();
+
+    /* Monticule. */
+    ctx.fillStyle = '#c8955a';
+    ctx.beginPath();
+    ctx.arc(fx(DIAMOND.mound), fy(DIAMOND.mound), Math.max(6, scale * 2.7), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.stroke();
+
+    /* Bases : marbre + 3 sacs, surlignés si occupés par un coureur. */
+    var bases = [
+      { p: DIAMOND.home, on: false, shape: 'plate' },
+      { p: DIAMOND.first, on: M.diamond.bases[0] },
+      { p: DIAMOND.second, on: M.diamond.bases[1] },
+      { p: DIAMOND.third, on: M.diamond.bases[2] }
+    ];
+    bases.forEach(function (b) {
+      var bx = fx(b.p), by = fy(b.p), s = Math.max(7, scale * 2.2);
+      ctx.fillStyle = b.on ? '#ffd166' : '#ffffff';
+      ctx.fillRect(bx - s / 2, by - s / 2, s, s);
+      ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+      ctx.strokeRect(bx - s / 2, by - s / 2, s, s);
+      if (b.on) {
+        ctx.beginPath();
+        ctx.arc(bx, by - s * 0.9, s * 0.35, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffd166';
+        ctx.fill();
+      }
+    });
+
+    /* --- joueurs (même rendu générique que les autres sports) --- */
+    var r = u.clamp(scale * 0.9, 8, 15);
+    for (var i = 0; i < M.players.length; i++) {
+      var p = M.players[i];
+      var px = sx(p.x), py = sy(p.y);
+
+      ctx.fillStyle = 'rgba(0,0,0,.25)';
+      ctx.beginPath();
+      ctx.ellipse(px + r * 0.25, py + r * 0.3, r * 0.9, r * 0.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (p === M.user) {
+        ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(px, py, r * 1.6, 0, Math.PI * 2); ctx.stroke();
+      }
+
+      ctx.fillStyle = p.team === 0 ? '#f0b429' : '#e8eef7';
+      if (p.role === 'att') ctx.fillStyle = p.team === 0 ? '#ffe08a' : '#c9d6e8';
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = p.team === 0 ? '#5a3d00' : '#39465c';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = p.team === 0 ? '#3a2a00' : '#1b2433';
+      ctx.font = 'bold ' + Math.round(r * 0.85) + 'px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(p.role === 'att' ? 'B' : (p.role === 'gk' ? 'P' : String(p.num)), px, py);
+    }
+
+    /* --- balle --- */
+    var b = M.ball;
+    var bx2 = sx(b.x), by2 = sy(b.y);
+    var br = r * (F.ballScale || 0.5) * 0.5;
+    ctx.fillStyle = F.ball || '#ffffff';
+    ctx.beginPath();
+    ctx.arc(bx2, by2, br, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = F.ballLine || '#c0392b';
+    ctx.lineWidth = 1;
+    ctx.stroke();
   }
 
   /** Marquage propre aux sports de raquette : filet à mi-terrain (ou mur

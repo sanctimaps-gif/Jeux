@@ -211,14 +211,22 @@ G.play = (function () {
 
   function renderTop() {
     if (mode === 'match') {
-      var mins = Math.floor(M.clock);
       var icon = (M.sport && M.sport.icon) ? M.sport.icon + ' ' : '';
+      var sub;
+      if (M.F.diamond) {
+        var half = M.diamond.half % 2 === 0 ? 'haut' : 'bas';
+        sub = half + ' de la ' + M.diamond.inning + 'e manche · ' + M.diamond.outs + ' retrait(s) · ' +
+          'coups sûrs ' + M.stats.youShots + '-' + M.stats.oppShots;
+      } else {
+        var mins = Math.floor(M.clock);
+        sub = mins + "' / " + M.F.clock + "' · possession " +
+          M.stats.poss + ' % · tirs ' + M.stats.youShots + '-' + M.stats.oppShots;
+      }
       el.top.innerHTML =
         '<div class="pl-score"><span class="pl-team">' + u.esc(shortName(M.club.name)) +
         '</span><b>' + icon + M.score.you + ' - ' + M.score.opp + '</b><span class="pl-team">' +
         u.esc(shortName(M.oppName)) + '</span></div>' +
-        '<div class="pl-sub">' + mins + "' / " + M.F.clock + "' · possession " +
-        M.stats.poss + ' % · tirs ' + M.stats.youShots + '-' + M.stats.oppShots + '</div>';
+        '<div class="pl-sub">' + sub + '</div>';
     } else {
       var c = M.user;
       el.top.innerHTML =

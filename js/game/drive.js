@@ -17,18 +17,63 @@ G.drive = (function () {
 
   /* ======================================================== CIRCUIT ======= */
 
-  /** Génère un circuit fermé : cercle déformé puis lissé. */
+  /** Petit générateur pseudo-aléatoire déterministe (mulberry32), pour tirer
+   * un tracé qui dépend du nom du circuit plutôt que de rien : deux Grands
+   * Prix de la même saison ont forcément des noms différents (voir
+   * G.race.pickFixtures), donc jamais le même circuit deux fois dans
+   * l'année — et un circuit déjà couru garde le même tracé si son nom
+   * revient une saison suivante, comme un vrai circuit. */
+  function hashSeed(str) {
+    var h = 2166136261;
+    for (var i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+
+  function makeRng(seedStr) {
+    var s = hashSeed(String(seedStr));
+    return function () {
+      s |= 0; s = (s + 0x6D2B79F5) | 0;
+      var t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /**
+   * Génère un circuit fermé propre au nom donné : nombre de virages,
+   * sinuosité, épingles et forme générale varient d'un circuit à l'autre,
+   * mais un même nom reproduit toujours le même tracé.
+   */
   function makeTrack(seed) {
+    var rng = makeRng(seed || Math.random());
+    function rf(min, max) { return min + rng() * (max - min); }
+    function ri(min, max) { return Math.floor(min + rng() * (max - min + 1)); }
+
+    var n = ri(9, 16);                  // plus de sommets = circuit plus sinueux
+    var rBase = rf(300, 420);
+    var aspect = rf(0.60, 0.95);        // boucle plus ou moins allongée
+    var roughness = rf(0.5, 1.3);       // amplitude des écarts de rayon (vitesse générale)
     var pts = [];
-    var n = 14;
-    var rBase = 380;
     for (var i = 0; i < n; i++) {
       var a = i / n * Math.PI * 2;
-      var r = rBase * u.rfloat(0.72, 1.18);
-      pts.push({ x: Math.cos(a) * r, y: Math.sin(a) * r * 0.8 });
+      var r = rBase * rf(1 - 0.30 * roughness, 1 + 0.20 * roughness);
+      pts.push({ x: Math.cos(a) * r, y: Math.sin(a) * r * aspect });
     }
-    /* Lissage : trois passes de moyenne glissante. */
-    for (var pass = 0; pass < 3; pass++) {
+
+    /* Une ou deux épingles marquées : un sommet resserré brusquement pour
+       simuler un virage lent et serré, bien distinct du reste du tracé. */
+    var hairpins = ri(0, 2);
+    for (var h = 0; h < hairpins; h++) {
+      var idx = ri(0, n - 1);
+      pts[idx] = { x: pts[idx].x * rf(0.42, 0.62), y: pts[idx].y * rf(0.42, 0.62) };
+    }
+
+    /* Lissage : moins de passes sur un tracé qu'on veut plus technique. */
+    var passes = roughness > 0.95 ? 2 : 3;
+    for (var pass = 0; pass < passes; pass++) {
       var out = [];
       for (i = 0; i < pts.length; i++) {
         var p0 = pts[(i - 1 + pts.length) % pts.length];
@@ -83,7 +128,7 @@ G.drive = (function () {
     var evt = G.race.nextRace(club);
     if (!evt) return null;
 
-    var track = makeTrack();
+    var track = makeTrack(club.sport + '|' + evt.circuit);
     /* Un pilote (ou coureur) unique : sport individuel, pas de coéquipier
        en seconde voiture. */
     var drivers = u.sortBy(club.players, function (p) {
