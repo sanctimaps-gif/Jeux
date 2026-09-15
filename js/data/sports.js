@@ -210,21 +210,36 @@ G.DATA.sports = [
 
   /* --------------------------------------------------- SPORT AUTOMOBILE - */
   {
-    id: 'motorsport', name: 'Sport automobile', icon: '🏎️', type: 'race',
+    id: 'motorsport', name: 'Sport automobile', icon: '🏎️', type: 'race', individual: true,
     unit: 'point', unitPlural: 'points',
-    squadSize: 2, lineupSize: 2,
-    /* Les deux pilotes portent toute la performance humaine ; la voiture est
-       ajoutée par-dessus dans G.manager.teamRatings(). */
+    squadSize: 1, lineupSize: 1,
+    /* Un pilote unique porte toute la performance humaine ; la voiture est
+       ajoutée par-dessus dans G.manager.teamRatings(). On progresse en
+       améliorant le pilote ou la voiture, ou en changeant de voiture
+       (G.manager.vehicleOptions/changeVehicle) — jamais en rachetant un
+       autre pilote. */
     attW: { att: 1.0 }, defW: { att: 1.0 },
     positions: [
-      { code: 'P1', name: 'Pilote n°1', role: 'att', need: 1, w: { tec: .34, men: .26, phy: .18, att: .18, def: .04 } },
-      { code: 'P2', name: 'Pilote n°2', role: 'att', need: 1, w: { tec: .34, men: .26, phy: .18, att: .18, def: .04 } }
+      { code: 'P1', name: 'Pilote', role: 'att', need: 1, w: { tec: .34, men: .26, phy: .18, att: .18, def: .04 } }
     ],
     car: [
       { id: 'moteur', name: 'Moteur', icon: '🔧', desc: 'Vitesse de pointe en ligne droite.' },
       { id: 'aero', name: 'Aérodynamique', icon: '🪽', desc: 'Vitesse dans les courbes rapides.' },
       { id: 'chassis', name: 'Châssis', icon: '🛠️', desc: 'Traction et usure des pneus.' },
       { id: 'fiabilite', name: 'Fiabilité', icon: '🧰', desc: 'Réduit le risque d\'abandon.' }
+    ],
+    /* Changer de véhicule redistribue le même total de développement selon
+       un nouveau profil, plutôt que de racheter un pilote : chaque monture
+       est spécialisée pour un type de circuit différent. */
+    vehicleModels: [
+      { id: 'equilibre', name: 'Châssis équilibré', desc: 'Aucune spécialité : polyvalent sur tous les circuits.',
+        profile: { moteur: .25, aero: .25, chassis: .25, fiabilite: .25 } },
+      { id: 'veloce', name: 'Châssis véloce', desc: 'Moteur et aéro poussés, taillé pour les circuits rapides.',
+        profile: { moteur: .34, aero: .34, chassis: .18, fiabilite: .14 } },
+      { id: 'appui', name: 'Châssis à appui', desc: 'Aérodynamique dominante, taillé pour les circuits techniques.',
+        profile: { moteur: .18, aero: .42, chassis: .28, fiabilite: .12 } },
+      { id: 'robuste', name: 'Châssis robuste', desc: 'Traction et fiabilité, taillé pour les circuits urbains et l\'endurance.',
+        profile: { moteur: .16, aero: .16, chassis: .38, fiabilite: .30 } }
     ],
     race: {
       laps: 30, grid: 14, pitLoss: 22,
@@ -354,19 +369,31 @@ G.DATA.sports = [
 
   /* --------------------------------------------------- CYCLISME SUR ROUTE */
   {
-    id: 'cyclisme', name: 'Cyclisme sur route', icon: '🚴', type: 'race',
+    id: 'cyclisme', name: 'Cyclisme sur route', icon: '🚴', type: 'race', individual: true,
     unit: 'point', unitPlural: 'points',
-    squadSize: 2, lineupSize: 2,
+    squadSize: 1, lineupSize: 1,
     attW: { att: 1.0 }, defW: { att: 1.0 },
     positions: [
-      { code: 'C1', name: 'Coureur n°1', role: 'att', need: 1, w: { phy: .34, men: .26, tec: .18, att: .18, def: .04 } },
-      { code: 'C2', name: 'Coureur n°2', role: 'att', need: 1, w: { phy: .34, men: .26, tec: .18, att: .18, def: .04 } }
+      { code: 'C1', name: 'Coureur', role: 'att', need: 1, w: { phy: .34, men: .26, tec: .18, att: .18, def: .04 } }
     ],
     car: [
       { id: 'moteur', name: 'Puissance', icon: '💪', desc: 'Vitesse de pointe dans les lignes droites et les sprints.' },
       { id: 'aero', name: 'Aérodynamisme', icon: '🪽', desc: 'Vitesse en peloton et dans les descentes.' },
       { id: 'chassis', name: 'Vélo', icon: '🚲', desc: 'Légèreté en montagne et maniabilité.' },
       { id: 'fiabilite', name: 'Récupération', icon: '🧰', desc: 'Réduit le risque de chute ou de défaillance.' }
+    ],
+    /* Changer de vélo redistribue le même total de développement selon un
+       nouveau profil, plutôt que de racheter un coureur : chaque monture est
+       spécialisée pour un type d'étape différent. */
+    vehicleModels: [
+      { id: 'equilibre', name: 'Vélo équilibré', desc: 'Aucune spécialité : polyvalent sur toutes les étapes.',
+        profile: { moteur: .25, aero: .25, chassis: .25, fiabilite: .25 } },
+      { id: 'veloce', name: 'Vélo de sprint', desc: 'Puissance et aérodynamisme, taillé pour les étapes de plaine.',
+        profile: { moteur: .34, aero: .34, chassis: .18, fiabilite: .14 } },
+      { id: 'appui', name: 'Vélo de contre-la-montre', desc: 'Aérodynamisme dominant, taillé pour les chronos.',
+        profile: { moteur: .18, aero: .42, chassis: .28, fiabilite: .12 } },
+      { id: 'robuste', name: 'Vélo de montagne', desc: 'Légèreté et récupération, taillé pour les étapes de montagne.',
+        profile: { moteur: .16, aero: .16, chassis: .38, fiabilite: .30 } }
     ],
     race: {
       laps: 24, grid: 16, pitLoss: 18,

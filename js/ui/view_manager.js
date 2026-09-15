@@ -236,10 +236,12 @@ window.G = window.G || {};
 
   function sectionTabs(club) {
     var sp = G.DATA.sportById[club.sport];
-    var tabs = [['club', '🏟️ Club'], ['effectif', '👥 Effectif'],
-    ['transferts', '💱 Transferts'],
-    ['tactique', sp.type === 'race' ? '🔧 Voiture' : '📋 Tactique'],
-    ['infra', '🏗️ Structure'], ['palmares', '🏆 Palmarès']];
+    var tabs = [['club', '🏟️ Club'], ['effectif', '👥 Effectif']];
+    /* Sport individuel de course : pas de marché des transferts — on
+       améliore l'athlète ou le véhicule, on ne rachète pas un athlète. */
+    if (sp.type !== 'race') tabs.push(['transferts', '💱 Transferts']);
+    tabs.push(['tactique', sp.type === 'race' ? '🔧 Véhicule' : '📋 Tactique']);
+    tabs.push(['infra', '🏗️ Structure'], ['palmares', '🏆 Palmarès']);
     return '<div class="sub-tabs">' + tabs.map(function (t) {
       return '<button class="sub' + (sub === t[0] ? ' active' : '') +
         '" data-act="mg.sub" data-sub="' + t[0] + '">' + t[1] + '</button>';
@@ -341,9 +343,11 @@ window.G = window.G || {};
     if (sp.type === 'race') {
       var evt = G.race.nextRace(club);
       if (!evt) return h + '<div class="muted">Saison terminée.</div></div>';
-      h += '<div class="card-head">🏁 Prochain Grand Prix</div>' +
+      h += '<div class="card-head">🏁 ' + (sp.id === 'cyclisme' ? 'Prochaine étape' : 'Prochain Grand Prix') +
+        '</div>' +
         '<div style="font-size:16px;font-weight:700">' + u.esc(evt.circuit) + '</div>' +
-        '<div class="mute2">Course ' + evt.round + ' sur ' + evt.total + '</div>';
+        '<div class="mute2">Manche ' + evt.round + ' sur ' + evt.total +
+        ' · <span class="pill">' + u.esc(evt.typeLabel) + '</span></div>';
     } else {
       var fx = G.manager.nextFixture(club);
       if (!fx) return h + '<div class="muted">Saison terminée.</div></div>';
@@ -650,7 +654,8 @@ window.G = window.G || {};
     var h = '';
 
     if (sp.type === 'race') {
-      h += '<div class="card"><div class="card-head">🔧 Développement de la voiture</div>';
+      var vehWord = sp.id === 'cyclisme' ? 'du vélo' : 'de la voiture';
+      h += '<div class="card"><div class="card-head">🔧 Développement ' + vehWord + '</div>';
       for (var i = 0; i < sp.car.length; i++) {
         var part = sp.car[i];
         var lvl = club.car[part.id];
@@ -664,6 +669,29 @@ window.G = window.G || {};
           u.fmtMoney(cost) + '</button></div></div>';
       }
       h += '</div>';
+
+      var models = G.manager.vehicleOptions(sp);
+      if (models.length) {
+        var current = club.vehicle || 'equilibre';
+        var swapCost = G.manager.vehicleCost(club);
+        h += '<div class="card"><div class="card-head">🚚 Changer ' + vehWord + '</div>' +
+          '<div class="mute2">Redistribue le développement déjà acquis selon un nouveau profil, ' +
+          'sans jamais le réduire dans l\'ensemble — aucun athlète à racheter.</div>';
+        for (var mi = 0; mi < models.length; mi++) {
+          var mdl = models[mi];
+          var active = current === mdl.id;
+          var canSwap = !active && G.state.money >= swapCost;
+          h += '<div class="item"><div class="item-icon">' + (active ? '✅' : '🚚') + '</div>' +
+            '<div class="item-main"><div class="t">' + u.esc(mdl.name) +
+            (active ? ' <span class="pill gold">Actuel</span>' : '') + '</div>' +
+            '<div class="s">' + u.esc(mdl.desc) + '</div></div>' +
+            '<div class="item-side"><button class="btn sm ' + (canSwap ? 'primary' : '') +
+            '" data-act="mg.vehicle" data-id="' + mdl.id + '"' +
+            (active || !canSwap ? ' disabled' : '') + '>' +
+            (active ? '—' : u.fmtMoney(swapCost)) + '</button></div></div>';
+        }
+        h += '</div>';
+      }
     }
 
     var groups = [['mentality', 'Approche'], ['pressing', 'Organisation'],
@@ -697,6 +725,16 @@ window.G = window.G || {};
   ui.act('mg.car', function (d) {
     if (G.manager.upgradeCar(activeClub(), d.part)) {
       ui.toast('🔧 Évolution installée', 'La voiture gagne en performance', 'good');
+    }
+    ui.refresh();
+  });
+
+  ui.act('mg.vehicle', function (d) {
+    var club = activeClub();
+    var sp = G.DATA.sportById[club.sport];
+    var model = G.manager.vehicleDef(sp, d.id);
+    if (G.manager.changeVehicle(club, d.id)) {
+      ui.toast('🚚 Nouveau véhicule', model ? model.name : '', 'good');
     }
     ui.refresh();
   });
@@ -1174,9 +1212,10 @@ window.G = window.G || {};
       if (shopMode || !club) return h + clubSelector() + renderShop();
 
       h += clubSelector() + sectionTabs(club);
+      var raceSport = G.DATA.sportById[club.sport].type === 'race';
       if (sub === 'club') h += renderClub(club);
       else if (sub === 'effectif') h += renderSquad(club);
-      else if (sub === 'transferts') h += renderTransfers(club);
+      else if (sub === 'transferts' && !raceSport) h += renderTransfers(club);
       else if (sub === 'tactique') h += renderTactics(club);
       else if (sub === 'infra') h += renderInfra(club);
       else h += renderPalmares(club);

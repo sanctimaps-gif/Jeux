@@ -443,6 +443,41 @@ G.manager = (function () {
     return true;
   }
 
+  /** Catalogue des véhicules disponibles pour ce sport (undefined pour un
+   * sport qui n'en a pas). */
+  function vehicleOptions(sport) { return sport.vehicleModels || []; }
+
+  function vehicleDef(sport, vehicleId) {
+    var list = vehicleOptions(sport);
+    for (var i = 0; i < list.length; i++) if (list[i].id === vehicleId) return list[i];
+    return list[0] || null;
+  }
+
+  function vehicleCost(club) {
+    var sport = sportDef(club.sport);
+    return Math.round(sport.economy.clubCost * countryCoef(sport, club.country) * 0.15);
+  }
+
+  /** Change de véhicule : redistribue le même total de développement déjà
+   * investi selon le nouveau profil, au lieu de racheter un athlète — un
+   * châssis/vélo spécialisé plutôt qu'un autre, jamais un reset punitif. */
+  function changeVehicle(club, vehicleId) {
+    var sport = sportDef(club.sport);
+    var model = vehicleDef(sport, vehicleId);
+    if (!model || club.vehicle === vehicleId) return false;
+    var cost = vehicleCost(club);
+    if (!G.eco.spend(cost, 'manager:' + club.sport, 'Nouveau véhicule · ' + model.name)) return false;
+    var total = club.car.moteur + club.car.aero + club.car.chassis + club.car.fiabilite;
+    club.car = {
+      moteur: u.clamp(Math.round(total * model.profile.moteur), 5, 99),
+      aero: u.clamp(Math.round(total * model.profile.aero), 5, 99),
+      chassis: u.clamp(Math.round(total * model.profile.chassis), 5, 99),
+      fiabilite: u.clamp(Math.round(total * model.profile.fiabilite), 5, 99)
+    };
+    club.vehicle = vehicleId;
+    return true;
+  }
+
   /* ==================================================== CHAMPIONNAT ====== */
 
   function clubNameFor(sportId, countryCode) {
@@ -1084,6 +1119,7 @@ G.manager = (function () {
     };
     if (sport.type === 'race') {
       club.car = { moteur: 42, aero: 40, chassis: 41, fiabilite: 52 };
+      club.vehicle = 'equilibre';
     }
     autoLineup(club);
     refreshPlayerEconomics(club);
@@ -1341,6 +1377,8 @@ G.manager = (function () {
     facilityCost: facilityCost, upgradeFacility: upgradeFacility, facilityCap: facilityCap,
     staffCost: staffCost, upgradeStaff: upgradeStaff,
     carPartCost: carPartCost, upgradeCar: upgradeCar,
+    vehicleOptions: vehicleOptions, vehicleDef: vehicleDef,
+    vehicleCost: vehicleCost, changeVehicle: changeVehicle,
     sponsorCost: sponsorCost, upgradeSponsor: upgradeSponsor,
     sponsorTierDef: sponsorTierDef, sponsorMaxed: sponsorMaxed,
     makeLeague: makeLeague, nextFixture: nextFixture, standings: standings,

@@ -1,9 +1,11 @@
-/* Sport automobile : week-end de Grand Prix jouable.
- *
- * Deux voitures, une stratégie pneumatique, la pluie, la voiture de sécurité
- * et des décisions au muret. Le championnat se joue sur une saison de courses
- * et rapporte des points, donc de l'argent, donc du capital à replacer
- * ailleurs dans l'empire.
+/* Sports de course individuels (sport automobile, cyclisme sur route) :
+ * un pilote, une voiture (ou un vélo), une stratégie pneumatique, la pluie,
+ * la voiture de sécurité et des décisions au muret. Chaque manche de la
+ * saison est un type de course différent (circuit rapide, à fort appui,
+ * étape de montagne, contre-la-montre…) qui avantage un poste de
+ * développement du véhicule plutôt qu'un autre. Le championnat rapporte des
+ * points, donc de l'argent, donc du capital à replacer ailleurs dans
+ * l'empire.
  */
 window.G = window.G || {};
 
@@ -11,24 +13,81 @@ G.race = (function () {
   'use strict';
   var u = G.util;
 
-  var CIRCUITS = [
-    'Grand Prix de Valmont', 'Grand Prix de Nordvik', 'Grand Prix d\'Alcázar',
-    'Grand Prix de Ravenna', 'Grand Prix de Port-Lambert', 'Grand Prix de Kirkwall',
-    'Grand Prix de Montclair', 'Grand Prix d\'Estoril', 'Grand Prix de Cassagne',
-    'Grand Prix de Hafenstadt', 'Grand Prix de Torrelles', 'Grand Prix de Brienne',
-    'Grand Prix de Lindenau', 'Grand Prix de Grandval'
-  ];
+  /* Calendrier et nature des courses, propres à chaque discipline : deux
+     Grands Prix ou deux étapes ne se ressemblent jamais tout à fait, et
+     chaque type de course avantage un poste de développement différent. */
+  var CIRCUITS = {
+    motorsport: [
+      'Grand Prix de Valmont', 'Grand Prix de Nordvik', 'Grand Prix d\'Alcázar',
+      'Grand Prix de Ravenna', 'Grand Prix de Port-Lambert', 'Grand Prix de Kirkwall',
+      'Grand Prix de Montclair', 'Grand Prix d\'Estoril', 'Grand Prix de Cassagne',
+      'Grand Prix de Hafenstadt', 'Grand Prix de Torrelles', 'Grand Prix de Brienne',
+      'Grand Prix de Lindenau', 'Grand Prix de Grandval'
+    ],
+    cyclisme: [
+      'Étape de plaine — Valmont/Nordvik', 'Contre-la-montre de Ravenna',
+      'Étape pyrénéenne du Cassagne', 'Classique des pavés de Port-Lambert',
+      'Étape alpine du Grandval', 'Étape vallonnée de Brienne',
+      'Contre-la-montre de Kirkwall', 'Étape de plaine — Montclair/Estoril',
+      'Étape de moyenne montagne du Lindenau', 'Classique de l\'Alcázar',
+      'Étape pyrénéenne du Torrelles', 'Étape de plaine — Hafenstadt',
+      'Étape reine du Grandval', 'Critérium final de Valmont'
+    ]
+  };
 
-  var TEAM_NAMES = ['Scuderia Aurora', 'Northwind Racing', 'Meridian GP',
-    'Kestrel Motorsport', 'Vulcano Corse', 'Aeris Racing', 'Delta Competizione',
-    'Ardente Squadra'];
+  /* Chaque course tire un type au hasard, qui pondère différemment les
+     postes de développement de la voiture / du vélo. */
+  var CIRCUIT_TYPES = {
+    motorsport: [
+      { type: 'vitesse', label: 'Circuit rapide', w: { moteur: 0.54, aero: 0.20, chassis: 0.26 } },
+      { type: 'appui', label: 'Circuit à fort appui', w: { moteur: 0.20, aero: 0.54, chassis: 0.26 } },
+      { type: 'urbain', label: 'Circuit urbain', w: { moteur: 0.22, aero: 0.26, chassis: 0.52 } },
+      { type: 'mixte', label: 'Circuit mixte', w: { moteur: 0.36, aero: 0.36, chassis: 0.28 } }
+    ],
+    cyclisme: [
+      { type: 'plaine', label: 'Étape de sprinteurs', w: { moteur: 0.56, aero: 0.26, chassis: 0.18 } },
+      { type: 'montagne', label: 'Étape de grimpeurs', w: { moteur: 0.14, aero: 0.14, chassis: 0.72 } },
+      { type: 'clm', label: 'Contre-la-montre', w: { moteur: 0.30, aero: 0.56, chassis: 0.14 } },
+      { type: 'vallonnee', label: 'Étape vallonnée', w: { moteur: 0.34, aero: 0.30, chassis: 0.36 } }
+    ]
+  };
+
+  var TEAM_NAMES = {
+    motorsport: ['Scuderia Aurora', 'Northwind Racing', 'Meridian GP',
+      'Kestrel Motorsport', 'Vulcano Corse', 'Aeris Racing', 'Delta Competizione',
+      'Ardente Squadra'],
+    cyclisme: ['Vertige Cycling Team', 'Team Aurora Cyclisme', 'Meridian Vélo',
+      'Kestrel Racing Team', 'Vulcano Cyclisme', 'Aeris Cycling', 'Delta Corsa Vélo',
+      'Ardente Cyclisme']
+  };
+
+  function circuitTypeDef(sportId, type) {
+    var list = CIRCUIT_TYPES[sportId] || CIRCUIT_TYPES.motorsport;
+    for (var i = 0; i < list.length; i++) if (list[i].type === type) return list[i];
+    return list[0];
+  }
+
+  /** Tire les manches de la saison, en garantissant un bon mélange des
+   * types de course (chaque type revient avant qu'aucun ne se répète). */
+  function pickFixtures(sportId, n) {
+    var names = u.shuffle((CIRCUITS[sportId] || CIRCUITS.motorsport).slice()).slice(0, n);
+    var types = CIRCUIT_TYPES[sportId] || CIRCUIT_TYPES.motorsport;
+    var bag = [];
+    var fixtures = [];
+    for (var i = 0; i < names.length; i++) {
+      if (!bag.length) bag = u.shuffle(types.map(function (t) { return t.type; }));
+      fixtures.push({ name: names[i], type: bag.pop() });
+    }
+    return fixtures;
+  }
 
   /* ==================================================== SAISON =========== */
 
   function makeSeason(club, sport) {
     var n = sport.leagueSize;
+    var teamNames = TEAM_NAMES[sport.id] || TEAM_NAMES.motorsport;
     var teams = [{ name: club.name, str: G.manager.teamRatings(club).ovr, you: true, pts: 0 }];
-    var names = u.shuffle(TEAM_NAMES);
+    var names = u.shuffle(teamNames);
     for (var i = 1; i < n; i++) {
       teams.push({
         name: names[i - 1] || ('Écurie ' + i),
@@ -42,7 +101,7 @@ G.race = (function () {
     }
     return {
       teams: teams,
-      fixtures: u.shuffle(CIRCUITS).slice(0, 14),
+      fixtures: pickFixtures(sport.id, 14),
       round: 0,
       isRace: true
     };
@@ -51,13 +110,22 @@ G.race = (function () {
   function nextRace(club) {
     var lg = club.league;
     if (!lg || lg.round >= lg.fixtures.length) return null;
-    return { circuit: lg.fixtures[lg.round], round: lg.round + 1, total: lg.fixtures.length };
+    var fx = lg.fixtures[lg.round];
+    /* Anciennes sauvegardes : les manches en cours peuvent encore être de
+       simples chaînes de caractères plutôt que des objets {name, type}. */
+    if (typeof fx === 'string') fx = { name: fx, type: 'mixte' };
+    var typeDef = circuitTypeDef(club.sport, fx.type);
+    return {
+      circuit: fx.name, type: fx.type, typeLabel: typeDef.label,
+      round: lg.round + 1, total: lg.fixtures.length
+    };
   }
 
   /* =================================================== WEEK-END ========== */
 
-  function carPace(driverOvr, car) {
-    var mech = (car.moteur * 0.38 + car.aero * 0.36 + car.chassis * 0.26);
+  function carPace(driverOvr, car, w) {
+    w = w || { moteur: 0.38, aero: 0.36, chassis: 0.26 };
+    var mech = (car.moteur * w.moteur + car.aero * w.aero + car.chassis * w.chassis);
     return mech * 0.55 + driverOvr * 0.45;
   }
 
@@ -71,45 +139,44 @@ G.race = (function () {
     var sport = G.manager.sportDef(club.sport);
     var evt = nextRace(club);
     if (!evt) return null;
+    var typeDef = circuitTypeDef(club.sport, evt.type);
 
+    /* Un pilote (ou coureur) unique par écurie : sport individuel, on
+       n'aligne pas de seconde voiture. */
     var drivers = u.sortBy(club.players, function (p) {
       return G.manager.effOvr(p, sport);
-    }, true).slice(0, 2);
-    while (drivers.length < 2) {
-      drivers.push(G.manager.makePlayer(sport, 50, { pos: 'P2' }));
+    }, true).slice(0, 1);
+    while (drivers.length < 1) {
+      drivers.push(G.manager.makePlayer(sport, 50, { pos: sport.positions[0].code }));
     }
+    var mainDriver = drivers[0];
 
-    var cars = [], i, j;
+    var cars = [], i;
     var teams = club.league.teams;
     for (i = 0; i < teams.length; i++) {
       var t = teams[i];
-      for (j = 0; j < 2; j++) {
-        var isYou = !!t.you;
-        var pace;
-        if (isYou) {
-          pace = carPace(G.manager.effOvr(drivers[j], sport), club.car);
-        } else {
-          pace = u.clamp(t.str + u.gauss(0, 2.5) - j * 1.6, 20, 99);
-        }
-        cars.push({
-          id: t.name + '#' + (j + 1),
-          driver: isYou ? drivers[j].name : (u.pick(G.DATA.firstNames)[0] + '. ' +
-            u.pick(G.DATA.lastNames)),
-          team: t.name,
-          teamIdx: i,
-          isYou: isYou,
-          lead: isYou && j === 0,          // voiture pilotée par vos décisions
-          pace: pace,
-          player: isYou ? drivers[j] : null,
-          tyre: 'medium',
-          wear: 0,
-          time: 0,
-          lapsDone: 0,
-          stops: 0,
-          out: false,
-          aggr: 1.0
-        });
-      }
+      var isYou = !!t.you;
+      var pace = isYou
+        ? carPace(G.manager.effOvr(mainDriver, sport), club.car, typeDef.w)
+        : u.clamp(t.str + u.gauss(0, 2.5), 20, 99);
+      cars.push({
+        id: t.name,
+        driver: isYou ? mainDriver.name : (u.pick(G.DATA.firstNames)[0] + '. ' +
+          u.pick(G.DATA.lastNames)),
+        team: t.name,
+        teamIdx: i,
+        isYou: isYou,
+        lead: isYou,                     // voiture pilotée par vos décisions
+        pace: pace,
+        player: isYou ? mainDriver : null,
+        tyre: 'medium',
+        wear: 0,
+        time: 0,
+        lapsDone: 0,
+        stops: 0,
+        out: false,
+        aggr: 1.0
+      });
     }
 
     /* Qualifications : l'ordre de départ dépend du rythme, avec une part d'aléa. */
@@ -118,6 +185,7 @@ G.race = (function () {
 
     var R = {
       club: club, sport: sport, circuit: evt.circuit, round: evt.round, total: evt.total,
+      raceType: evt.type, raceTypeLabel: evt.typeLabel,
       laps: sport.race.laps, lap: 0,
       cars: cars,
       feed: [],
@@ -129,9 +197,9 @@ G.race = (function () {
       askedPit: {}
     };
 
-    var mine = cars.filter(function (c) { return c.isYou; });
-    push(R, 0, '🏁 ' + evt.circuit + ' — qualifications terminées. ' +
-      mine.map(function (c) { return c.driver + ' P' + c.grid; }).join(', ') + '.', 'info');
+    var lead = myLead(R);
+    push(R, 0, '🏁 ' + evt.circuit + ' (' + evt.typeLabel + ') — qualifications terminées. ' +
+      (lead ? lead.driver + ' P' + lead.grid : '') + '.', 'info');
 
     R.decision = startDecision(R);
     return R;
@@ -319,24 +387,22 @@ G.race = (function () {
       title: 'La pluie tombe',
       text: 'Averse sur la deuxième partie du circuit. Décision immédiate.',
       options: [
-        opt('Tout le monde aux stands', 'Pneus pluie pour vos deux voitures', function (r) {
-          myCars(r).forEach(function (c) { if (!c.out) pit(r, c, 'pluie'); });
+        opt('Direction les stands', 'Pneus pluie, rythme normal', function (r) {
+          myCars(r).forEach(function (c) { if (!c.out) { pit(r, c, 'pluie'); c.aggr = 1.0; } });
         }),
         opt('Attendre un tour', 'Pari : l\'averse peut passer', function (r) {
           push(r, r.lap, '📻 « On attend, ça peut sécher. »', 'warn');
           myCars(r).forEach(function (c) { c.aggr = 0.88; });
         }),
-        opt('Seulement la voiture de tête', 'Stratégie séparée entre les deux pilotes',
+        opt('Pneus pluie, mais prudence', 'On assure la trajectoire plutôt que le chrono',
           function (r) {
-            var lead = myLead(r);
-            if (lead && !lead.out) pit(r, lead, 'pluie');
+            myCars(r).forEach(function (c) { if (!c.out) { pit(r, c, 'pluie'); c.aggr = 0.85; } });
           })
       ]
     };
   }
 
   function safetyDecision(R) {
-    var lead = myLead(R);
     return {
       title: 'Voiture de sécurité !',
       text: 'Un arrêt coûte deux fois moins cher pendant la neutralisation.',
@@ -349,10 +415,11 @@ G.race = (function () {
         opt('Rester dehors', 'On garde la position en piste', function (r) {
           push(r, r.lap, '📻 « On reste dehors, on garde la position. »', 'info');
         }),
-        opt('Uniquement ' + (lead ? lead.driver : 'la voiture de tête'), 'Stratégie décalée',
+        opt('Arrêt + gestion prudente', 'On sacrifie un peu de rythme pour ne plus s\'arrêter',
           function (r) {
-            var l = myLead(r);
-            if (l && !l.out) pit(r, l, r.rain ? 'pluie' : 'medium');
+            myCars(r).forEach(function (c) {
+              if (!c.out) { pit(r, c, 'dur'); c.aggr = 0.92; }
+            });
           })
       ]
     };

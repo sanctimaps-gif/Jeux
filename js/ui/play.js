@@ -200,7 +200,10 @@ G.play = (function () {
     }
 
     renderTop();
-    renderFeed();
+    /* Pas de commentaires écrits pendant un match regardé : l'animation
+       parle d'elle-même. Le détail des événements reste consultable via le
+       bouton ℹ️. La course pilotée garde ses messages radio. */
+    if (mode !== 'match') renderFeed();
 
     if (M.done) { showEnd(); return; }
     raf = requestAnimationFrame(frame);
@@ -209,9 +212,10 @@ G.play = (function () {
   function renderTop() {
     if (mode === 'match') {
       var mins = Math.floor(M.clock);
+      var icon = (M.sport && M.sport.icon) ? M.sport.icon + ' ' : '';
       el.top.innerHTML =
         '<div class="pl-score"><span class="pl-team">' + u.esc(shortName(M.club.name)) +
-        '</span><b>' + M.score.you + ' - ' + M.score.opp + '</b><span class="pl-team">' +
+        '</span><b>' + icon + M.score.you + ' - ' + M.score.opp + '</b><span class="pl-team">' +
         u.esc(shortName(M.oppName)) + '</span></div>' +
         '<div class="pl-sub">' + mins + "' / " + M.F.clock + "' · possession " +
         M.stats.poss + ' % · tirs ' + M.stats.youShots + '-' + M.stats.oppShots + '</div>';
@@ -332,6 +336,12 @@ G.play = (function () {
     el.btns.style.display = mode === 'race' ? 'flex' : 'none';
     el.btns.innerHTML = controlsHtml(sportId);
     el.pad.style.display = 'none';
+    /* Pas de commentaires écrits pendant un match regardé (voir frame()) :
+       on repart d'un bandeau vide, jamais du résidu d'une course précédente. */
+    el.feed.textContent = '';
+    el.feed.className = 'play-feed';
+    el.feed.dataset.k = '';
+    el.feed.style.display = mode === 'match' ? 'none' : '';
     document.body.classList.add('playing');
     resize();
     window.addEventListener('resize', resize);

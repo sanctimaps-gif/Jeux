@@ -84,38 +84,39 @@ G.drive = (function () {
     if (!evt) return null;
 
     var track = makeTrack();
+    /* Un pilote (ou coureur) unique : sport individuel, pas de coéquipier
+       en seconde voiture. */
     var drivers = u.sortBy(club.players, function (p) {
       return G.manager.effOvr(p, sport);
-    }, true).slice(0, 2);
-    while (drivers.length < 2) drivers.push(G.manager.makePlayer(sport, 50, { pos: 'P2' }));
+    }, true).slice(0, 1);
+    while (drivers.length < 1) drivers.push(G.manager.makePlayer(sport, 50, { pos: sport.positions[0].code }));
+    var mainDriver = drivers[0];
 
     var teams = club.league.teams;
-    var cars = [], i, j;
+    var cars = [], i;
     for (i = 0; i < teams.length; i++) {
-      for (j = 0; j < 2; j++) {
-        var isYou = !!teams[i].you;
-        var pace;
-        if (isYou) {
-          var mech = (club.car.moteur * 0.38 + club.car.aero * 0.36 + club.car.chassis * 0.26);
-          pace = mech * 0.55 + G.manager.effOvr(drivers[j], sport) * 0.45;
-        } else {
-          pace = u.clamp(teams[i].str + u.gauss(0, 2.5) - j * 1.5, 20, 99);
-        }
-        cars.push({
-          id: teams[i].name + '#' + (j + 1),
-          driver: isYou ? drivers[j].name
-            : (u.pick(G.DATA.firstNames)[0] + '. ' + u.pick(G.DATA.lastNames)),
-          team: teams[i].name, teamIdx: i,
-          isYou: isYou,
-          user: isYou && j === 0,          // la voiture que vous pilotez
-          player: isYou ? drivers[j] : null,
-          pace: pace,
-          x: 0, y: 0, angle: 0, v: 0,
-          seg: 0, lap: 0, prog: 0,
-          wear: 0, tyre: 'medium', stops: 0,
-          out: false, offTrack: 0, pit: 0
-        });
+      var isYou = !!teams[i].you;
+      var pace;
+      if (isYou) {
+        var mech = (club.car.moteur * 0.38 + club.car.aero * 0.36 + club.car.chassis * 0.26);
+        pace = mech * 0.55 + G.manager.effOvr(mainDriver, sport) * 0.45;
+      } else {
+        pace = u.clamp(teams[i].str + u.gauss(0, 2.5), 20, 99);
       }
+      cars.push({
+        id: teams[i].name,
+        driver: isYou ? mainDriver.name
+          : (u.pick(G.DATA.firstNames)[0] + '. ' + u.pick(G.DATA.lastNames)),
+        team: teams[i].name, teamIdx: i,
+        isYou: isYou,
+        user: isYou,                     // la voiture que vous pilotez
+        player: isYou ? mainDriver : null,
+        pace: pace,
+        x: 0, y: 0, angle: 0, v: 0,
+        seg: 0, lap: 0, prog: 0,
+        wear: 0, tyre: 'medium', stops: 0,
+        out: false, offTrack: 0, pit: 0
+      });
     }
 
     /* Grille de départ le long de la ligne. */
