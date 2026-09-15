@@ -18,7 +18,8 @@ G.action = (function () {
       aiShoot: 0.45, aiRange: 0.19, tackle: 1.0, view: 50,
       texture: 'grass', ball: '#f5f5f0', ballLine: '#111111' },
     rugby: { w: 70, h: 110, goalW: 5.6, surface: '#2f7a34', line: '#ffffff',
-      goal: 'tryline', speed: 0.95, ballSpeed: 24, clock: 80, realSeconds: 190,
+      goal: 'tryline', tryPts: 5, tryBonus: 2, tryLabel: 'Essai',
+      speed: 0.95, ballSpeed: 24, clock: 80, realSeconds: 190,
       aiShoot: 0, aiRange: 0, tackle: 4.2, view: 55,
       texture: 'grass', ball: '#8a4b23', ballLine: '#e8eef7', ballShape: 'oval' },
     waterpolo: { w: 20, h: 30, goalW: 3, surface: '#1565c0', line: '#e3f2fd',
@@ -37,6 +38,31 @@ G.action = (function () {
       goal: 'shot', speed: 0.9, ballSpeed: 30, clock: 60, realSeconds: 180,
       aiShoot: 2.0, aiRange: 0.50, tackle: 1.5, view: 30,
       texture: 'ice', ball: '#111111', ballLine: '#000000', ballScale: 0.55 },
+    fieldhockey: { w: 55, h: 91.4, goalW: 3.66, surface: '#2e8b3d', line: '#ffffff',
+      goal: 'shot', speed: 0.85, ballSpeed: 24, clock: 60, realSeconds: 180,
+      aiShoot: 1.8, aiRange: 0.45, tackle: 1.2, view: 42,
+      texture: 'grass', ball: '#ffffff', ballLine: '#c0392b', ballScale: 0.5 },
+    lacrosse: { w: 55, h: 100, goalW: 1.83, surface: '#3a9349', line: '#ffffff',
+      goal: 'shot', speed: 0.95, ballSpeed: 28, clock: 60, realSeconds: 180,
+      aiShoot: 2.2, aiRange: 0.5, tackle: 2.2, view: 42,
+      texture: 'grass', ball: '#e8720c', ballLine: '#5a2d00', ballScale: 0.5 },
+    floorball: { w: 20, h: 40, goalW: 1.6, surface: '#dcdfe3', line: '#1565c0',
+      goal: 'shot', speed: 1.0, ballSpeed: 26, clock: 60, realSeconds: 180,
+      aiShoot: 2.4, aiRange: 0.5, tackle: 1.0, view: 32,
+      texture: 'wood', ball: '#ffffff', ballLine: '#c0392b', ballScale: 0.4 },
+    polo: { w: 146, h: 274, goalW: 7.32, surface: '#4b9c4f', line: '#ffffff',
+      goal: 'shot', speed: 1.4, ballSpeed: 40, clock: 56, realSeconds: 190,
+      aiShoot: 1.6, aiRange: 0.4, tackle: 1.5, view: 90,
+      texture: 'grass', ball: '#ffffff', ballLine: '#8a6d00', ballScale: 0.35 },
+
+    /* Ultimate : pas de but, mais deux zones d'en-but à chaque extrémité —
+       on marque en y réceptionnant le disque, comme un essai au rugby
+       (voir F.goal === 'tryline', généralisé avec F.tryPts/F.tryLabel). */
+    ultimate: { w: 37, h: 100, surface: '#3a9349', line: '#ffffff',
+      goal: 'tryline', tryPts: 1, tryBonus: 0, tryLabel: 'Point marqué en zone d\'en-but',
+      speed: 1.0, ballSpeed: 22, clock: 50, realSeconds: 170,
+      aiShoot: 0, aiRange: 0, tackle: 0.4, view: 42,
+      texture: 'grass', ball: '#f4e04d', ballLine: '#8a6d00', ballShape: 'oval' },
 
     /* Volleyball : une équipe complète de chaque côté, mais un échange se
        joue comme au filet (voir F.netTeam) plutôt qu'un ballon disputé au
@@ -59,11 +85,28 @@ G.action = (function () {
     padel: { w: 10, h: 20, surface: '#2373a6', line: '#ffffff',
       racket: true, net: true, speed: 1.0, ballSpeed: 26, clock: 90, realSeconds: 200, view: 10 },
 
-    /* Baseball : pas de ballon disputé en continu, mais une succession de
-       face-à-face lanceur/frappeur sur un losange (voir F.diamond). */
+    /* Baseball et softball : pas de ballon disputé en continu, mais une
+       succession de face-à-face lanceur/frappeur sur un losange (voir
+       F.diamond) — le softball reprend le même moteur sur un terrain plus
+       petit, comme dans la réalité. */
     baseball: { w: 90, h: 90, surface: '#5a8f3c', line: '#ffffff',
       diamond: true, clock: 9, view: 95,
-      ball: '#ffffff', ballLine: '#c0392b', ballScale: 0.5 }
+      ball: '#ffffff', ballLine: '#c0392b', ballScale: 0.5 },
+    softball: { w: 60, h: 60, surface: '#5a8f3c', line: '#ffffff',
+      diamond: true, clock: 7, view: 64,
+      ball: '#f4e04d', ballLine: '#8a6d00', ballScale: 0.55 },
+
+    /* Cricket : ni ballon disputé en continu, ni losange, mais des
+       face-à-face lanceur/batteur sur un terrain ovale avec un pitch
+       central (voir F.cricket). */
+    cricket: { w: 140, h: 140, cricket: true, surface: '#4b9c4f', line: '#ffffff',
+      clock: 2, view: 145, ball: '#c0392b', ballLine: '#8a0000', ballScale: 0.4 },
+
+    /* Tir à l'arc par équipes : chaque archer tire sur une cible fixe, tour
+       par tour, plutôt qu'un ballon ou un adversaire direct (voir
+       F.archery). */
+    archery: { w: 40, h: 70, archery: true, surface: '#7a9e5c', line: '#ffffff',
+      clock: 4, view: 40, ball: '#ffd166', ballLine: '#8a6d00', ballScale: 0.3 }
   };
 
   function fieldOf(sportId) { return FIELDS[sportId] || FIELDS.football; }
@@ -118,6 +161,12 @@ G.action = (function () {
     } else if (F.diamond) {
       buildDiamondMatch(M, club, sport, mine, oppStr);
       push(M, 'Début de partie — ' + club.name + ' contre ' + fx.opp.name, 'info');
+    } else if (F.cricket) {
+      buildCricketMatch(M, club, sport, mine, oppStr);
+      push(M, 'Début de la rencontre — ' + club.name + ' contre ' + fx.opp.name, 'info');
+    } else if (F.archery) {
+      buildArcheryMatch(M, club, sport, mine, oppStr);
+      push(M, 'Début de la rencontre — ' + club.name + ' contre ' + fx.opp.name, 'info');
     } else {
       buildTeams(M, club, sport, mine, oppStr);
       kickoff(M, 1);
@@ -270,12 +319,24 @@ G.action = (function () {
     if (M.done || M.paused) return;
     var F = M.F;
 
-    /* Le base-ball ne se découpe pas en un temps continu, mais en manches et
-       en retraits : sa propre logique gère l'horloge (M.clock progresse à
-       chaque demi-manche) et la fin de partie. */
+    /* Le base-ball/softball, le cricket et le tir à l'arc ne se découpent
+       pas en un temps continu, mais en manches, balles ou volées : leur
+       propre logique gère l'horloge (M.clock) et la fin de partie. */
     if (F.diamond) {
       pickUserPlayer(M);
       updateDiamond(M, dt);
+      updateCamera(M, dt);
+      return;
+    }
+    if (F.cricket) {
+      pickUserPlayer(M);
+      updateCricket(M, dt);
+      updateCamera(M, dt);
+      return;
+    }
+    if (F.archery) {
+      pickUserPlayer(M);
+      updateArchery(M, dt);
       updateCamera(M, dt);
       return;
     }
@@ -399,10 +460,14 @@ G.action = (function () {
       M.user = (r && r.hitter && r.hitter.team === 0) ? r.hitter : nearestPlayer(M, M.ball.x, M.ball.y, 0);
       return;
     }
-    if (M.F.diamond) {
-      M.user = (M.currentBatter && M.diamond.battingTeam === 0)
-        ? M.players[M.players.length - 1]
-        : M.players[0];
+    if (M.F.diamond || M.F.cricket) {
+      var battingTeam = M.F.diamond ? M.diamond.battingTeam : M.cricket.battingTeam;
+      M.user = battingTeam === 0 ? M.players[M.players.length - 1] : M.players[0];
+      return;
+    }
+    if (M.F.archery) {
+      var shooter = archeryShooter(M);
+      M.user = shooter.team === 0 ? shooter : M.players[0];
       return;
     }
     var b = M.ball;
@@ -716,12 +781,14 @@ G.action = (function () {
     if (M.restart > 0) return;
 
     if (F.goal === 'tryline') {
-      /* Rugby : il faut porter le ballon derrière la ligne. */
+      /* Rugby (et Ultimate, en zone d'en-but) : il faut porter/réceptionner
+         le ballon derrière la ligne plutôt que le tirer dans un but. */
       if (b.owner) {
         var team = b.owner.team;
-        var goal = goalOf(M, team);
         if ((team === 0 && b.y >= F.h - 0.6) || (team === 1 && b.y <= 0.6)) {
-          scoreGoal(M, team, 5 + (u.chance(0.74) ? 2 : 0), 'Essai');
+          var basePts = F.tryPts === undefined ? 5 : F.tryPts;
+          var bonusPts = F.tryBonus && u.chance(0.74) ? F.tryBonus : 0;
+          scoreGoal(M, team, basePts + bonusPts, F.tryLabel || 'Essai');
         }
       }
       return;
@@ -1156,13 +1223,293 @@ G.action = (function () {
     }
   }
 
+  /* ==================================================== CRICKET (OVALE) === */
+
+  /* Positions relatives au terrain : un pitch central entre deux guichets,
+     plutôt qu'un losange ou un rectangle à deux buts. */
+  var CRICKET = {
+    striker: { x: 0.5, y: 0.68 },
+    nonStriker: { x: 0.5, y: 0.32 },
+    bowlerMark: { x: 0.5, y: 0.32 },
+    keeper: { x: 0.5, y: 0.82 },
+    fielders: [
+      { x: 0.18, y: 0.58 }, { x: 0.14, y: 0.38 }, { x: 0.28, y: 0.16 },
+      { x: 0.5, y: 0.06 }, { x: 0.72, y: 0.16 }, { x: 0.86, y: 0.38 },
+      { x: 0.82, y: 0.58 }, { x: 0.64, y: 0.72 }
+    ]
+  };
+
+  function buildCricketMatch(M, club, sport, mine, oppStr) {
+    var F = M.F;
+    var line = G.manager.starters(club);
+    var n = Math.max(1, Math.min(line.length, sport.lineupSize));
+    var myLineup = [], i;
+    for (i = 0; i < 11; i++) {
+      var src = line[i % n];
+      myLineup.push({
+        id: (src && src.id) || u.uid('you'), name: (src && src.name) || ('Joueur ' + (i + 1)),
+        ovr: src ? G.manager.effOvr(src, sport) : u.clamp(mine.att, 20, 95), ref: src || null
+      });
+    }
+    var oppLineup = [];
+    for (i = 0; i < 11; i++) {
+      oppLineup.push({
+        id: 'o' + i, name: u.pick(G.DATA.firstNames)[0] + '. ' + u.pick(G.DATA.lastNames),
+        ovr: u.clamp(oppStr + u.gauss(0, 6), 20, 95), ref: null
+      });
+    }
+    M.lineups = [myLineup, oppLineup];
+    M.cricket = {
+      oversTotal: 8, inning: 1, battingTeam: M.youHome ? 1 : 0,
+      ballsBowled: 0, wickets: 0, batterIdx: 0, target: null
+    };
+    M.ball = { x: F.w * CRICKET.bowlerMark.x, y: F.h * CRICKET.bowlerMark.y, vx: 0, vy: 0, owner: null };
+    refreshCricketPlayers(M);
+  }
+
+  /** Replace les défenseurs au champ (lanceur, gardien de guichet, 8
+   * fielders) plus le batteur du moment. */
+  function refreshCricketPlayers(M) {
+    var F = M.F, c = M.cricket;
+    var fieldingTeam = 1 - c.battingTeam;
+    var fielders = M.lineups[fieldingTeam];
+    var slots = [CRICKET.bowlerMark, CRICKET.keeper].concat(CRICKET.fielders);
+    M.players = [];
+    for (var i = 0; i < slots.length && i < fielders.length; i++) {
+      var s = slots[i];
+      var pos = { x: s.x * F.w, y: s.y * F.h };
+      M.players.push({
+        id: fielders[i].id, name: fielders[i].name, num: i + 1,
+        team: fieldingTeam, role: i === 0 ? 'gk' : 'def',
+        home: pos, x: pos.x, y: pos.y, vx: 0, vy: 0,
+        ovr: fielders[i].ovr, speed: 0, ref: fielders[i].ref
+      });
+    }
+    var batter = M.lineups[c.battingTeam][c.batterIdx % 11];
+    var bpos = { x: F.w * CRICKET.striker.x, y: F.h * CRICKET.striker.y };
+    M.players.push({
+      id: batter.id, name: batter.name, num: 0, team: c.battingTeam, role: 'att',
+      home: bpos, x: bpos.x, y: bpos.y, vx: 0, vy: 0, ovr: batter.ovr, speed: 0, ref: batter.ref
+    });
+    M.currentBatter = batter;
+    M.currentBowler = fielders[0];
+  }
+
+  function startDelivery(M) {
+    var F = M.F;
+    M.rally = {
+      t: 0, dur: 0.9,
+      fromX: F.w * CRICKET.bowlerMark.x, fromY: F.h * CRICKET.bowlerMark.y,
+      toX: F.w * CRICKET.striker.x, toY: F.h * CRICKET.striker.y
+    };
+    M.ball.x = M.rally.fromX; M.ball.y = M.rally.fromY;
+  }
+
+  function updateCricket(M, dt) {
+    if (M.restart > 0) { M.restart -= dt; return; }
+    if (!M.rally) { startDelivery(M); return; }
+    var r = M.rally;
+    r.t += dt;
+    var frac = u.clamp(r.t / r.dur, 0, 1);
+    M.ball.x = u.lerp(r.fromX, r.toX, frac);
+    M.ball.y = u.lerp(r.fromY, r.toY, frac);
+    if (frac >= 1) { M.rally = null; M.restart = 0.6; resolveDelivery(M); }
+  }
+
+  function endCricketInnings(M) {
+    var c = M.cricket;
+    if (c.inning === 1) {
+      c.inning = 2;
+      c.target = c.battingTeam === 0 ? M.score.you : M.score.opp;
+      c.battingTeam = 1 - c.battingTeam;
+      c.ballsBowled = 0; c.wickets = 0; c.batterIdx = 0;
+      M.clock = 1;
+      push(M, '🏏 Fin de la 1ère manche — ' + M.score.you + '-' + M.score.opp +
+        ' · objectif ' + (c.target + 1), 'info');
+      refreshCricketPlayers(M);
+    } else {
+      finish(M);
+    }
+  }
+
+  var WICKET_TXT = ['est éliminé lbw', 'voit son guichet tomber', 'est pris au vol',
+    'est éliminé au bâton'];
+
+  /** Résout une balle : guichet, balle bloquée sans point, ou course
+   * marquée (1 à 6 points), selon l'écart de niveau batteur/lanceur. */
+  function resolveDelivery(M) {
+    if (M.done) return;
+    var c = M.cricket;
+    var batter = M.currentBatter, bowler = M.currentBowler;
+    var gap = (batter.ovr - bowler.ovr) / 100;
+    c.ballsBowled++;
+
+    var pWicket = u.clamp(0.045 - gap * 0.025, 0.015, 0.09);
+    var pDot = u.clamp(0.42 - gap * 0.10, 0.22, 0.58);
+    var roll = u.rnd();
+    var wicket = false;
+
+    if (roll < pWicket) {
+      wicket = true;
+      c.wickets++;
+      push(M, '🔴 ' + batter.name + ' ' + u.pick(WICKET_TXT) + ' !', 'bad');
+    } else if (roll < pWicket + pDot) {
+      push(M, batter.name + ' bloque, aucune course', 'info');
+    } else {
+      var rest = 1 - pWicket - pDot;
+      var rr = (roll - pWicket - pDot) / rest;
+      var one = 0.42 - gap * 0.05, two = 0.16, three = 0.04, four = 0.28 + gap * 0.10, six = 0.10 + gap * 0.10;
+      var s = one + two + three + four + six;
+      one /= s; two /= s; three /= s; four /= s;
+      var runs = rr < one ? 1 : rr < one + two ? 2 : rr < one + two + three ? 3 :
+        rr < one + two + three + four ? 4 : 6;
+      if (c.battingTeam === 0) M.score.you += runs; else M.score.opp += runs;
+      if (runs >= 4) {
+        push(M, '🟢 ' + batter.name + ' ' +
+          (runs === 6 ? 'envoie la balle en tribunes pour un SIX' : 'trouve la limite pour un QUATRE') +
+          ' — ' + M.score.you + '-' + M.score.opp, 'good');
+      } else {
+        push(M, batter.name + ' prend ' + runs + (runs > 1 ? ' points' : ' point'), 'info');
+      }
+      if (batter.ref) {
+        batter.ref.seasonScored = (batter.ref.seasonScored || 0) + runs;
+        batter.ref.scored = (batter.ref.scored || 0) + runs;
+      }
+      M.stats[c.battingTeam === 0 ? 'youShots' : 'oppShots']++;
+    }
+
+    if (wicket) {
+      c.batterIdx++;
+      if (c.wickets >= 10) { endCricketInnings(M); return; }
+    }
+    if (c.ballsBowled >= c.oversTotal * 6) { endCricketInnings(M); return; }
+    if (c.target !== null) {
+      var chasing = c.battingTeam === 0 ? M.score.you : M.score.opp;
+      if (chasing > c.target) { finish(M); return; }
+    }
+    refreshCricketPlayers(M);
+  }
+
+  /* ============================================== TIR À L'ARC PAR ÉQUIPES */
+
+  var ARCHERY = {
+    targets: [{ x: 0.25, y: 0.1 }, { x: 0.75, y: 0.1 }],
+    lineSpots: [
+      [{ x: 0.15, y: 0.85 }, { x: 0.25, y: 0.85 }, { x: 0.35, y: 0.85 }],
+      [{ x: 0.65, y: 0.85 }, { x: 0.75, y: 0.85 }, { x: 0.85, y: 0.85 }]
+    ]
+  };
+
+  function buildArcheryMatch(M, club, sport, mine, oppStr) {
+    var F = M.F;
+    var line = G.manager.starters(club);
+    var n = Math.max(1, Math.min(line.length, sport.lineupSize));
+    var myTeam = [], i;
+    for (i = 0; i < 3; i++) {
+      var src = line[i % n];
+      myTeam.push({
+        id: (src && src.id) || u.uid('you'), name: (src && src.name) || ('Archer ' + (i + 1)),
+        ovr: src ? G.manager.effOvr(src, sport) : u.clamp(mine.att, 20, 95), ref: src || null
+      });
+    }
+    var oppTeam = [];
+    for (i = 0; i < 3; i++) {
+      oppTeam.push({
+        id: 'o' + i, name: u.pick(G.DATA.firstNames)[0] + '. ' + u.pick(G.DATA.lastNames),
+        ovr: u.clamp(oppStr + u.gauss(0, 6), 20, 95), ref: null
+      });
+    }
+    M.teams = [myTeam, oppTeam];
+    M.archery = { endsTotal: 10, end: 0, shotIdx: 0 };
+    M.ball = {
+      x: F.w * ARCHERY.lineSpots[0][0].x, y: F.h * ARCHERY.lineSpots[0][0].y,
+      vx: 0, vy: 0, owner: null
+    };
+    refreshArcheryPlayers(M);
+  }
+
+  function refreshArcheryPlayers(M) {
+    var F = M.F;
+    M.players = [];
+    for (var t = 0; t < 2; t++) {
+      for (var i = 0; i < 3; i++) {
+        var s = ARCHERY.lineSpots[t][i];
+        var a = M.teams[t][i];
+        var pos = { x: s.x * F.w, y: s.y * F.h };
+        M.players.push({
+          id: a.id, name: a.name, num: i + 1, team: t, role: 'att',
+          home: pos, x: pos.x, y: pos.y, vx: 0, vy: 0, ovr: a.ovr, speed: 0, ref: a.ref
+        });
+      }
+    }
+  }
+
+  /** L'archer désigné pour le tir courant : les deux équipes tirent en
+   * alternance, trois archers chacune par volée. */
+  function archeryShooter(M) {
+    var idx = M.archery.shotIdx % 6;
+    var team = idx % 2;
+    var archerNum = Math.floor(idx / 2);
+    return M.players[team === 0 ? archerNum : 3 + archerNum];
+  }
+
+  function startShot(M) {
+    var shooter = archeryShooter(M);
+    var target = ARCHERY.targets[shooter.team];
+    M.rally = {
+      t: 0, dur: 0.8,
+      fromX: shooter.x, fromY: shooter.y,
+      toX: M.F.w * target.x, toY: M.F.h * target.y
+    };
+    M.ball.x = shooter.x; M.ball.y = shooter.y;
+  }
+
+  function updateArchery(M, dt) {
+    if (M.restart > 0) { M.restart -= dt; return; }
+    if (!M.rally) { startShot(M); return; }
+    var r = M.rally;
+    r.t += dt;
+    var frac = u.clamp(r.t / r.dur, 0, 1);
+    M.ball.x = u.lerp(r.fromX, r.toX, frac);
+    M.ball.y = u.lerp(r.fromY, r.toY, frac);
+    if (frac >= 1) { M.rally = null; M.restart = 0.4; resolveShot(M); }
+  }
+
+  /** Résout un tir : la note de l'archer détermine la moyenne des points
+   * marqués (0 à 10), avec une dispersion réaliste autour de cette moyenne. */
+  function resolveShot(M) {
+    if (M.done) return;
+    var a = M.archery;
+    var shooter = archeryShooter(M);
+    var mean = u.clamp(3.5 + (shooter.ovr - 50) / 7, 1.5, 9.6);
+    var score = Math.round(u.clamp(u.gauss(mean, 1.6), 0, 10));
+    if (shooter.team === 0) M.score.you += score; else M.score.opp += score;
+
+    var label = score >= 10 ? 'en plein centre !' : score >= 8 ? 'près du centre' :
+      score >= 6 ? 'dans le jaune' : score >= 4 ? 'dans le rouge' :
+        score >= 1 ? 'en périphérie de la cible' : 'hors cible';
+    push(M, (score >= 8 ? '🎯 ' : score <= 2 ? '😖 ' : '') + shooter.name + ' tire ' + label +
+      ' (' + score + ' pts) — ' + M.score.you + '-' + M.score.opp,
+      score >= 8 ? 'good' : score <= 2 ? 'bad' : 'info');
+
+    a.shotIdx++;
+    if (a.shotIdx >= 6) {
+      a.shotIdx = 0;
+      a.end++;
+      push(M, '🏹 Fin de la volée ' + a.end + ' — ' + M.score.you + '-' + M.score.opp, 'info');
+      M.clock = a.end / a.endsTotal * M.F.clock;
+      if (a.end >= a.endsTotal) { finish(M); return; }
+    }
+  }
+
   /* ============================================================== FIN ===== */
 
   function finish(M) {
     if (M.done) return M;
     M.done = true;
     M.running = false;
-    push(M, (M.F.diamond ? 'Fin de partie' : 'Coup de sifflet final') + ' — ' + M.score.you + '-' + M.score.opp,
+    push(M, ((M.F.diamond || M.F.cricket || M.F.archery) ? 'Fin de partie' : 'Coup de sifflet final') +
+      ' — ' + M.score.you + '-' + M.score.opp,
       M.score.you > M.score.opp ? 'good' : M.score.you === M.score.opp ? 'info' : 'bad');
     M.result = G.manager.finishMatch(M.club, {
       you: M.score.you, opp: M.score.opp, oppName: M.oppName
@@ -1208,6 +1555,8 @@ G.action = (function () {
   function draw(M, ctx, cw, ch) {
     var F = M.F;
     if (F.diamond) { drawDiamond(M, ctx, cw, ch); return; }
+    if (F.cricket) { drawCricket(M, ctx, cw, ch); return; }
+    if (F.archery) { drawArchery(M, ctx, cw, ch); return; }
     /* Caméra rapprochée : on suit l'action de près, comme dans un jeu de
        sport mobile, plutôt que de regarder tout le terrain de loin. */
     var visibleW = Math.min(F.w, F.view || F.w * 0.5);
@@ -1499,6 +1848,49 @@ G.action = (function () {
       });
       drawNetGoal(F, ctx, sx, sy, scale, 0, -1, 1.2);
       drawNetGoal(F, ctx, sx, sy, scale, F.h, 1, 1.2);
+    } else if (sportId === 'fieldhockey') {
+      hLine(F.h / 2);
+      var shootBoxW = 14.63, shootBoxH = 14.63;
+      [0, 1].forEach(function (side) {
+        var y = side ? F.h - shootBoxH : 0;
+        ctx.strokeRect(sx(F.w / 2 - shootBoxW / 2), sy(y + shootBoxH), shootBoxW * scale, shootBoxH * scale);
+      });
+      [0, F.h].forEach(function (gy, side) { arcFromEnd(gy, side ? -1 : 1, 5); });
+      drawNetGoal(F, ctx, sx, sy, scale, 0, -1, 1.0);
+      drawNetGoal(F, ctx, sx, sy, scale, F.h, 1, 1.0);
+    } else if (sportId === 'lacrosse') {
+      hLine(F.h / 2);
+      ctx.beginPath();
+      ctx.arc(sx(F.w / 2), sy(F.h / 2), 2.7 * scale, 0, Math.PI * 2);
+      ctx.stroke();
+      [0, F.h].forEach(function (gy, side) {
+        var dir = side ? -1 : 1;
+        arcFromEnd(gy + dir * 4.5, dir, 4.5, true);
+      });
+      drawNetGoal(F, ctx, sx, sy, scale, 0, -1, 0.9);
+      drawNetGoal(F, ctx, sx, sy, scale, F.h, 1, 0.9);
+    } else if (sportId === 'floorball') {
+      hLine(F.h / 2);
+      ctx.beginPath();
+      ctx.arc(sx(F.w / 2), sy(F.h / 2), 3 * scale, 0, Math.PI * 2);
+      ctx.stroke();
+      [0, F.h].forEach(function (gy, side) {
+        arcFromEnd(gy, side ? -1 : 1, 5, true);
+      });
+      drawNetGoal(F, ctx, sx, sy, scale, 0, -1, 0.6);
+      drawNetGoal(F, ctx, sx, sy, scale, F.h, 1, 0.6);
+    } else if (sportId === 'polo') {
+      hLine(F.h / 2);
+      [F.h * 0.25, F.h * 0.75].forEach(function (y) { hLine(y, true); });
+      ctx.lineWidth = Math.max(2, scale * 0.22);
+      [0, F.h].forEach(function (gy) {
+        ctx.beginPath();
+        ctx.moveTo(sx(F.w / 2 - F.goalW / 2), sy(gy));
+        ctx.lineTo(sx(F.w / 2 + F.goalW / 2), sy(gy));
+        ctx.stroke();
+      });
+    } else if (sportId === 'ultimate') {
+      [18, F.h - 18].forEach(function (y) { hLine(y); });
     }
   }
 
@@ -1612,6 +2004,140 @@ G.action = (function () {
     ctx.fill();
     ctx.strokeStyle = F.ballLine || '#c0392b';
     ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  /** Rendu générique d'un joueur (pastille + numéro/lettre), partagé par
+   * les rendus dédiés (base-ball, cricket) qui ne passent pas par la
+   * caméra suiveuse ordinaire. */
+  function drawPawn(ctx, px, py, r, p, isUser, letter) {
+    ctx.fillStyle = 'rgba(0,0,0,.25)';
+    ctx.beginPath();
+    ctx.ellipse(px + r * 0.25, py + r * 0.3, r * 0.9, r * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (isUser) {
+      ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(px, py, r * 1.6, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.fillStyle = p.team === 0 ? '#f0b429' : '#e8eef7';
+    if (letter === 'B') ctx.fillStyle = p.team === 0 ? '#ffe08a' : '#c9d6e8';
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = p.team === 0 ? '#5a3d00' : '#39465c';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = p.team === 0 ? '#3a2a00' : '#1b2433';
+    ctx.font = 'bold ' + Math.round(r * 0.85) + 'px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(letter, px, py);
+  }
+
+  /** Rendu dédié au cricket : terrain ovale, pitch central entre deux
+   * guichets, plutôt qu'un rectangle à deux buts. */
+  function drawCricket(M, ctx, cw, ch) {
+    var F = M.F;
+    var scale = Math.min(cw / F.w, ch / F.h) * 0.92;
+    var offX = (cw - F.w * scale) / 2, offY = (ch - F.h * scale) / 2;
+    function sx(x) { return x * scale + offX; }
+    function sy(y) { return y * scale + offY; }
+    function fx(p) { return sx(p.x * F.w); }
+    function fy(p) { return sy(p.y * F.h); }
+
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.fillStyle = F.surface;
+    ctx.fillRect(0, 0, cw, ch);
+
+    ctx.fillStyle = 'rgba(255,255,255,.06)';
+    ctx.beginPath();
+    ctx.ellipse(sx(F.w / 2), sy(F.h / 2), F.w / 2 * scale * 0.96, F.h / 2 * scale * 0.96, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = Math.max(1.5, scale * F.w * 0.003);
+    ctx.stroke();
+
+    var pitchW = 3, pitchTop = F.h * 0.25, pitchH = F.h * 0.5;
+    ctx.fillStyle = '#d8c48a';
+    ctx.fillRect(sx(F.w / 2 - pitchW / 2), sy(pitchTop), pitchW * scale, pitchH * scale);
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+    ctx.strokeRect(sx(F.w / 2 - pitchW / 2), sy(pitchTop), pitchW * scale, pitchH * scale);
+
+    [CRICKET.striker, CRICKET.nonStriker].forEach(function (p) {
+      var wx = fx(p), wy = fy(p);
+      ctx.fillStyle = '#eeeeee';
+      ctx.fillRect(wx - 4, wy - 8, 8, 16);
+    });
+
+    var r = u.clamp(scale * 0.9, 8, 15);
+    for (var i = 0; i < M.players.length; i++) {
+      var p = M.players[i];
+      drawPawn(ctx, sx(p.x), sy(p.y), r, p, p === M.user,
+        p.role === 'att' ? 'B' : (p.role === 'gk' ? 'L' : String(p.num)));
+    }
+
+    var b = M.ball;
+    var br = r * (F.ballScale || 0.4) * 0.5;
+    ctx.fillStyle = F.ball || '#c0392b';
+    ctx.beginPath();
+    ctx.arc(sx(b.x), sy(b.y), br, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = F.ballLine || '#8a0000';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  /** Rendu dédié au tir à l'arc : deux cibles fixes plutôt qu'un ballon en
+   * mouvement disputé, une flèche animée d'un tir à l'autre. */
+  function drawArchery(M, ctx, cw, ch) {
+    var F = M.F;
+    var scale = Math.min(cw / F.w, ch / F.h) * 0.92;
+    var offX = (cw - F.w * scale) / 2, offY = (ch - F.h * scale) / 2;
+    function sx(x) { return x * scale + offX; }
+    function sy(y) { return y * scale + offY; }
+    function fx(p) { return sx(p.x * F.w); }
+    function fy(p) { return sy(p.y * F.h); }
+
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.fillStyle = F.surface;
+    ctx.fillRect(0, 0, cw, ch);
+
+    var ringColors = ['#f4e04d', '#f4e04d', '#e53935', '#e53935', '#2166ac', '#2166ac',
+      '#1b1b1b', '#1b1b1b', '#ffffff', '#ffffff'];
+    ARCHERY.targets.forEach(function (t) {
+      var cx = fx(t), cy = fy(t);
+      var R = Math.max(14, scale * 2.4);
+      for (var i = ringColors.length - 1; i >= 0; i--) {
+        ctx.fillStyle = ringColors[i];
+        ctx.beginPath();
+        ctx.arc(cx, cy, R * (i + 1) / ringColors.length, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#f4e04d';
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * 0.1, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = Math.max(1.5, scale * 0.3);
+    ctx.beginPath();
+    ctx.moveTo(sx(0), sy(F.h * 0.85));
+    ctx.lineTo(sx(F.w), sy(F.h * 0.85));
+    ctx.stroke();
+
+    var r = u.clamp(scale * 0.85, 8, 15);
+    for (var i = 0; i < M.players.length; i++) {
+      var p = M.players[i];
+      drawPawn(ctx, sx(p.x), sy(p.y), r, p, p === M.user, String(p.num));
+    }
+
+    var b = M.ball;
+    ctx.strokeStyle = F.ball || '#ffd166';
+    ctx.lineWidth = Math.max(2, scale * 0.25);
+    ctx.beginPath();
+    ctx.moveTo(sx(b.x) - 4, sy(b.y));
+    ctx.lineTo(sx(b.x) + 4, sy(b.y));
     ctx.stroke();
   }
 

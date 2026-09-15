@@ -52,7 +52,19 @@ G.DATA.clubSuffixes = {
   badminton: ['Badminton Club', 'BC', 'Shuttle Club'],
   squash: ['Squash Club', 'SC', 'Racket Club'],
   tennisdetable: ['Ping-Pong Club', 'TTC', 'Table Tennis Club'],
-  padel: ['Padel Club', 'PC', 'Padel Academy']
+  padel: ['Padel Club', 'PC', 'Padel Academy'],
+  fieldhockey: ['Hockey Club', 'HC', 'Field Hockey Club'],
+  lacrosse: ['Lacrosse Club', 'LC', 'Warriors', 'Riptide'],
+  ultimate: ['Ultimate Club', 'Flying Disc', 'Sky'],
+  cricket: ['Cricket Club', 'CC', 'Kings', 'Royals'],
+  softball: ['Softball Club', 'SC', 'Stingers'],
+  relais: ['Athlétisme', 'AC', 'Sprint Club', 'Piste Club'],
+  aviron: ['Aviron', 'Club Nautique', 'Rowing Club'],
+  canoekayak: ['Canoë-Kayak', 'CK', 'Club Nautique'],
+  voile: ['Yacht Club', 'Voile', 'Sailing Team'],
+  floorball: ['Floorball Club', 'FBC', 'Innebandy'],
+  archery: ['Tir à l\'Arc', 'Archery Club', 'Compagnie d\'Arc'],
+  polo: ['Polo Club', 'PC', 'Estancia']
 };
 
 /* Pays jouables pour l'onglet gouvernement. */

@@ -32,6 +32,34 @@ G.race = (function () {
       'Étape de moyenne montagne du Lindenau', 'Classique de l\'Alcázar',
       'Étape pyrénéenne du Torrelles', 'Étape de plaine — Hafenstadt',
       'Étape reine du Grandval', 'Critérium final de Valmont'
+    ],
+    relais: [
+      'Meeting de Valmont', 'Championnat de Nordvik', 'Meeting d\'Alcázar',
+      'Meeting de Ravenna', 'Grand Meeting de Port-Lambert', 'Championnat de Kirkwall',
+      'Meeting de Montclair', 'Meeting d\'Estoril', 'Meeting de Cassagne',
+      'Meeting de Hafenstadt', 'Meeting de Torrelles', 'Meeting de Brienne',
+      'Meeting de Lindenau', 'Grand Meeting de Grandval'
+    ],
+    aviron: [
+      'Régate de Valmont', 'Championnat de Nordvik', 'Régate d\'Alcázar',
+      'Régate de Ravenna', 'Grande Régate de Port-Lambert', 'Championnat de Kirkwall',
+      'Régate de Montclair', 'Régate d\'Estoril', 'Régate de Cassagne',
+      'Régate de Hafenstadt', 'Régate de Torrelles', 'Régate de Brienne',
+      'Régate de Lindenau', 'Grande Régate de Grandval'
+    ],
+    canoekayak: [
+      'Course de Valmont', 'Championnat de Nordvik', 'Course d\'Alcázar',
+      'Course de Ravenna', 'Grande Course de Port-Lambert', 'Championnat de Kirkwall',
+      'Course de Montclair', 'Course d\'Estoril', 'Course de Cassagne',
+      'Course de Hafenstadt', 'Course de Torrelles', 'Course de Brienne',
+      'Course de Lindenau', 'Grande Course de Grandval'
+    ],
+    voile: [
+      'Régate de Valmont', 'Coupe de Nordvik', 'Régate d\'Alcázar',
+      'Régate de Ravenna', 'Grande Coupe de Port-Lambert', 'Coupe de Kirkwall',
+      'Régate de Montclair', 'Régate d\'Estoril', 'Régate de Cassagne',
+      'Régate de Hafenstadt', 'Régate de Torrelles', 'Régate de Brienne',
+      'Régate de Lindenau', 'Grande Coupe de Grandval'
     ]
   };
 
@@ -49,6 +77,30 @@ G.race = (function () {
       { type: 'montagne', label: 'Étape de grimpeurs', w: { moteur: 0.14, aero: 0.14, chassis: 0.72 } },
       { type: 'clm', label: 'Contre-la-montre', w: { moteur: 0.30, aero: 0.56, chassis: 0.14 } },
       { type: 'vallonnee', label: 'Étape vallonnée', w: { moteur: 0.34, aero: 0.30, chassis: 0.36 } }
+    ],
+    relais: [
+      { type: 'vitesse', label: 'Meeting rapide', w: { moteur: 0.54, aero: 0.20, chassis: 0.26 } },
+      { type: 'technique', label: 'Passations serrées', w: { moteur: 0.20, aero: 0.54, chassis: 0.26 } },
+      { type: 'lourd', label: 'Piste lourde', w: { moteur: 0.22, aero: 0.26, chassis: 0.52 } },
+      { type: 'mixte', label: 'Meeting mixte', w: { moteur: 0.36, aero: 0.36, chassis: 0.28 } }
+    ],
+    aviron: [
+      { type: 'vitesse', label: 'Départ explosif', w: { moteur: 0.54, aero: 0.20, chassis: 0.26 } },
+      { type: 'technique', label: 'Coup d\'aviron technique', w: { moteur: 0.20, aero: 0.54, chassis: 0.26 } },
+      { type: 'lourd', label: 'Plan d\'eau difficile', w: { moteur: 0.22, aero: 0.26, chassis: 0.52 } },
+      { type: 'mixte', label: 'Parcours mixte', w: { moteur: 0.36, aero: 0.36, chassis: 0.28 } }
+    ],
+    canoekayak: [
+      { type: 'vitesse', label: 'Départ explosif', w: { moteur: 0.54, aero: 0.20, chassis: 0.26 } },
+      { type: 'technique', label: 'Technique de pagaie', w: { moteur: 0.20, aero: 0.54, chassis: 0.26 } },
+      { type: 'lourd', label: 'Plan d\'eau difficile', w: { moteur: 0.22, aero: 0.26, chassis: 0.52 } },
+      { type: 'mixte', label: 'Parcours mixte', w: { moteur: 0.36, aero: 0.36, chassis: 0.28 } }
+    ],
+    voile: [
+      { type: 'portant', label: 'Vent arrière', w: { moteur: 0.54, aero: 0.20, chassis: 0.26 } },
+      { type: 'pres', label: 'Près serré', w: { moteur: 0.20, aero: 0.54, chassis: 0.26 } },
+      { type: 'gros-temps', label: 'Mer formée', w: { moteur: 0.22, aero: 0.26, chassis: 0.52 } },
+      { type: 'mixte', label: 'Plan d\'eau mixte', w: { moteur: 0.36, aero: 0.36, chassis: 0.28 } }
     ]
   };
 
@@ -58,7 +110,19 @@ G.race = (function () {
       'Ardente Squadra'],
     cyclisme: ['Vertige Cycling Team', 'Team Aurora Cyclisme', 'Meridian Vélo',
       'Kestrel Racing Team', 'Vulcano Cyclisme', 'Aeris Cycling', 'Delta Corsa Vélo',
-      'Ardente Cyclisme']
+      'Ardente Cyclisme'],
+    relais: ['Vertige Athlétisme', 'Aurora Track Club', 'Meridian Athlétisme',
+      'Kestrel AC', 'Vulcano Piste', 'Aeris Athlétisme', 'Delta Sprint Club',
+      'Ardente AC'],
+    aviron: ['Vertige Aviron', 'Aurora Rowing Club', 'Meridian Aviron',
+      'Kestrel Rowing', 'Vulcano Aviron', 'Aeris Rowing Club', 'Delta Aviron',
+      'Ardente Aviron'],
+    canoekayak: ['Vertige Canoë-Kayak', 'Aurora Kayak Club', 'Meridian Pagaie',
+      'Kestrel Canoë', 'Vulcano Kayak', 'Aeris Canoë-Kayak', 'Delta Pagaie Club',
+      'Ardente Canoë'],
+    voile: ['Vertige Sailing Team', 'Aurora Yacht Club', 'Meridian Voile',
+      'Kestrel Sailing', 'Vulcano Voile', 'Aeris Sailing Team', 'Delta Régate Club',
+      'Ardente Voile']
   };
 
   function circuitTypeDef(sportId, type) {

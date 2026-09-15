@@ -338,13 +338,20 @@ window.G = window.G || {};
     return h;
   }
 
+  /* Intitulé de la prochaine épreuve, propre à chaque sport de course. */
+  var RACE_EVENT_LABEL = {
+    motorsport: 'Prochain Grand Prix', cyclisme: 'Prochaine étape',
+    relais: 'Prochaine course', aviron: 'Prochaine régate',
+    canoekayak: 'Prochaine course', voile: 'Prochaine régate'
+  };
+
   function nextMatchCard(club, sp) {
     var h = '<div class="card">';
 
     if (sp.type === 'race') {
       var evt = G.race.nextRace(club);
       if (!evt) return h + '<div class="muted">Saison terminée.</div></div>';
-      h += '<div class="card-head">🏁 ' + (sp.id === 'cyclisme' ? 'Prochaine étape' : 'Prochain Grand Prix') +
+      h += '<div class="card-head">🏁 ' + (RACE_EVENT_LABEL[sp.id] || 'Prochaine course') +
         '</div>' +
         '<div style="font-size:16px;font-weight:700">' + u.esc(evt.circuit) + '</div>' +
         '<div class="mute2">Manche ' + evt.round + ' sur ' + evt.total +
@@ -655,7 +662,11 @@ window.G = window.G || {};
     var h = '';
 
     if (sp.car) {
-      var vehWord = sp.id === 'cyclisme' ? 'du vélo' : sp.type === 'race' ? 'de la voiture' : 'de l\'équipement';
+      var VEHICLE_WORD = {
+        motorsport: 'de la voiture', cyclisme: 'du vélo', aviron: 'du bateau',
+        canoekayak: 'de l\'embarcation', voile: 'du bateau', relais: 'de l\'équipement'
+      };
+      var vehWord = VEHICLE_WORD[sp.id] || (sp.type === 'race' ? 'du véhicule' : 'de l\'équipement');
       h += '<div class="card"><div class="card-head">🔧 Développement ' + vehWord + '</div>';
       for (var i = 0; i < sp.car.length; i++) {
         var part = sp.car[i];

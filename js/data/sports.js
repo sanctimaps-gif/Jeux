@@ -675,6 +675,456 @@ G.DATA.sports = [
       'Circuit national élite', 'Circuit national', 'Circuit régional', 'Circuit départemental'],
     divisionTags: ['Major', 'P1', 'P2', 'WPT', 'Chall.', 'Open', 'Nat. élite', 'National', 'Régional', 'Départ.'],
     internationalLabel: 'Championnat du monde par équipes'
+  },
+
+  /* --------------------------------------------------- HOCKEY SUR GAZON - */
+  {
+    id: 'fieldhockey', name: 'Hockey sur gazon', icon: '🏑', type: 'team',
+    unit: 'but', unitPlural: 'buts',
+    squadSize: 18, lineupSize: 11,
+    duration: 60, segments: 16, periods: 4,
+    avgEvents: 10, spread: 1.0,
+    scoreEvents: [{ label: 'But', pts: 1, w: 1 }],
+    attW: { att: 0.42, mid: 0.36, def: 0.18, gk: 0.04 },
+    defW: { gk: 0.32, def: 0.40, mid: 0.24, att: 0.04 },
+    positions: [
+      { code: 'G', name: 'Gardien', role: 'gk', need: 1, w: { def: .34, men: .26, tec: .20, phy: .16, att: .04 } },
+      { code: 'DEF', name: 'Défenseur', role: 'def', need: 4, w: { def: .38, phy: .24, tec: .18, men: .14, att: .06 } },
+      { code: 'MIL', name: 'Milieu', role: 'mid', need: 3, w: { tec: .32, phy: .24, att: .20, men: .16, def: .08 } },
+      { code: 'ATT', name: 'Attaquant', role: 'att', need: 3, w: { att: .38, tec: .26, phy: .20, men: .12, def: .04 } }
+    ],
+    tactics: {
+      mentality: ['Ultra défensif', 'Prudent', 'Équilibré', 'Offensif', 'Tout va'],
+      pressing: ['Repli bas', 'Pressing médian', 'Pressing haut'],
+      style: ['Jeu au sol', 'Équilibré', 'Jeu en profondeur']
+    },
+    economy: {
+      clubCost: 3.0e6, gateBase: 8.0e4, sponsorBase: 1.4e5,
+      prizeWin: 1.4e5, prizeDraw: 8.0e4, prizeLoss: 3.0e4,
+      wageBase: 11000, valueMul: 0.0035, tvSeason: 2.0e6,
+      flagshipPrice: 2.2e7 /* grand club européen, type Bloemendaal / Uhlenhorst Mülheim */
+    },
+    leagueSize: 10,
+    countries: ['NLD', 'IND', 'PAK', 'AUS', 'DEU', 'BEL', 'ARG', 'GBR', 'ESP',
+      'NZL', 'KOR', 'MYS', 'FRA', 'CHN', 'JPN', 'ZAF', 'IRL', 'CAN']
+  },
+
+  /* -------------------------------------------------------- LACROSSE --- */
+  {
+    id: 'lacrosse', name: 'Lacrosse', icon: '🥍', type: 'team',
+    unit: 'but', unitPlural: 'buts',
+    squadSize: 20, lineupSize: 10,
+    duration: 60, segments: 16, periods: 4,
+    avgEvents: 20, spread: 0.8,
+    scoreEvents: [{ label: 'But', pts: 1, w: 1 }],
+    attW: { att: 0.44, mid: 0.34, def: 0.18, gk: 0.04 },
+    defW: { gk: 0.34, def: 0.38, mid: 0.24, att: 0.04 },
+    positions: [
+      { code: 'G', name: 'Gardien', role: 'gk', need: 1, w: { def: .34, men: .28, tec: .18, phy: .16, att: .04 } },
+      { code: 'DEF', name: 'Défenseur', role: 'def', need: 3, w: { def: .38, phy: .28, tec: .16, men: .12, att: .06 } },
+      { code: 'MIL', name: 'Milieu', role: 'mid', need: 3, w: { phy: .28, tec: .26, att: .20, men: .16, def: .10 } },
+      { code: 'ATT', name: 'Attaquant', role: 'att', need: 3, w: { att: .38, tec: .26, phy: .20, men: .12, def: .04 } }
+    ],
+    tactics: {
+      mentality: ['Ultra défensif', 'Prudent', 'Équilibré', 'Offensif', 'Tout va'],
+      pressing: ['Zone', 'Individuel mixte', 'Pressing tout terrain'],
+      style: ['Jeu physique', 'Équilibré', 'Jeu rapide']
+    },
+    economy: {
+      clubCost: 1.6e6, gateBase: 4.0e4, sponsorBase: 7.0e4,
+      prizeWin: 7.0e4, prizeDraw: 3.0e4, prizeLoss: 1.5e4,
+      wageBase: 7000, valueMul: 0.0018, tvSeason: 1.2e6,
+      flagshipPrice: 1.2e7 /* plus grande franchise de ligue professionnelle nord-américaine */
+    },
+    leagueSize: 8,
+    countries: ['USA', 'CAN', 'AUS', 'GBR', 'IRL', 'ISR', 'JPN', 'DEU', 'NLD', 'CZE']
+  },
+
+  /* ----------------------------------------------- ULTIMATE FRISBEE --- */
+  {
+    id: 'ultimate', name: 'Ultimate frisbee', icon: '🥏', type: 'team',
+    unit: 'point', unitPlural: 'points',
+    squadSize: 14, lineupSize: 7,
+    duration: 50, segments: 16, periods: 2,
+    avgEvents: 15, spread: 0.9,
+    scoreEvents: [{ label: 'Point', pts: 1, w: 1 }],
+    attW: { att: 0.40, mid: 0.44, def: 0.16 },
+    defW: { def: 0.42, mid: 0.42, att: 0.16 },
+    endzone: true,
+    positions: [
+      { code: 'HAN', name: 'Handler', role: 'mid', need: 3, w: { tec: .34, men: .28, phy: .16, att: .16, def: .06 } },
+      { code: 'CUT', name: 'Cutter', role: 'att', need: 4, w: { att: .32, phy: .28, tec: .22, men: .12, def: .06 } }
+    ],
+    tactics: {
+      mentality: ['Ultra prudent', 'Prudent', 'Équilibré', 'Offensif', 'Tout en verticalité'],
+      pressing: ['Zone', 'Individuel', 'Pressing haut'],
+      style: ['Jeu horizontal', 'Équilibré', 'Jeu vertical']
+    },
+    economy: {
+      clubCost: 4.0e5, gateBase: 1.0e4, sponsorBase: 2.0e4,
+      prizeWin: 2.0e4, prizeDraw: 8.0e3, prizeLoss: 4.0e3,
+      wageBase: 2000, valueMul: 0.0004, tvSeason: 2.0e5,
+      flagshipPrice: 2.0e6 /* sport amateur/semi-pro, plus grosse structure de championnat club */
+    },
+    leagueSize: 8,
+    countries: ['USA', 'CAN', 'GBR', 'DEU', 'FRA', 'AUS', 'JPN', 'COL', 'SWE', 'NLD']
+  },
+
+  /* ---------------------------------------------------------- CRICKET --- */
+  {
+    id: 'cricket', name: 'Cricket', icon: '🏏', type: 'team',
+    unit: 'run', unitPlural: 'runs',
+    squadSize: 15, lineupSize: 11,
+    duration: 40, segments: 20, periods: 2,
+    avgEvents: 6, spread: 0.7,
+    scoreEvents: [{ label: 'Run', pts: 1, w: 1 }],
+    attW: { att: 0.52, mid: 0.30, def: 0.18 },
+    defW: { def: 0.54, mid: 0.30, att: 0.16 },
+    cricket: true,
+    positions: [
+      { code: 'BAT', name: 'Batteur', role: 'att', need: 6, w: { tec: .34, men: .26, phy: .18, att: .18, def: .04 } },
+      { code: 'ALL', name: 'Tout-terrain', role: 'mid', need: 2, w: { tec: .28, phy: .24, men: .20, att: .16, def: .12 } },
+      { code: 'BOW', name: 'Lanceur', role: 'def', need: 3, w: { tec: .32, def: .26, phy: .22, men: .16, att: .04 } }
+    ],
+    tactics: {
+      mentality: ['Ultra défensif', 'Prudent', 'Équilibré', 'Agressif', 'Tout en attaque'],
+      pressing: ['Champ resserré', 'Champ standard', 'Champ dispersé'],
+      style: ['Jeu de patience', 'Équilibré', 'Jeu de puissance']
+    },
+    economy: {
+      clubCost: 2.5e7, gateBase: 3.0e5, sponsorBase: 6.0e5,
+      prizeWin: 5.0e5, prizeDraw: 2.0e5, prizeLoss: 8.0e4,
+      wageBase: 60000, valueMul: 0.12, tvSeason: 3.0e7,
+      flagshipPrice: 3.5e9 /* plus grosse franchise IPL, type Mumbai Indians */
+    },
+    leagueSize: 8,
+    countries: ['IND', 'PAK', 'AUS', 'GBR', 'ZAF', 'NZL', 'LKA', 'BGD', 'AFG', 'ARE', 'SGP']
+  },
+
+  /* --------------------------------------------------------- SOFTBALL --- */
+  {
+    id: 'softball', name: 'Softball', icon: '🥎', type: 'team',
+    unit: 'point', unitPlural: 'points',
+    squadSize: 15, lineupSize: 9,
+    duration: 105, segments: 14, periods: 7,
+    avgEvents: 7, spread: 1.3,
+    scoreEvents: [{ label: 'Point', pts: 1, w: 1 }],
+    attW: { att: 0.40, mid: 0.36, def: 0.24 },
+    defW: { def: 0.50, mid: 0.30, att: 0.20 },
+    diamond: true,
+    positions: [
+      { code: 'LAN', name: 'Lanceuse', role: 'def', need: 1, w: { tec: .34, men: .26, phy: .22, def: .14, att: .04 } },
+      { code: 'REC', name: 'Receveuse', role: 'def', need: 1, w: { def: .32, men: .26, tec: .22, phy: .16, att: .04 } },
+      { code: 'INT', name: 'Intérieure', role: 'mid', need: 4, w: { tec: .30, phy: .24, att: .22, men: .16, def: .08 } },
+      { code: 'EXT', name: 'Extérieure', role: 'att', need: 3, w: { att: .36, phy: .26, tec: .20, men: .14, def: .04 } }
+    ],
+    tactics: {
+      mentality: ['Ultra prudent', 'Prudent', 'Équilibré', 'Agressif', 'Tout en attaque'],
+      pressing: ['Défense resserrée', 'Défense standard', 'Défense avancée'],
+      style: ['Jeu de contact', 'Équilibré', 'Jeu de puissance']
+    },
+    economy: {
+      clubCost: 5.0e5, gateBase: 1.2e4, sponsorBase: 2.5e4,
+      prizeWin: 2.5e4, prizeDraw: 1.0e4, prizeLoss: 4.0e3,
+      wageBase: 3500, valueMul: 0.0009, tvSeason: 4.0e5,
+      flagshipPrice: 3.0e6 /* sport semi-pro, plus grosse franchise de ligue professionnelle */
+    },
+    leagueSize: 8,
+    countries: ['USA', 'JPN', 'AUS', 'CAN', 'CHN', 'NLD', 'ITA', 'MEX', 'NZL', 'PHL']
+  },
+
+  /* ----------------------------------------- RELAIS EN ATHLÉTISME --- */
+  {
+    id: 'relais', name: 'Relais en athlétisme', icon: '🏃', type: 'race', individual: true,
+    unit: 'point', unitPlural: 'points',
+    squadSize: 1, lineupSize: 1,
+    attW: { att: 1.0 }, defW: { att: 1.0 },
+    positions: [
+      { code: 'C', name: 'Relayeur', role: 'att', need: 1, w: { phy: .40, att: .28, tec: .15, men: .12, def: .05 } }
+    ],
+    car: [
+      { id: 'moteur', name: 'Pointes', icon: '👟', desc: 'Puissance de sprint dans les lignes droites.' },
+      { id: 'aero', name: 'Passation de témoin', icon: '🎯', desc: 'Efficacité des relais entre coureurs.' },
+      { id: 'chassis', name: 'Tenue technique', icon: '👕', desc: 'Aérodynamisme et confort de course.' },
+      { id: 'fiabilite', name: 'Préparation physique', icon: '🧴', desc: 'Réduit le risque de blessure.' }
+    ],
+    vehicleModels: [
+      { id: 'equilibre', name: 'Équipement équilibré', desc: 'Aucune spécialité : polyvalent en toutes circonstances.',
+        profile: { moteur: .25, aero: .25, chassis: .25, fiabilite: .25 } },
+      { id: 'veloce', name: 'Équipement explosif', desc: 'Puissance et transmission pour dominer le départ.',
+        profile: { moteur: .34, aero: .34, chassis: .18, fiabilite: .14 } },
+      { id: 'appui', name: 'Équipement technique', desc: 'Efficacité des passations avant tout.',
+        profile: { moteur: .18, aero: .42, chassis: .28, fiabilite: .12 } },
+      { id: 'robuste', name: 'Équipement d\'endurance', desc: 'Tenue et récupération, pour tenir la distance.',
+        profile: { moteur: .16, aero: .16, chassis: .38, fiabilite: .30 } }
+    ],
+    race: {
+      laps: 20, grid: 12, pitLoss: 6,
+      points: [25, 18, 15, 12, 10, 8, 6, 4, 2, 1],
+      tyres: [
+        { id: 'tendre', name: 'Rythme rapide dès le départ', pace: 1.4, wear: 2.0 },
+        { id: 'medium', name: 'Rythme progressif', pace: 0.6, wear: 1.4 },
+        { id: 'dur', name: 'Rythme économique', pace: 0.0, wear: 1.0 },
+        { id: 'pluie', name: 'Piste détrempée', pace: -1.2, wear: 1.15, rain: true }
+      ]
+    },
+    tactics: {
+      mentality: ['Ultra prudent', 'Prudent', 'Équilibré', 'Offensif', 'Tout en explosivité'],
+      pressing: ['1 relance', '2 relances', 'Réactif'],
+      style: ['Départ prudent', 'Équilibré', 'Départ explosif']
+    },
+    economy: {
+      clubCost: 8.0e5, gateBase: 1.0e4, sponsorBase: 4.0e4,
+      prizeWin: 0, prizeDraw: 0, prizeLoss: 0,
+      prizePerPoint: 8.0e3,
+      wageBase: 5000, valueMul: 0.001, tvSeason: 6.0e5,
+      flagshipPrice: 5.0e6 /* plus grosse écurie d'athlétisme, échelle Diamond League */
+    },
+    leagueSize: 10,
+    countries: ['USA', 'JAM', 'GBR', 'CAN', 'FRA', 'NGA', 'ZAF', 'BRA', 'ITA', 'DEU',
+      'NLD', 'ESP', 'KEN', 'ETH', 'JPN', 'CHN']
+  },
+
+  /* ------------------------------------------------------------ AVIRON --- */
+  {
+    id: 'aviron', name: 'Aviron', icon: '🚣', type: 'race', individual: true,
+    unit: 'point', unitPlural: 'points',
+    squadSize: 1, lineupSize: 1,
+    attW: { att: 1.0 }, defW: { att: 1.0 },
+    positions: [
+      { code: 'R', name: 'Rameur', role: 'att', need: 1, w: { phy: .44, men: .24, tec: .18, att: .10, def: .04 } }
+    ],
+    car: [
+      { id: 'moteur', name: 'Gabarit', icon: '💪', desc: 'Puissance de traction sur 2000 mètres.' },
+      { id: 'aero', name: 'Coup d\'aviron', icon: '🎯', desc: 'Efficacité et glisse du bateau.' },
+      { id: 'chassis', name: 'Bateau', icon: '🚣', desc: 'Légèreté et stabilité de l\'embarcation.' },
+      { id: 'fiabilite', name: 'Récupération', icon: '🧴', desc: 'Réduit le risque de blessure ou de défaillance.' }
+    ],
+    vehicleModels: [
+      { id: 'equilibre', name: 'Réglage équilibré', desc: 'Aucune spécialité : polyvalent en toutes circonstances.',
+        profile: { moteur: .25, aero: .25, chassis: .25, fiabilite: .25 } },
+      { id: 'veloce', name: 'Réglage explosif', desc: 'Puissance et efficacité pour dominer le départ.',
+        profile: { moteur: .34, aero: .34, chassis: .18, fiabilite: .14 } },
+      { id: 'appui', name: 'Réglage technique', desc: 'Efficacité de coup d\'aviron avant tout.',
+        profile: { moteur: .18, aero: .42, chassis: .28, fiabilite: .12 } },
+      { id: 'robuste', name: 'Réglage d\'endurance', desc: 'Bateau et récupération, pour tenir la distance.',
+        profile: { moteur: .16, aero: .16, chassis: .38, fiabilite: .30 } }
+    ],
+    race: {
+      laps: 18, grid: 10, pitLoss: 8,
+      points: [25, 18, 15, 12, 10, 8, 6, 4, 2, 1],
+      tyres: [
+        { id: 'tendre', name: 'Cadence haute dès le départ', pace: 1.5, wear: 2.1 },
+        { id: 'medium', name: 'Cadence progressive', pace: 0.7, wear: 1.4 },
+        { id: 'dur', name: 'Cadence économique', pace: 0.0, wear: 1.0 },
+        { id: 'pluie', name: 'Plan d\'eau agité', pace: -1.3, wear: 1.2, rain: true }
+      ]
+    },
+    tactics: {
+      mentality: ['Ultra prudent', 'Prudent', 'Équilibré', 'Offensif', 'Tout en explosivité'],
+      pressing: ['1 relance', '2 relances', 'Réactif'],
+      style: ['Départ prudent', 'Équilibré', 'Départ explosif']
+    },
+    economy: {
+      clubCost: 1.0e6, gateBase: 0, sponsorBase: 3.0e4,
+      prizeWin: 0, prizeDraw: 0, prizeLoss: 0,
+      prizePerPoint: 7.0e3,
+      wageBase: 4500, valueMul: 0.0009, tvSeason: 4.0e5,
+      flagshipPrice: 4.0e6 /* plus gros club d'aviron, échelle Coupe du monde */
+    },
+    leagueSize: 8,
+    countries: ['GBR', 'DEU', 'NZL', 'AUS', 'USA', 'NLD', 'ROU', 'ITA', 'FRA', 'CHN']
+  },
+
+  /* ---------------------------------------------- CANOË-KAYAK EN ÉQUIPE --- */
+  {
+    id: 'canoekayak', name: 'Canoë-kayak en équipe', icon: '🛶', type: 'race', individual: true,
+    unit: 'point', unitPlural: 'points',
+    squadSize: 1, lineupSize: 1,
+    attW: { att: 1.0 }, defW: { att: 1.0 },
+    positions: [
+      { code: 'P', name: 'Pagayeur', role: 'att', need: 1, w: { phy: .42, tec: .22, men: .20, att: .12, def: .04 } }
+    ],
+    car: [
+      { id: 'moteur', name: 'Puissance de pagaie', icon: '💪', desc: 'Vitesse de pointe en ligne droite.' },
+      { id: 'aero', name: 'Technique de coup', icon: '🎯', desc: 'Efficacité et glisse de l\'embarcation.' },
+      { id: 'chassis', name: 'Embarcation', icon: '🛶', desc: 'Légèreté et stabilité du bateau.' },
+      { id: 'fiabilite', name: 'Récupération', icon: '🧴', desc: 'Réduit le risque de blessure ou de défaillance.' }
+    ],
+    vehicleModels: [
+      { id: 'equilibre', name: 'Réglage équilibré', desc: 'Aucune spécialité : polyvalent en toutes circonstances.',
+        profile: { moteur: .25, aero: .25, chassis: .25, fiabilite: .25 } },
+      { id: 'veloce', name: 'Réglage explosif', desc: 'Puissance et efficacité pour dominer le départ.',
+        profile: { moteur: .34, aero: .34, chassis: .18, fiabilite: .14 } },
+      { id: 'appui', name: 'Réglage technique', desc: 'Efficacité de pagaie avant tout.',
+        profile: { moteur: .18, aero: .42, chassis: .28, fiabilite: .12 } },
+      { id: 'robuste', name: 'Réglage d\'endurance', desc: 'Embarcation et récupération, pour tenir la distance.',
+        profile: { moteur: .16, aero: .16, chassis: .38, fiabilite: .30 } }
+    ],
+    race: {
+      laps: 16, grid: 9, pitLoss: 6,
+      points: [25, 18, 15, 12, 10, 8, 6, 4, 2, 1],
+      tyres: [
+        { id: 'tendre', name: 'Cadence haute dès le départ', pace: 1.5, wear: 2.1 },
+        { id: 'medium', name: 'Cadence progressive', pace: 0.7, wear: 1.4 },
+        { id: 'dur', name: 'Cadence économique', pace: 0.0, wear: 1.0 },
+        { id: 'pluie', name: 'Plan d\'eau agité', pace: -1.3, wear: 1.2, rain: true }
+      ]
+    },
+    tactics: {
+      mentality: ['Ultra prudent', 'Prudent', 'Équilibré', 'Offensif', 'Tout en explosivité'],
+      pressing: ['1 relance', '2 relances', 'Réactif'],
+      style: ['Départ prudent', 'Équilibré', 'Départ explosif']
+    },
+    economy: {
+      clubCost: 9.0e5, gateBase: 0, sponsorBase: 2.5e4,
+      prizeWin: 0, prizeDraw: 0, prizeLoss: 0,
+      prizePerPoint: 6.5e3,
+      wageBase: 4000, valueMul: 0.0008, tvSeason: 3.5e5,
+      flagshipPrice: 3.5e6 /* plus gros club de canoë-kayak, échelle Coupe du monde */
+    },
+    leagueSize: 8,
+    countries: ['HUN', 'DEU', 'ESP', 'FRA', 'NZL', 'AUS', 'CAN', 'CHN', 'SVK', 'CZE']
+  },
+
+  /* -------------------------------------------------- VOILE EN ÉQUIPAGE --- */
+  {
+    id: 'voile', name: 'Voile en équipage', icon: '⛵', type: 'race', individual: true,
+    unit: 'point', unitPlural: 'points',
+    squadSize: 1, lineupSize: 1,
+    attW: { att: 1.0 }, defW: { att: 1.0 },
+    positions: [
+      { code: 'B', name: 'Barreur', role: 'att', need: 1, w: { tec: .34, men: .28, phy: .18, att: .14, def: .06 } }
+    ],
+    car: [
+      { id: 'moteur', name: 'Grand-voile', icon: '⛵', desc: 'Puissance vélique au portant.' },
+      { id: 'aero', name: 'Réglages', icon: '🎯', desc: 'Finesse des réglages au près.' },
+      { id: 'chassis', name: 'Coque', icon: '🚤', desc: 'Légèreté et stabilité du bateau.' },
+      { id: 'fiabilite', name: 'Fiabilité', icon: '🧰', desc: 'Réduit le risque d\'avarie.' }
+    ],
+    vehicleModels: [
+      { id: 'equilibre', name: 'Réglage équilibré', desc: 'Aucune spécialité : polyvalent par tous les temps.',
+        profile: { moteur: .25, aero: .25, chassis: .25, fiabilite: .25 } },
+      { id: 'veloce', name: 'Réglage portant', desc: 'Voilure puissante, taillé pour le vent arrière.',
+        profile: { moteur: .34, aero: .34, chassis: .18, fiabilite: .14 } },
+      { id: 'appui', name: 'Réglage près serré', desc: 'Finesse des réglages avant tout.',
+        profile: { moteur: .18, aero: .42, chassis: .28, fiabilite: .12 } },
+      { id: 'robuste', name: 'Réglage gros temps', desc: 'Coque et fiabilité, pour la mer formée.',
+        profile: { moteur: .16, aero: .16, chassis: .38, fiabilite: .30 } }
+    ],
+    race: {
+      laps: 12, grid: 10, pitLoss: 10,
+      points: [25, 18, 15, 12, 10, 8, 6, 4, 2, 1],
+      tyres: [
+        { id: 'tendre', name: 'Voile de petit temps', pace: 1.3, wear: 1.8 },
+        { id: 'medium', name: 'Voile polyvalente', pace: 0.6, wear: 1.3 },
+        { id: 'dur', name: 'Voile de gros temps', pace: 0.0, wear: 1.0 },
+        { id: 'pluie', name: 'Coup de vent', pace: -1.4, wear: 1.25, rain: true }
+      ]
+    },
+    tactics: {
+      mentality: ['Ultra prudent', 'Prudent', 'Équilibré', 'Offensif', 'Tout à l\'attaque'],
+      pressing: ['1 virement', '2 virements', 'Réactif'],
+      style: ['Route sûre', 'Équilibré', 'Route tactique']
+    },
+    economy: {
+      clubCost: 3.0e6, gateBase: 0, sponsorBase: 1.2e5,
+      prizeWin: 0, prizeDraw: 0, prizeLoss: 0,
+      prizePerPoint: 2.5e4,
+      wageBase: 12000, valueMul: 0.003, tvSeason: 1.5e6,
+      flagshipPrice: 2.0e7 /* plus gros programme de voile, échelle Coupe de l\'America */
+    },
+    leagueSize: 8,
+    countries: ['GBR', 'FRA', 'NZL', 'AUS', 'USA', 'ITA', 'ESP', 'NLD', 'DNK', 'SWE']
+  },
+
+  /* --------------------------------------------------------- FLOORBALL --- */
+  {
+    id: 'floorball', name: 'Floorball', icon: '🥅', type: 'team',
+    unit: 'but', unitPlural: 'buts',
+    squadSize: 20, lineupSize: 6,
+    duration: 60, segments: 18, periods: 3,
+    avgEvents: 9, spread: 1.1,
+    scoreEvents: [{ label: 'But', pts: 1, w: 1 }],
+    attW: { att: 0.44, mid: 0.34, def: 0.18, gk: 0.04 },
+    defW: { gk: 0.34, def: 0.38, mid: 0.24, att: 0.04 },
+    positions: [
+      { code: 'G', name: 'Gardien', role: 'gk', need: 1, w: { def: .34, men: .28, tec: .18, phy: .16, att: .04 } },
+      { code: 'DEF', name: 'Défenseur', role: 'def', need: 2, w: { def: .38, phy: .26, tec: .18, men: .12, att: .06 } },
+      { code: 'MIL', name: 'Milieu', role: 'mid', need: 2, w: { tec: .32, phy: .24, att: .20, men: .16, def: .08 } },
+      { code: 'ATT', name: 'Attaquant', role: 'att', need: 1, w: { att: .38, tec: .28, phy: .18, men: .12, def: .04 } }
+    ],
+    tactics: {
+      mentality: ['Ultra défensif', 'Prudent', 'Équilibré', 'Offensif', 'Tout va'],
+      pressing: ['Repli bas', 'Pressing médian', 'Pressing haut'],
+      style: ['Jeu physique', 'Équilibré', 'Jeu de vitesse']
+    },
+    economy: {
+      clubCost: 1.2e6, gateBase: 3.0e4, sponsorBase: 5.0e4,
+      prizeWin: 5.0e4, prizeDraw: 2.5e4, prizeLoss: 1.0e4,
+      wageBase: 6000, valueMul: 0.0012, tvSeason: 8.0e5,
+      flagshipPrice: 8.0e6 /* sport confidentiel, plus grand club scandinave */
+    },
+    leagueSize: 10,
+    countries: ['SWE', 'FIN', 'CHE', 'CZE', 'NOR', 'DNK', 'DEU', 'POL', 'LVA', 'EST']
+  },
+
+  /* ------------------------------------------- TIR À L'ARC PAR ÉQUIPES --- */
+  {
+    id: 'archery', name: 'Tir à l\'arc par équipes', icon: '🏹', type: 'team',
+    unit: 'point', unitPlural: 'points',
+    squadSize: 5, lineupSize: 3,
+    duration: 20, segments: 12, periods: 4,
+    avgEvents: 12, spread: 0.5,
+    scoreEvents: [{ label: 'Volée', pts: 10, w: 1 }],
+    attW: { att: 1.0 }, defW: { att: 1.0 },
+    archery: true,
+    positions: [
+      { code: 'ARC', name: 'Archer', role: 'att', need: 3, w: { tec: .38, men: .34, phy: .14, att: .10, def: .04 } }
+    ],
+    tactics: {
+      mentality: ['Ultra prudent', 'Prudent', 'Équilibré', 'Offensif', 'Tout en risque'],
+      pressing: ['Cadence lente', 'Cadence standard', 'Cadence rapide'],
+      style: ['Jeu de précision', 'Équilibré', 'Jeu de rythme']
+    },
+    economy: {
+      clubCost: 5.0e5, gateBase: 6.0e3, sponsorBase: 1.6e4,
+      prizeWin: 1.6e4, prizeDraw: 6.0e3, prizeLoss: 2.0e3,
+      wageBase: 3000, valueMul: 0.0006, tvSeason: 2.5e5,
+      flagshipPrice: 3.0e6 /* sport confidentiel, plus grosse structure nationale */
+    },
+    leagueSize: 8,
+    countries: ['KOR', 'USA', 'GBR', 'FRA', 'DEU', 'ITA', 'TUR', 'JPN', 'CHN', 'IND', 'NLD', 'ESP']
+  },
+
+  /* -------------------------------------------------------------- POLO --- */
+  {
+    id: 'polo', name: 'Polo', icon: '🏇', type: 'team',
+    unit: 'but', unitPlural: 'buts',
+    squadSize: 8, lineupSize: 4,
+    duration: 56, segments: 8, periods: 8,
+    avgEvents: 12, spread: 1.0,
+    scoreEvents: [{ label: 'But', pts: 1, w: 1 }],
+    attW: { att: 0.46, mid: 0.34, def: 0.20 },
+    defW: { def: 0.46, mid: 0.34, att: 0.20 },
+    positions: [
+      { code: 'DEF', name: 'Back', role: 'def', need: 1, w: { def: .38, phy: .26, tec: .18, men: .14, att: .04 } },
+      { code: 'MIL', name: 'N°3', role: 'mid', need: 2, w: { tec: .30, phy: .24, att: .22, men: .16, def: .08 } },
+      { code: 'ATT', name: 'N°1', role: 'att', need: 1, w: { att: .38, tec: .28, phy: .18, men: .12, def: .04 } }
+    ],
+    tactics: {
+      mentality: ['Ultra défensif', 'Prudent', 'Équilibré', 'Offensif', 'Tout va'],
+      pressing: ['Marquage individuel', 'Zone mixte', 'Pressing tout terrain'],
+      style: ['Jeu de possession', 'Équilibré', 'Jeu direct']
+    },
+    economy: {
+      clubCost: 8.0e6, gateBase: 6.0e4, sponsorBase: 2.2e5,
+      prizeWin: 2.0e5, prizeDraw: 8.0e4, prizeLoss: 3.0e4,
+      wageBase: 35000, valueMul: 0.05, tvSeason: 5.0e6,
+      flagshipPrice: 6.0e7 /* plus grande écurie du monde, échelle Open d\'Argentine */
+    },
+    leagueSize: 8,
+    countries: ['ARG', 'GBR', 'USA', 'ESP', 'FRA', 'IND', 'AUS', 'MEX', 'BRA', 'ARE']
   }
 ];
 
