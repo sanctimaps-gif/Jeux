@@ -12,9 +12,18 @@ window.G = window.G || {};
       'Choisissez un type d\'entreprise dans le catalogue, donnez-lui le nom que ' +
       'vous voulez, puis touchez-la pour investir palier par palier. Chaque palier ' +
       'lance un chantier ; les revenus sont ensuite versés en continu sur votre compte. ' +
+      'Le revenu brut est calé sur le chiffre d\'affaires mensuel réel d\'une entreprise ' +
+      'comparable (en 24h de jeu, vous gagnez ce qu\'elle gagne en un mois), moins des ' +
+      'salaires réalistes qui varient selon le secteur (charge légère dans l\'énergie, ' +
+      'lourde dans la restauration, la santé ou le droit). ' +
       'Les flottes (taxis, transport routier, compagnie maritime, aviation régionale, ' +
       'réseau de métro) fonctionnent autrement : on y achète des véhicules un par un, ' +
       'dans la limite de la capacité du garage, qui s\'agrandit contre paiement.'],
+    ['🧾', 'Payer ses impôts',
+      '15 % de tout ce que vous gagnez, prélevés tous les 3 à 4 jours avec 24h de ' +
+      'sursis avant blocage des revenus. Vous pouvez aussi régler la note par ' +
+      'anticipation à tout moment depuis l\'onglet Entreprise : les impôts ne se ' +
+      'paient jamais tout seuls, c\'est toujours vous qui décidez.'],
     ['🏛️', 'Fusionner ses entreprises',
       'Une douzaine de grands conglomérats ne s\'achètent pas directement : chacun naît ' +
       'd\'une combinaison différente de vos entreprises et flottes existantes (niveaux ' +

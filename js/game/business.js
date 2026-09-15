@@ -70,8 +70,8 @@ G.business = (function () {
     return Math.max(0.1, m);
   }
 
-  /** Revenu horaire total d'une flotte de véhicules (taxis, transport, maritime). */
-  function fleetHourly(c, t) {
+  /** Revenu BRUT horaire total d'une flotte de véhicules (taxis, transport, maritime). */
+  function fleetGrossHourly(c, t) {
     var cats = t.fleet.categories, total = 0;
     for (var i = 0; i < cats.length; i++) {
       total += (c.fleetVehicles[cats[i].id] || 0) * cats[i].rev;
@@ -79,15 +79,34 @@ G.business = (function () {
     return total * (c.merged || 1) * globalMult();
   }
 
-  /** Revenu horaire d'une entreprise. */
-  function hourly(c) {
+  /** Revenu BRUT horaire d'une entreprise, avant salaires. */
+  function grossHourly(c) {
     var t = typeDef(c.type);
     if (!t) return 0;
-    if (t.fleet) return fleetHourly(c, t);
+    if (t.fleet) return fleetGrossHourly(c, t);
     return t.rev * c.lvl * milestoneMult(c.lvl) * (c.merged || 1) * globalMult();
   }
 
-  /** Revenu horaire total de l'empire. */
+  /** Part du chiffre d'affaires reversée en salaires, calée sur des ratios réels par secteur. */
+  function wageShareOf(t) {
+    if (!t) return 0;
+    if (t.wageShare !== undefined) return t.wageShare;
+    var sd = G.DATA.sectors[t.sector];
+    return sd ? (sd.wageShare || 0) : 0;
+  }
+
+  /** Charge salariale horaire d'une entreprise. */
+  function wageHourly(c) {
+    var t = typeDef(c.type);
+    return grossHourly(c) * wageShareOf(t);
+  }
+
+  /** Revenu NET horaire versé au joueur, salaires déduits. */
+  function hourly(c) {
+    return grossHourly(c) - wageHourly(c);
+  }
+
+  /** Revenu net horaire total de l'empire. */
   function totalHourly() {
     var list = all(), total = 0;
     for (var i = 0; i < list.length; i++) total += hourly(list[i]);
@@ -503,6 +522,7 @@ G.business = (function () {
     slots: slots, slotCost: slotCost, buySlot: buySlot,
     milestoneMult: milestoneMult, nextMilestone: nextMilestone,
     globalMult: globalMult, hourly: hourly, totalHourly: totalHourly,
+    grossHourly: grossHourly, wageHourly: wageHourly, wageShareOf: wageShareOf,
     perSecond: perSecond,
     upgradeCost: upgradeCost, invest: invest,
     upgradeDuration: upgradeDuration, isUpgrading: isUpgrading,

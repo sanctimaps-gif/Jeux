@@ -65,11 +65,18 @@ window.G = window.G || {};
     var t = G.state.tax;
     if (!t) return '';
     if (t.due <= 0) {
+      var payable = G.tax.payableNow();
       return '<div class="card tight" style="margin-bottom:10px">' +
         '<div class="row between"><span class="mute2">🧾 Prochains impôts</span>' +
         '<b>' + u.fmtDuration(Math.max(0, t.dueIn) * 1000) + '</b></div>' +
         '<div class="mute2" style="margin-top:2px">' + u.dec(G.tax.RATE * 100, 0) +
-        ' % des revenus accumulés depuis la dernière échéance.</div></div>';
+        ' % des revenus accumulés depuis la dernière échéance' +
+        (payable > 0 ? ' · ' + u.fmtMoney(payable) + ' pour l\'instant' : '') + '.</div>' +
+        (payable > 0
+          ? '<button class="btn sm full" style="margin-top:6px" data-act="tx.pay">' +
+            'Payer par anticipation (' + u.fmtMoney(payable) + ')</button>'
+          : '') +
+        '</div>';
     }
     var cls = t.overdue ? 'bad' : '';
     return '<div class="card tight" style="margin-bottom:10px;' +
@@ -87,10 +94,13 @@ window.G = window.G || {};
 
   ui.act('tx.open', function () {
     var t = G.state.tax;
-    if (!t || t.due <= 0) { ui.setTab('empire'); return; }
+    if (!t) { ui.setTab('empire'); return; }
+    var payable = G.tax.payableNow();
+    if (payable <= 0) { ui.setTab('empire'); return; }
     ui.confirm('🧾 Payer les impôts ?',
-      'Montant dû : ' + u.fmtMoney(t.due) + '.' +
-      (t.overdue ? ' Vos revenus sont actuellement bloqués jusqu\'au paiement.' : ''),
+      'Montant : ' + u.fmtMoney(payable) + '.' +
+      (t.overdue ? ' Vos revenus sont actuellement bloqués jusqu\'au paiement.'
+        : t.due > 0 ? '' : ' Paiement par anticipation sur le cycle en cours.'),
       function () { if (G.tax.pay()) ui.refresh(); }, 'Payer');
   });
   ui.act('tx.pay', function () {
@@ -175,7 +185,7 @@ window.G = window.G || {};
           '<div class="s">' + u.esc(ty.desc) + '</div>' +
           '<div class="mute2">' + (ty.fleet
             ? 'Garage de ' + ty.fleet.baseCapacity + ' places · véhicules achetés un par un'
-            : u.fmtMoney(ty.rev) + '/h au niveau 1 · ' + ty.maxLvl + ' paliers') +
+            : u.fmtMoney(ty.rev) + '/h brut au niveau 1 · ' + ty.maxLvl + ' paliers') +
           '</div></div>' +
           '<div class="item-side"><button class="btn sm ' + (can ? 'primary' : '') +
           '" data-act="bz.pick" data-id="' + ty.id + '"' + (can ? '' : ' disabled') + '>' +
@@ -204,7 +214,7 @@ window.G = window.G || {};
         ? ui.stat('Capital requis', u.fmtMoney(t.cost)) +
           ui.stat('Garage de départ', t.fleet.baseCapacity + ' places')
         : ui.stat('Capital requis', u.fmtMoney(t.cost)) +
-          ui.stat('Revenu de départ', u.fmtMoney(t.rev) + '/h', 'good')) + '</div>';
+          ui.stat('Revenu brut de départ', u.fmtMoney(t.rev) + '/h', 'good')) + '</div>';
     h += '<button class="btn primary full" style="margin-top:12px" data-act="bz.create">' +
       'Créer l\'entreprise</button>';
     ui.modal('Nouvelle entreprise', h, {});
@@ -247,6 +257,16 @@ window.G = window.G || {};
       '</div>';
   }
 
+  /** Détail brut / salaires / net, sous le bloc de statistiques d'une fiche. */
+  function wageBreakdownHtml(c, t) {
+    var share = G.business.wageShareOf(t);
+    if (!share) return '';
+    var gross = G.business.grossHourly(c), wage = G.business.wageHourly(c);
+    return '<div class="mute2" style="margin-top:4px">' +
+      'Brut ' + u.fmtMoney(gross) + '/h · Salaires -' + u.fmtMoney(wage) + '/h (' +
+      u.dec(share * 100, 0) + ' % du secteur) · Net ' + u.fmtMoney(gross - wage) + '/h</div>';
+  }
+
   function fleetSellFooter(c, uid) {
     return '<div class="hr"></div>' +
       '<div class="grid2">' +
@@ -267,10 +287,11 @@ window.G = window.G || {};
     var h = fleetHeaderHtml(c, t, sector, uid);
 
     h += '<div class="grid3" style="margin-bottom:10px">' +
-      ui.stat('Revenu horaire', u.fmtMoney(G.business.hourly(c)), 'good') +
+      ui.stat('Revenu net', u.fmtMoney(G.business.hourly(c)), 'good') +
       ui.stat('Véhicules', n + ' / ' + c.fleetCapacity) +
       ui.stat('Capital investi', u.fmtMoney(c.invested)) +
       '</div>';
+    h += wageBreakdownHtml(c, t);
     h += ui.bar(n / c.fleetCapacity * 100, full ? 'green' : '');
     if (c.merged > 1) {
       h += '<div class="mute2" style="margin-top:6px">Bonus de fusion : ×' + u.dec(c.merged, 2) + '</div>';
@@ -289,7 +310,7 @@ window.G = window.G || {};
       h += '<div class="item"><div class="item-icon">' + cat.icon + '</div>' +
         '<div class="item-main"><div class="t">' + cat.name + '</div>' +
         '<div class="s">' + owned + ' possédé' + (owned > 1 ? 's' : '') + ' · ' +
-        u.fmtMoney(cat.rev) + '/h chacun</div></div>' +
+        u.fmtMoney(cat.rev) + '/h brut chacun</div></div>' +
         '<div class="item-side"><button class="btn sm ' + (can ? 'primary' : '') +
         '" data-act="bz.fleetbuy" data-uid="' + uid + '" data-cat="' + cat.id + '"' +
         (can ? '' : ' disabled') + '>' + u.fmtMoney(cost) + '</button></div></div>';
@@ -324,10 +345,11 @@ window.G = window.G || {};
     var h = fleetHeaderHtml(c, t, sector, uid);
 
     h += '<div class="grid3" style="margin-bottom:10px">' +
-      ui.stat('Revenu horaire', u.fmtMoney(G.business.hourly(c)), 'good') +
+      ui.stat('Revenu net', u.fmtMoney(G.business.hourly(c)), 'good') +
       ui.stat('Niveau', c.lvl + ' / ' + t.maxLvl) +
       ui.stat('Capital investi', u.fmtMoney(c.invested)) +
       '</div>';
+    h += wageBreakdownHtml(c, t);
 
     h += ui.bar(c.lvl / t.maxLvl * 100, maxed ? 'green' : '');
 
@@ -528,7 +550,7 @@ window.G = window.G || {};
       '<button class="btn xs" data-act="bz.suggest">🎲 Autre proposition</button></div>';
     h += '<div class="grid2" style="margin-top:12px">' +
       ui.stat('Investissement', u.fmtMoney(t.cost)) +
-      ui.stat('Revenu de départ', u.fmtMoney(t.rev) + '/h', 'good') + '</div>';
+      ui.stat('Revenu brut de départ', u.fmtMoney(t.rev) + '/h', 'good') + '</div>';
     h += '<button class="btn primary full" style="margin-top:12px" data-act="bz.mergercreate">' +
       'Fusionner et créer</button>';
     ui.modal('🤝 Nouveau conglomérat', h, {});

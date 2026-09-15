@@ -87,21 +87,48 @@ G.tax = (function () {
     }
   }
 
-  /** Règle l'impôt dû avec l'argent personnel du joueur. */
+  /** Montant à régler si l'on paie maintenant : l'échéance en attente, ou à
+   * défaut une anticipation sur les revenus déjà accumulés dans le cycle en
+   * cours (jamais de paiement automatique : uniquement à la demande du joueur). */
+  function payableNow() {
+    var t = state();
+    if (!t) return 0;
+    if (t.due > 0) return t.due;
+    return Math.round(t.cycleIncome * RATE);
+  }
+
+  /** Règle l'impôt avec l'argent personnel du joueur : l'échéance en attente
+   * si elle existe, sinon une anticipation volontaire sur le cycle en cours. */
   function pay() {
     var t = state();
-    if (!t || t.due <= 0) return true;
-    if (!G.eco.spend(t.due, 'impots', 'Paiement des impôts')) return false;
-    t.totalPaid += t.due;
-    t.lastAmount = t.due;
-    t.due = 0;
-    t.graceLeft = 0;
-    var wasOverdue = t.overdue;
-    t.overdue = false;
+    if (!t) return true;
+
+    if (t.due > 0) {
+      if (!G.eco.spend(t.due, 'impots', 'Paiement des impôts')) return false;
+      t.totalPaid += t.due;
+      t.lastAmount = t.due;
+      t.due = 0;
+      t.graceLeft = 0;
+      var wasOverdue = t.overdue;
+      t.overdue = false;
+      t.dueIn = newPeriod();
+      if (G.ui) {
+        G.ui.toast('✅ Impôts payés', wasOverdue
+          ? 'Vos revenus reprennent normalement' : 'Merci, citoyen modèle', 'good');
+      }
+      return true;
+    }
+
+    var amount = Math.round(t.cycleIncome * RATE);
+    if (amount <= 0) return true;
+    if (!G.eco.spend(amount, 'impots', 'Paiement anticipé des impôts')) return false;
+    t.totalPaid += amount;
+    t.lastAmount = amount;
+    t.cycleIncome = 0;
     t.dueIn = newPeriod();
     if (G.ui) {
-      G.ui.toast('✅ Impôts payés', wasOverdue
-        ? 'Vos revenus reprennent normalement' : 'Merci, citoyen modèle', 'good');
+      G.ui.toast('✅ Impôts payés par anticipation', 'Nouveau cycle de ' +
+        u.fmtDuration(t.dueIn * 1000), 'good');
     }
     return true;
   }
@@ -109,6 +136,6 @@ G.tax = (function () {
   return {
     RATE: RATE, GRACE_SECONDS: GRACE_SECONDS,
     defaults: defaults, recordIncome: recordIncome,
-    isBlocked: isBlocked, isDue: isDue, tick: tick, pay: pay
+    isBlocked: isBlocked, isDue: isDue, tick: tick, pay: pay, payableNow: payableNow
   };
 })();
