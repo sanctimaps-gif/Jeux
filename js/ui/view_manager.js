@@ -704,19 +704,24 @@ window.G = window.G || {};
   /* ======================================================== STRUCTURE ==== */
 
   function renderInfra(club) {
+    var cap = G.manager.facilityCap(club);
     var h = '<div class="card"><div class="card-head">🏗️ Installations</div>';
+    if (club.groupId) {
+      h += '<div class="mute2">Structures communes à tout le groupe omnisports ' +
+        '(niveau maximal ' + cap + ' au lieu de 10).</div>';
+    }
     for (var i = 0; i < G.DATA.facilities.length; i++) {
       var f = G.DATA.facilities[i];
       var lvl = club.facilities[f.id] || 1;
       var cost = G.manager.facilityCost(club, f.id);
-      var can = G.state.money >= cost && lvl < 10;
+      var can = G.state.money >= cost && lvl < cap;
       h += '<div class="item"><div class="item-icon">' + f.icon + '</div>' +
         '<div class="item-main"><div class="t">' + f.name +
-        ' <span class="pill gold">Niv. ' + lvl + '</span></div>' +
-        '<div class="s">' + f.desc + '</div>' + ui.bar(lvl * 10) + '</div>' +
+        ' <span class="pill gold">Niv. ' + lvl + '/' + cap + '</span></div>' +
+        '<div class="s">' + f.desc + '</div>' + ui.bar(lvl / cap * 100) + '</div>' +
         '<div class="item-side"><button class="btn sm ' + (can ? 'primary' : '') +
         '" data-act="mg.fac" data-id="' + f.id + '"' + (can ? '' : ' disabled') + '>' +
-        (lvl >= 10 ? 'MAX' : u.fmtMoney(cost)) + '</button></div></div>';
+        (lvl >= cap ? 'MAX' : u.fmtMoney(cost)) + '</button></div></div>';
     }
     h += '</div>';
 
@@ -760,7 +765,8 @@ window.G = window.G || {};
         return gsp ? gsp.icon + ' ' + gsp.name : s;
       }).join(' · ');
       h += '<div class="card"><div class="card-head">🌐 Groupe omnisports</div>' +
-        '<div class="mute2">' + groupNames + '</div>' +
+        '<div class="mute2">' + groupNames + ' · toutes les équipes portent le nom ' +
+        u.esc(club.name) + ' et partagent les mêmes installations.</div>' +
         '<div class="good" style="font-weight:800;margin-top:4px">+' + groupBonus +
         '% sur les recettes de tous les clubs du groupe</div></div>';
     }
@@ -773,9 +779,10 @@ window.G = window.G || {};
     if (!club.national && others.length) {
       h += '<div class="card"><div class="card-head">🤝 Fusionner</div>' +
         '<div class="mute2">Même sport : les effectifs se combinent en un seul club, ' +
-        'plus fort. Sport différent : les deux clubs restent en activité chacun dans ' +
-        'son championnat, mais rejoignent un même groupe omnisports qui augmente ' +
-        'durablement leurs recettes.</div>';
+        'plus fort. Sport différent : les deux équipes restent distinctes, chacune ' +
+        'dans son championnat, mais prennent le même nom, partagent les mêmes ' +
+        'installations (avec un niveau maximal plus élevé) et rejoignent un même ' +
+        'groupe omnisports qui augmente durablement leurs recettes.</div>';
       for (var m = 0; m < others.length; m++) {
         var osp = G.DATA.sportById[others[m].sport];
         var sameSport = others[m].sport === club.sport;

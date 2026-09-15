@@ -379,13 +379,36 @@ G.manager = (function () {
       0.04 * fd.baseCost * Math.pow(1.55, lvl - 1);
   }
 
+  /** Niveau maximal des installations : un groupe omnisports mutualise des
+   * structures plus grandes, donc plus haut qu'un club seul (+2 par
+   * discipline supplémentaire du groupe, jusqu'à +8). */
+  function facilityCap(club) {
+    if (!club.groupId) return 10;
+    return 10 + Math.min(groupSports(club).length - 1, 4) * 2;
+  }
+
+  /** Aligne les installations de tout un groupe omnisports sur le niveau le
+   * plus haut atteint par l'un de ses membres : ce sont les mêmes
+   * structures, partagées par toutes les équipes du groupe. */
+  function syncGroupFacilities(groupId) {
+    var members = clubs().filter(function (c) { return c.groupId === groupId; });
+    if (members.length < 2) return;
+    for (var i = 0; i < G.DATA.facilities.length; i++) {
+      var id = G.DATA.facilities[i].id;
+      var max = 1;
+      for (var j = 0; j < members.length; j++) max = Math.max(max, members[j].facilities[id] || 1);
+      for (var k = 0; k < members.length; k++) members[k].facilities[id] = max;
+    }
+  }
+
   function upgradeFacility(club, id) {
     var lvl = club.facilities[id] || 1;
-    if (lvl >= 10) return false;
+    if (lvl >= facilityCap(club)) return false;
     var cost = facilityCost(club, id);
     if (!G.eco.spend(cost, 'manager:' + club.sport, 'Travaux · ' + club.name)) return false;
     club.facilities[id] = lvl + 1;
     club.rep = u.clamp(club.rep + 0.6, 1, 100);
+    if (club.groupId) syncGroupFacilities(club.groupId);
     return true;
   }
 
@@ -1118,11 +1141,20 @@ G.manager = (function () {
     return club;
   }
 
+  /** Renomme un club. S'il appartient à un groupe omnisports, toutes les
+   * équipes du groupe portent le même nom : elles restent des équipes
+   * distinctes, chacune dans son propre championnat, mais sous une seule
+   * bannière. */
   function renameClub(uid, name) {
     var c = byUid(uid);
     if (!c || !name) return false;
-    c.name = String(name).slice(0, 30);
-    if (c.league && c.league.teams && c.league.teams[0]) c.league.teams[0].name = c.name;
+    var newName = String(name).slice(0, 30);
+    var targets = c.groupId ? clubs().filter(function (x) { return x.groupId === c.groupId; }) : [c];
+    for (var i = 0; i < targets.length; i++) {
+      var t = targets[i];
+      t.name = newName;
+      if (t.league && t.league.teams && t.league.teams[0]) t.league.teams[0].name = newName;
+    }
     return true;
   }
 
@@ -1217,14 +1249,17 @@ G.manager = (function () {
     for (var i = 0; i < all.length; i++) {
       if (all[i].uid === b.uid || all[i].groupId === oldBGroup) all[i].groupId = groupId;
     }
+    var bName = b.name;
+    renameClub(a.uid, a.name);   // toutes les équipes du groupe portent le même nom
+    syncGroupFacilities(groupId); // et partagent les mêmes structures
     a.rep = u.clamp(a.rep + 5, 1, 100);
     b.rep = u.clamp(b.rep + 5, 1, 100);
 
     var nDisc = groupSports(a).length;
     var bonusPct = Math.round((groupBonusMult(a) - 1) * 100);
     if (G.ui) {
-      G.ui.toast('🤝 Groupe omnisports formé', a.name + ' et ' + b.name +
-        ' partagent leurs revenus · +' + bonusPct + '% pour les ' + nDisc +
+      G.ui.toast('🤝 Groupe omnisports formé', bName + ' devient ' + a.name +
+        ' · +' + bonusPct + '% de recettes et structures communes pour les ' + nDisc +
         ' disciplines du groupe', 'good');
     }
     return true;
@@ -1303,7 +1338,7 @@ G.manager = (function () {
     autoLineup: autoLineup, starters: starters, bench: bench,
     teamRatings: teamRatings, squadAvg: squadAvg, wageBill: wageBill,
     clubValue: clubValue,
-    facilityCost: facilityCost, upgradeFacility: upgradeFacility,
+    facilityCost: facilityCost, upgradeFacility: upgradeFacility, facilityCap: facilityCap,
     staffCost: staffCost, upgradeStaff: upgradeStaff,
     carPartCost: carPartCost, upgradeCar: upgradeCar,
     sponsorCost: sponsorCost, upgradeSponsor: upgradeSponsor,
