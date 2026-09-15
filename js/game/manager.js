@@ -56,6 +56,13 @@ G.manager = (function () {
     return u.clamp(base, 0.30, 2.2);
   }
 
+  /** Version normalisée (0-1) de countryCoef, pour ne jamais dépasser le
+   * prix de référence du club le plus cher/plus fort au monde de la
+   * discipline (flagshipPrice), qui représente déjà le sommet absolu. */
+  function priceCountryFactor(sport, code) {
+    return u.clamp(countryCoef(sport, code) / COUNTRY_COEF_MAX, 0.05, 1);
+  }
+
   /* Pyramide à 10 paliers, de l'Élite (1) à la Départementale 3 (10). Une
      équipe nationale est marquée division 0 : au-dessus de tout, pas de
      montée/descente, elle joue des compétitions internationales. */
@@ -65,8 +72,8 @@ G.manager = (function () {
   var DIVISION_SHORT = ['Élite', 'N1', 'N2', 'N3', 'R1', 'R2', 'R3', 'D1', 'D2', 'D3'];
   var MIN_DIVISION = 1;
   var MAX_DIVISION = DIVISION_NAMES.length;
-  var PRICE_TIER_RATIO = 2.6;     // chaque palier vers l'élite multiplie le prix d'achat
-  var D3_PRICE_COEF = 0.256;      // prix de base en D3, inchangé par rapport à l'ancien système
+  var PRICE_TIER_RATIO = 3;       // chaque division en dessous divise le prix par 3
+  var COUNTRY_COEF_MAX = 2.2;     // plafond de countryCoef() ci-dessous, pour normaliser à 1
 
   /** Coefficient économique de la division (revenus, salaires, valeur). */
   function divisionCoef(div) {
@@ -99,27 +106,29 @@ G.manager = (function () {
     return (nation ? nation.n : '') + ' · ' + divisionName(sport, club.division);
   }
 
-  /** Multiplicateur de prix : très cher à mesure qu'on s'approche de l'élite.
-   * Au-dessus de D3 (palier de départ), le prix est en plus triplé pour
-   * inciter très fortement à commencer en D3. */
+  /** Multiplicateur de prix : on part du club réel le plus cher/plus fort du
+   * monde dans la discipline (division 1, Élite) et on divise le prix par 3
+   * à chaque division qu'on descend, jusqu'à D3 (division 10). */
   function divisionPriceMult(div) {
     div = u.clamp(div, MIN_DIVISION, MAX_DIVISION);
-    var base = Math.pow(PRICE_TIER_RATIO, MAX_DIVISION - div);
-    return div === MAX_DIVISION ? base : base * 3;
+    return 1 / Math.pow(PRICE_TIER_RATIO, div - 1);
   }
 
-  /** Prix d'achat d'un club dans un pays donné, à la division choisie. */
+  /** Prix d'achat d'un club dans un pays donné, à la division choisie :
+   * calé sur la valeur du club réel le plus cher/plus fort de la discipline
+   * (sport.economy.flagshipPrice), pondéré par le niveau du pays et divisé
+   * par 3 à chaque division en dessous de l'Élite. */
   function clubPrice(sportId, code, division) {
     division = division === undefined ? MAX_DIVISION : division;
     var sport = sportDef(sportId);
-    return sport.economy.clubCost * countryCoef(sport, code) * D3_PRICE_COEF *
+    return sport.economy.flagshipPrice * priceCountryFactor(sport, code) *
       divisionPriceMult(division);
   }
 
   /** Prix de rachat de la fédération (équipe nationale) d'un pays. */
   function nationalTeamPrice(sportId, code) {
     var sport = sportDef(sportId);
-    return sport.economy.clubCost * countryCoef(sport, code) * D3_PRICE_COEF *
+    return sport.economy.flagshipPrice * priceCountryFactor(sport, code) *
       divisionPriceMult(MIN_DIVISION) * 3;
   }
 

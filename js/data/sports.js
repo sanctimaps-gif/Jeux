@@ -42,7 +42,8 @@ G.DATA.sports = [
     economy: {
       clubCost: 3.0e7, gateBase: 1.1e6, sponsorBase: 2.2e6,
       prizeWin: 2.4e6, prizeDraw: 1.2e6, prizeLoss: 4.0e5,
-      wageBase: 120000, valueMul: 1.0, tvSeason: 4.5e7
+      wageBase: 120000, valueMul: 1.0, tvSeason: 4.5e7,
+      flagshipPrice: 5.0e9 /* club le plus cher au monde dans la discipline, type PSG/Real Madrid */
     },
     leagueSize: 12,
     countries: ['ESP', 'GBR', 'DEU', 'ITA', 'FRA', 'BRA', 'PRT', 'NLD', 'ARG',
@@ -87,7 +88,8 @@ G.DATA.sports = [
     economy: {
       clubCost: 9.0e6, gateBase: 4.2e5, sponsorBase: 6.5e5,
       prizeWin: 6.2e5, prizeDraw: 3.5e5, prizeLoss: 1.2e5,
-      wageBase: 38000, valueMul: 0.35, tvSeason: 1.1e7
+      wageBase: 38000, valueMul: 0.35, tvSeason: 1.1e7,
+      flagshipPrice: 2.0e8 /* pas de marché comparable au foot ; grand club de rugby pro */
     },
     leagueSize: 12,
     countries: ['NZL', 'ZAF', 'FRA', 'IRL', 'GBR', 'AUS', 'ARG', 'ITA', 'JPN',
@@ -121,7 +123,8 @@ G.DATA.sports = [
     economy: {
       clubCost: 1.2e6, gateBase: 4.5e4, sponsorBase: 7.0e4,
       prizeWin: 9.0e4, prizeDraw: 5.0e4, prizeLoss: 1.8e4,
-      wageBase: 9000, valueMul: 0.07, tvSeason: 1.2e6
+      wageBase: 9000, valueMul: 0.07, tvSeason: 1.2e6,
+      flagshipPrice: 1.2e7 /* sport confidentiel, type Pro Recco */
     },
     leagueSize: 10,
     countries: ['HRV', 'SRB', 'HUN', 'ITA', 'ESP', 'GRC', 'MNE', 'FRA', 'USA',
@@ -158,7 +161,8 @@ G.DATA.sports = [
     economy: {
       clubCost: 1.4e7, gateBase: 5.2e5, sponsorBase: 9.0e5,
       prizeWin: 9.5e5, prizeDraw: 0, prizeLoss: 2.0e5,
-      wageBase: 75000, valueMul: 0.55, tvSeason: 1.8e7
+      wageBase: 75000, valueMul: 0.55, tvSeason: 1.8e7,
+      flagshipPrice: 8.0e9 /* plus grosse franchise NBA, type Golden State Warriors */
     },
     leagueSize: 12,
     countries: ['USA', 'ESP', 'GRC', 'TUR', 'ITA', 'FRA', 'DEU', 'SRB', 'LTU',
@@ -194,7 +198,8 @@ G.DATA.sports = [
     economy: {
       clubCost: 4.0e6, gateBase: 1.4e5, sponsorBase: 2.4e5,
       prizeWin: 2.5e5, prizeDraw: 1.4e5, prizeLoss: 5.0e4,
-      wageBase: 20000, valueMul: 0.18, tvSeason: 4.0e6
+      wageBase: 20000, valueMul: 0.18, tvSeason: 4.0e6,
+      flagshipPrice: 4.5e7 /* grand club européen, type THW Kiel / FC Barcelone handball */
     },
     leagueSize: 12,
     countries: ['FRA', 'DEU', 'ESP', 'DNK', 'HUN', 'POL', 'HRV', 'NOR', 'SWE',
@@ -240,7 +245,8 @@ G.DATA.sports = [
       clubCost: 8.0e7, gateBase: 0, sponsorBase: 5.5e6,
       prizeWin: 0, prizeDraw: 0, prizeLoss: 0,
       prizePerPoint: 4.2e5,
-      wageBase: 1.2e6, valueMul: 2.4, tvSeason: 6.0e7
+      wageBase: 1.2e6, valueMul: 2.4, tvSeason: 6.0e7,
+      flagshipPrice: 4.5e9 /* écurie de F1 la plus valorisée, type Ferrari/Mercedes */
     },
     leagueSize: 7,
     countries: ['GBR', 'ITA', 'DEU', 'FRA', 'AUT', 'CHE', 'USA', 'JPN', 'ESP',
@@ -272,7 +278,8 @@ G.DATA.sports = [
     economy: {
       clubCost: 2.5e6, gateBase: 1.0e5, sponsorBase: 1.6e5,
       prizeWin: 1.6e5, prizeDraw: 0, prizeLoss: 4.0e4,
-      wageBase: 14000, valueMul: 0.12, tvSeason: 2.5e6
+      wageBase: 14000, valueMul: 0.12, tvSeason: 2.5e6,
+      flagshipPrice: 2.5e7 /* sport confidentiel, grand club type Sada Cruzeiro */
     },
     leagueSize: 12,
     countries: ['BRA', 'ITA', 'POL', 'USA', 'RUS', 'SRB', 'FRA', 'JPN', 'ARG',
@@ -304,7 +311,8 @@ G.DATA.sports = [
     economy: {
       clubCost: 6.0e6, gateBase: 2.2e5, sponsorBase: 3.2e5,
       prizeWin: 3.0e5, prizeDraw: 1.0e5, prizeLoss: 6.0e4,
-      wageBase: 32000, valueMul: 0.22, tvSeason: 6.0e6
+      wageBase: 32000, valueMul: 0.22, tvSeason: 6.0e6,
+      flagshipPrice: 3.2e9 /* plus grosse franchise NHL, type Toronto Maple Leafs */
     },
     leagueSize: 12,
     countries: ['CAN', 'USA', 'RUS', 'FIN', 'SWE', 'CZE', 'SVK', 'CHE', 'DEU',
@@ -336,7 +344,8 @@ G.DATA.sports = [
     economy: {
       clubCost: 1.0e7, gateBase: 3.5e5, sponsorBase: 5.0e5,
       prizeWin: 4.5e5, prizeDraw: 0, prizeLoss: 1.0e5,
-      wageBase: 45000, valueMul: 0.30, tvSeason: 1.0e7
+      wageBase: 45000, valueMul: 0.30, tvSeason: 1.0e7,
+      flagshipPrice: 7.0e9 /* plus grosse franchise MLB, type New York Yankees */
     },
     leagueSize: 12,
     countries: ['USA', 'JPN', 'DOM', 'KOR', 'CUB', 'MEX', 'VEN', 'CAN', 'NIC',
@@ -378,7 +387,8 @@ G.DATA.sports = [
       clubCost: 1.8e7, gateBase: 0, sponsorBase: 2.0e6,
       prizeWin: 0, prizeDraw: 0, prizeLoss: 0,
       prizePerPoint: 1.2e5,
-      wageBase: 3.5e5, valueMul: 0.9, tvSeason: 1.4e7
+      wageBase: 3.5e5, valueMul: 0.9, tvSeason: 1.4e7,
+      flagshipPrice: 1.0e8 /* plus grosse équipe World Tour, type UAE Team Emirates/Ineos */
     },
     leagueSize: 10,
     countries: ['FRA', 'BEL', 'ITA', 'ESP', 'NLD', 'GBR', 'SVN', 'DNK', 'COL',

@@ -67,9 +67,9 @@ window.G = window.G || {};
 
     /* Étape 3 : la division de départ. */
     h += '<div class="card-head" style="margin-top:12px">3 · Division de départ</div>';
-    h += '<div class="card tight"><div class="mute2">Chaque palier vers l\'élite ' +
-      'multiplie le prix par ' + u.dec(2.6, 1) + ', et toute division au-dessus de D3 ' +
-      'coûte en plus 3 fois plus cher. Commencer en D3 est de très, très loin ' +
+    h += '<div class="card tight"><div class="mute2">Le prix en Élite est calé sur le ' +
+      'club le plus cher et le plus fort au monde dans ce sport, et chaque division ' +
+      'que l\'on descend divise le prix par 3. Commencer en D3 est de très, très loin ' +
       'le plus raisonnable.</div></div>';
 
     for (var dv = G.manager.MAX_DIVISION; dv >= G.manager.MIN_DIVISION; dv--) {
