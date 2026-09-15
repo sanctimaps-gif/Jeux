@@ -440,6 +440,24 @@ G.DATA.sports = [
       pressing: ['Fond de court', 'Polyvalent', 'Monte au filet'],
       style: ['Jeu de patience', 'Jeu équilibré', 'Jeu d\'attaque']
     },
+    /* Comme pour les sports de course : on améliore l'équipement du joueur,
+       ou on en change de profil, jamais on ne rachète un autre joueur. */
+    car: [
+      { id: 'moteur', name: 'Raquette', icon: '🎾', desc: 'Puissance de frappe en fond de court.' },
+      { id: 'aero', name: 'Cordage', icon: '🧵', desc: 'Précision et contrôle des trajectoires.' },
+      { id: 'chassis', name: 'Chaussures', icon: '👟', desc: 'Déplacement et appuis sur le court.' },
+      { id: 'fiabilite', name: 'Préparation physique', icon: '🧴', desc: 'Réduit le risque de blessure.' }
+    ],
+    vehicleModels: [
+      { id: 'equilibre', name: 'Équipement équilibré', desc: 'Aucune spécialité : polyvalent en toutes circonstances.',
+        profile: { moteur: .25, aero: .25, chassis: .25, fiabilite: .25 } },
+      { id: 'veloce', name: 'Équipement offensif', desc: 'Puissance et précision, pour prendre le jeu à son compte.',
+        profile: { moteur: .34, aero: .34, chassis: .18, fiabilite: .14 } },
+      { id: 'appui', name: 'Équipement de précision', desc: 'Contrôle des trajectoires avant tout.',
+        profile: { moteur: .18, aero: .42, chassis: .28, fiabilite: .12 } },
+      { id: 'robuste', name: 'Équipement d\'endurance', desc: 'Jeu de jambes et récupération, pour les longs échanges.',
+        profile: { moteur: .16, aero: .16, chassis: .38, fiabilite: .30 } }
+    ],
     economy: {
       clubCost: 5.0e6, gateBase: 1.5e5, sponsorBase: 3.0e5,
       prizeWin: 2.0e5, prizeDraw: 0, prizeLoss: 5.0e4,
@@ -476,6 +494,22 @@ G.DATA.sports = [
       pressing: ['Repli fond de court', 'Polyvalent', 'Monte au filet'],
       style: ['Jeu long', 'Jeu équilibré', 'Jeu de vitesse']
     },
+    car: [
+      { id: 'moteur', name: 'Raquette', icon: '🏸', desc: 'Puissance de smash.' },
+      { id: 'aero', name: 'Cordage', icon: '🧵', desc: 'Précision et contrôle des amortis.' },
+      { id: 'chassis', name: 'Chaussures', icon: '👟', desc: 'Déplacement et appuis sur le court.' },
+      { id: 'fiabilite', name: 'Préparation physique', icon: '🧴', desc: 'Réduit le risque de blessure.' }
+    ],
+    vehicleModels: [
+      { id: 'equilibre', name: 'Équipement équilibré', desc: 'Aucune spécialité : polyvalent en toutes circonstances.',
+        profile: { moteur: .25, aero: .25, chassis: .25, fiabilite: .25 } },
+      { id: 'veloce', name: 'Équipement offensif', desc: 'Puissance et précision, pour prendre le jeu à son compte.',
+        profile: { moteur: .34, aero: .34, chassis: .18, fiabilite: .14 } },
+      { id: 'appui', name: 'Équipement de précision', desc: 'Contrôle des trajectoires avant tout.',
+        profile: { moteur: .18, aero: .42, chassis: .28, fiabilite: .12 } },
+      { id: 'robuste', name: 'Équipement d\'endurance', desc: 'Jeu de jambes et récupération, pour les longs échanges.',
+        profile: { moteur: .16, aero: .16, chassis: .38, fiabilite: .30 } }
+    ],
     economy: {
       clubCost: 1.5e6, gateBase: 5.0e4, sponsorBase: 8.0e4,
       prizeWin: 6.0e4, prizeDraw: 0, prizeLoss: 1.5e4,
@@ -511,6 +545,22 @@ G.DATA.sports = [
       pressing: ['Repli sur le T', 'Polyvalent', 'Prend le T de force'],
       style: ['Jeu long', 'Jeu équilibré', 'Jeu d\'accélération']
     },
+    car: [
+      { id: 'moteur', name: 'Raquette', icon: '🥍', desc: 'Puissance de frappe.' },
+      { id: 'aero', name: 'Cordage', icon: '🧵', desc: 'Précision et contrôle en fond de court.' },
+      { id: 'chassis', name: 'Chaussures', icon: '👟', desc: 'Déplacement dans un espace restreint.' },
+      { id: 'fiabilite', name: 'Préparation physique', icon: '🧴', desc: 'Réduit le risque de blessure.' }
+    ],
+    vehicleModels: [
+      { id: 'equilibre', name: 'Équipement équilibré', desc: 'Aucune spécialité : polyvalent en toutes circonstances.',
+        profile: { moteur: .25, aero: .25, chassis: .25, fiabilite: .25 } },
+      { id: 'veloce', name: 'Équipement offensif', desc: 'Puissance et précision, pour prendre le jeu à son compte.',
+        profile: { moteur: .34, aero: .34, chassis: .18, fiabilite: .14 } },
+      { id: 'appui', name: 'Équipement de précision', desc: 'Contrôle des trajectoires avant tout.',
+        profile: { moteur: .18, aero: .42, chassis: .28, fiabilite: .12 } },
+      { id: 'robuste', name: 'Équipement d\'endurance', desc: 'Jeu de jambes et récupération, pour les longs échanges.',
+        profile: { moteur: .16, aero: .16, chassis: .38, fiabilite: .30 } }
+    ],
     economy: {
       clubCost: 8.0e5, gateBase: 2.5e4, sponsorBase: 4.0e4,
       prizeWin: 3.0e4, prizeDraw: 0, prizeLoss: 1.0e4,
@@ -545,6 +595,22 @@ G.DATA.sports = [
       pressing: ['Recul de table', 'Mi-distance', 'Collé à la table'],
       style: ['Jeu de défense', 'Jeu équilibré', 'Jeu de vitesse']
     },
+    car: [
+      { id: 'moteur', name: 'Raquette', icon: '🏓', desc: 'Puissance de frappe et du top-spin.' },
+      { id: 'aero', name: 'Revêtement', icon: '🧵', desc: 'Précision et effet donné à la balle.' },
+      { id: 'chassis', name: 'Chaussures', icon: '👟', desc: 'Déplacement autour de la table.' },
+      { id: 'fiabilite', name: 'Préparation physique', icon: '🧴', desc: 'Réduit le risque de blessure.' }
+    ],
+    vehicleModels: [
+      { id: 'equilibre', name: 'Équipement équilibré', desc: 'Aucune spécialité : polyvalent en toutes circonstances.',
+        profile: { moteur: .25, aero: .25, chassis: .25, fiabilite: .25 } },
+      { id: 'veloce', name: 'Équipement offensif', desc: 'Puissance et précision, pour prendre le jeu à son compte.',
+        profile: { moteur: .34, aero: .34, chassis: .18, fiabilite: .14 } },
+      { id: 'appui', name: 'Équipement de précision', desc: 'Contrôle des trajectoires avant tout.',
+        profile: { moteur: .18, aero: .42, chassis: .28, fiabilite: .12 } },
+      { id: 'robuste', name: 'Équipement d\'endurance', desc: 'Jeu de jambes et récupération, pour les longs échanges.',
+        profile: { moteur: .16, aero: .16, chassis: .38, fiabilite: .30 } }
+    ],
     economy: {
       clubCost: 1.0e6, gateBase: 3.0e4, sponsorBase: 5.0e4,
       prizeWin: 4.0e4, prizeDraw: 0, prizeLoss: 1.2e4,
@@ -579,6 +645,22 @@ G.DATA.sports = [
       pressing: ['Fond de court', 'Polyvalent', 'Monte au filet'],
       style: ['Jeu de contre', 'Jeu équilibré', 'Jeu de vitres']
     },
+    car: [
+      { id: 'moteur', name: 'Raquette', icon: '🥎', desc: 'Puissance de frappe.' },
+      { id: 'aero', name: 'Tamis', icon: '🕳️', desc: 'Précision et effet donné à la balle.' },
+      { id: 'chassis', name: 'Chaussures', icon: '👟', desc: 'Déplacement sur la piste et jeu de vitres.' },
+      { id: 'fiabilite', name: 'Préparation physique', icon: '🧴', desc: 'Réduit le risque de blessure.' }
+    ],
+    vehicleModels: [
+      { id: 'equilibre', name: 'Équipement équilibré', desc: 'Aucune spécialité : polyvalent en toutes circonstances.',
+        profile: { moteur: .25, aero: .25, chassis: .25, fiabilite: .25 } },
+      { id: 'veloce', name: 'Équipement offensif', desc: 'Puissance et précision, pour prendre le jeu à son compte.',
+        profile: { moteur: .34, aero: .34, chassis: .18, fiabilite: .14 } },
+      { id: 'appui', name: 'Équipement de précision', desc: 'Contrôle des trajectoires avant tout.',
+        profile: { moteur: .18, aero: .42, chassis: .28, fiabilite: .12 } },
+      { id: 'robuste', name: 'Équipement d\'endurance', desc: 'Jeu de jambes et récupération, pour les longs échanges.',
+        profile: { moteur: .16, aero: .16, chassis: .38, fiabilite: .30 } }
+    ],
     economy: {
       clubCost: 2.0e6, gateBase: 6.0e4, sponsorBase: 1.0e5,
       prizeWin: 7.0e4, prizeDraw: 0, prizeLoss: 2.0e4,

@@ -327,10 +327,14 @@ G.manager = (function () {
     var training = (club.facilities.entrainement - 1) * 0.5;
     att += training; dfn += training;
 
-    if (sport.type === 'race' && club.car) {
+    if (club.car) {
+      /* La monture pèse pour moitié dans un sport mécanique (véhicule et
+         pilote co-décisifs), mais reste un appoint secondaire dans un sport
+         de raquette où le talent du joueur prime sur son équipement. */
       var carAvg = (club.car.moteur + club.car.aero + club.car.chassis) / 3;
-      att = att * 0.5 + carAvg * 0.5;
-      dfn = dfn * 0.5 + carAvg * 0.5;
+      var carWeight = sport.type === 'race' ? 0.5 : 0.2;
+      att = att * (1 - carWeight) + carAvg * carWeight;
+      dfn = dfn * (1 - carWeight) + carAvg * carWeight;
     }
 
     return {
@@ -1117,7 +1121,7 @@ G.manager = (function () {
       results: [], history: [], transferList: null,
       boughtDay: s.market.day
     };
-    if (sport.type === 'race') {
+    if (sport.car) {
       club.car = { moteur: 42, aero: 40, chassis: 41, fiabilite: 52 };
       club.vehicle = 'equilibre';
     }

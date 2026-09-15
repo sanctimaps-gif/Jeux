@@ -237,10 +237,11 @@ window.G = window.G || {};
   function sectionTabs(club) {
     var sp = G.DATA.sportById[club.sport];
     var tabs = [['club', '🏟️ Club'], ['effectif', '👥 Effectif']];
-    /* Sport individuel de course : pas de marché des transferts — on
-       améliore l'athlète ou le véhicule, on ne rachète pas un athlète. */
-    if (sp.type !== 'race') tabs.push(['transferts', '💱 Transferts']);
-    tabs.push(['tactique', sp.type === 'race' ? '🔧 Véhicule' : '📋 Tactique']);
+    /* Sport individuel (course ou raquette) : pas de marché des transferts —
+       on améliore l'athlète ou son équipement, on ne rachète pas un athlète. */
+    if (!sp.individual) tabs.push(['transferts', '💱 Transferts']);
+    var tacticTab = sp.type === 'race' ? '🔧 Véhicule' : sp.car ? '🎒 Équipement' : '📋 Tactique';
+    tabs.push(['tactique', tacticTab]);
     tabs.push(['infra', '🏗️ Structure'], ['palmares', '🏆 Palmarès']);
     return '<div class="sub-tabs">' + tabs.map(function (t) {
       return '<button class="sub' + (sub === t[0] ? ' active' : '') +
@@ -653,8 +654,8 @@ window.G = window.G || {};
     var sp = G.DATA.sportById[club.sport];
     var h = '';
 
-    if (sp.type === 'race') {
-      var vehWord = sp.id === 'cyclisme' ? 'du vélo' : 'de la voiture';
+    if (sp.car) {
+      var vehWord = sp.id === 'cyclisme' ? 'du vélo' : sp.type === 'race' ? 'de la voiture' : 'de l\'équipement';
       h += '<div class="card"><div class="card-head">🔧 Développement ' + vehWord + '</div>';
       for (var i = 0; i < sp.car.length; i++) {
         var part = sp.car[i];
@@ -1212,10 +1213,10 @@ window.G = window.G || {};
       if (shopMode || !club) return h + clubSelector() + renderShop();
 
       h += clubSelector() + sectionTabs(club);
-      var raceSport = G.DATA.sportById[club.sport].type === 'race';
+      var individualSport = G.DATA.sportById[club.sport].individual;
       if (sub === 'club') h += renderClub(club);
       else if (sub === 'effectif') h += renderSquad(club);
-      else if (sub === 'transferts' && !raceSport) h += renderTransfers(club);
+      else if (sub === 'transferts' && !individualSport) h += renderTransfers(club);
       else if (sub === 'tactique') h += renderTactics(club);
       else if (sub === 'infra') h += renderInfra(club);
       else h += renderPalmares(club);
