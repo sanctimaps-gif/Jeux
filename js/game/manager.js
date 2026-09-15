@@ -99,9 +99,13 @@ G.manager = (function () {
     return (nation ? nation.n : '') + ' · ' + divisionName(sport, club.division);
   }
 
-  /** Multiplicateur de prix : très cher à mesure qu'on s'approche de l'élite. */
+  /** Multiplicateur de prix : très cher à mesure qu'on s'approche de l'élite.
+   * Au-dessus de D3 (palier de départ), le prix est en plus triplé pour
+   * inciter très fortement à commencer en D3. */
   function divisionPriceMult(div) {
-    return Math.pow(PRICE_TIER_RATIO, MAX_DIVISION - u.clamp(div, MIN_DIVISION, MAX_DIVISION));
+    div = u.clamp(div, MIN_DIVISION, MAX_DIVISION);
+    var base = Math.pow(PRICE_TIER_RATIO, MAX_DIVISION - div);
+    return div === MAX_DIVISION ? base : base * 3;
   }
 
   /** Prix d'achat d'un club dans un pays donné, à la division choisie. */
