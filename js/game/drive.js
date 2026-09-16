@@ -57,21 +57,16 @@ G.drive = (function () {
     var aspect = rf(0.60, 0.95);        // boucle plus ou moins allongée
     var roughness = rf(0.5, 1.3);       // amplitude des écarts de rayon (vitesse générale)
     var pts = [];
-    for (var i = 0; i < n; i++) {
+    var i;
+    for (i = 0; i < n; i++) {
       var a = i / n * Math.PI * 2;
       var r = rBase * rf(1 - 0.30 * roughness, 1 + 0.20 * roughness);
       pts.push({ x: Math.cos(a) * r, y: Math.sin(a) * r * aspect });
     }
 
-    /* Une ou deux épingles marquées : un sommet resserré brusquement pour
-       simuler un virage lent et serré, bien distinct du reste du tracé. */
-    var hairpins = ri(0, 2);
-    for (var h = 0; h < hairpins; h++) {
-      var idx = ri(0, n - 1);
-      pts[idx] = { x: pts[idx].x * rf(0.42, 0.62), y: pts[idx].y * rf(0.42, 0.62) };
-    }
-
-    /* Lissage : moins de passes sur un tracé qu'on veut plus technique. */
+    /* Lissage de l'enveloppe générale d'abord : les épingles et chicanes
+       sont ajoutées APRÈS, pour rester nettes plutôt que d'être aplaties
+       par le lissage qui suivrait sinon. */
     var passes = roughness > 0.95 ? 2 : 3;
     for (var pass = 0; pass < passes; pass++) {
       var out = [];
@@ -83,9 +78,41 @@ G.drive = (function () {
       }
       pts = out;
     }
-    /* Rééchantillonnage régulier pour des virages réguliers. */
+
+    /* Épingles et chicanes rendent le tracé plus technique, mais peuvent
+       exceptionnellement faire boucler la piste sur elle-même : on retente
+       plusieurs fois (le tirage aléatoire avance à chaque essai) et, dans le
+       pire des cas, on garde l'enveloppe lissée telle quelle — toujours
+       simple par construction (un rayon positif par angle). On vérifie sur
+       le tracé rééchantillonné final (et non l'esquisse à peu de sommets),
+       pour être certain que c'est bien la piste réellement utilisée qui ne
+       se croise pas. */
+    var fallbackDense = densify(pts);
+    if (!isSimplePolygon(fallbackDense)) {
+      /* Cas extrême : même l'enveloppe lissée se recoupe (arrondi trop
+         marqué sur une forme très aplatie) — on repart d'une ellipse pure,
+         toujours simple par construction (rayon constant, angle croissant). */
+      var plain = [];
+      for (i = 0; i < n; i++) {
+        var pa = i / n * Math.PI * 2;
+        plain.push({ x: Math.cos(pa) * rBase, y: Math.sin(pa) * rBase * aspect });
+      }
+      fallbackDense = densify(plain);
+    }
+    var dense = fallbackDense;
+    for (var attempt = 0; attempt < 6; attempt++) {
+      var candidate = densify(addTrackFeatures(pts, rng, ri, rf));
+      if (isSimplePolygon(candidate)) { dense = candidate; break; }
+    }
+    return dense;
+  }
+
+  /** Rééchantillonnage régulier (interpolation simple, sans nouveau lissage)
+   * pour des virages réguliers qui gardent la netteté des épingles et
+   * chicanes qu'on y aurait dessinées. */
+  function densify(pts) {
     var dense = [];
-    for (i = 0; i < pts.length; i++) {
+    for (var i = 0; i < pts.length; i++) {
       var a1 = pts[i], b1 = pts[(i + 1) % pts.length];
       for (var t = 0; t < 6; t++) {
         dense.push({
@@ -95,6 +122,94 @@ G.drive = (function () {
       }
     }
     return dense;
+  }
+
+  /** Ajoute épingles et chicanes à une enveloppe déjà lissée (voir
+   * makeTrack) : un tirage complet, à retenter si le résultat se
+   * chevauche. */
+  function addTrackFeatures(basePts, rng, ri, rf) {
+    var pts = basePts.slice();
+
+    /* Épingles : un sommet resserré brusquement vers le centre pour un
+       virage lent et vraiment serré, bien distinct du reste du tracé. */
+    var hairpins = ri(1, 3);
+    for (var h = 0; h < hairpins; h++) {
+      var idx = ri(0, pts.length - 1);
+      pts[idx] = { x: pts[idx].x * rf(0.30, 0.5), y: pts[idx].y * rf(0.30, 0.5) };
+    }
+
+    /* Chicanes : un ou deux zigzags gauche-droite insérés sur les portions
+       les plus rectilignes, pour que le circuit tourne vraiment des deux
+       côtés (gauche ET droite) plutôt que de tourner toujours dans le même
+       sens comme une simple boucle. */
+    var chicanes = ri(1, 3);
+    for (var c = 0; c < chicanes; c++) pts = insertChicane(pts, rng);
+
+    return pts;
+  }
+
+  /** Deux segments [a,b] et [c,d] se croisent-ils réellement (pas seulement
+   * "presque", ce qui arrive en cas de quasi-alignement dû aux arrondis en
+   * virgule flottante — un test d'orientation booléen strict serait
+   * instable dans ce cas et signalerait de faux croisements) ? */
+  function segmentsIntersect(a, b, c, d) {
+    var EPS = 1e-6;
+    function ccw(p, q, r) {
+      var v = (r.y - p.y) * (q.x - p.x) - (q.y - p.y) * (r.x - p.x);
+      return v > EPS ? 1 : v < -EPS ? -1 : 0;
+    }
+    var d1 = ccw(a, c, d), d2 = ccw(b, c, d), d3 = ccw(a, b, c), d4 = ccw(a, b, d);
+    return d1 * d2 < 0 && d3 * d4 < 0;
+  }
+
+  /** Le polygone fermé passe-t-il par-dessus lui-même ? Ignore les arêtes
+   * adjacentes (qui partagent toujours un sommet, ce n'est pas un
+   * croisement). Coût négligeable malgré la centaine de points du tracé
+   * rééchantillonné : appelé seulement une fois par circuit généré (pas par
+   * image). */
+  function isSimplePolygon(pts) {
+    var n = pts.length;
+    for (var i = 0; i < n; i++) {
+      var a = pts[i], b = pts[(i + 1) % n];
+      for (var j = i + 2; j < n; j++) {
+        if (i === 0 && j === n - 1) continue; // dernière arête, adjacente à la première par la boucle
+        var c = pts[j], d = pts[(j + 1) % n];
+        if (segmentsIntersect(a, b, c, d)) return false;
+      }
+    }
+    return true;
+  }
+
+  /** Insère un zigzag gauche-droite (chicane) sur l'arête la plus longue
+   * parmi quelques candidates, pour casser un tracé qui ne tournerait sans
+   * ça que dans un seul sens : on avance tout droit, on dévie d'un côté,
+   * puis de l'autre, avant de reprendre l'arête d'origine. */
+  function insertChicane(pts, rng) {
+    var n = pts.length;
+    var candidates = [];
+    for (var i = 0; i < n; i++) {
+      var a = pts[i], b = pts[(i + 1) % n];
+      candidates.push({ i: i, len: Math.hypot(b.x - a.x, b.y - a.y) });
+    }
+    candidates.sort(function (c1, c2) { return c2.len - c1.len; });
+    var pick = candidates[Math.floor(rng() * Math.min(3, candidates.length))];
+    var i0 = pick.i;
+    var a0 = pts[i0], b0 = pts[(i0 + 1) % n];
+    var dx = b0.x - a0.x, dy = b0.y - a0.y;
+    var len = Math.hypot(dx, dy) || 1;
+    var nx = -dy / len, ny = dx / len;
+    var amp = Math.min(len * 0.26, 55) * (0.7 + rng() * 0.4);
+    var sign = rng() < 0.5 ? 1 : -1;
+
+    var p1 = {
+      x: u.lerp(a0.x, b0.x, 0.35) + nx * amp * sign,
+      y: u.lerp(a0.y, b0.y, 0.35) + ny * amp * sign
+    };
+    var p2 = {
+      x: u.lerp(a0.x, b0.x, 0.65) - nx * amp * sign,
+      y: u.lerp(a0.y, b0.y, 0.65) - ny * amp * sign
+    };
+    return pts.slice(0, i0 + 1).concat([p1, p2], pts.slice(i0 + 1));
   }
 
   /** Courbure locale en chaque point du tracé (angle de virage, en radians,
@@ -277,15 +392,33 @@ G.drive = (function () {
     c.wear += dt * (0.6 + Math.abs(R.input.steer) * 1.4) * (R.input.boost ? 1.5 : 1);
   }
 
+  /** Point situé à `dist` unités en avance sur le tracé, mesurées le long
+   * du ruban (et non un simple décompte de points) : les épingles et
+   * chicanes resserrent localement l'espacement des points, un décompte
+   * fixe viserait alors bien plus loin ou bien plus près que prévu. */
+  function pointAhead(track, segIndex, dist) {
+    var n = track.length, i = segIndex, remaining = dist;
+    for (var step = 0; step < n; step++) {
+      var a = track[(i + step) % n], b = track[(i + step + 1) % n];
+      var segLen = Math.hypot(b.x - a.x, b.y - a.y) || 0.0001;
+      if (segLen >= remaining) return { x: u.lerp(a.x, b.x, remaining / segLen), y: u.lerp(a.y, b.y, remaining / segLen) };
+      remaining -= segLen;
+    }
+    return track[segIndex % n];
+  }
+
   function driveAI(R, c, dt) {
-    /* Vise un point d'avance sur le tracé. */
-    var look = R.track[(c.seg + 3) % R.track.length];
+    /* Vise un point d'avance sur le tracé : plus loin à haute vitesse pour
+       anticiper les virages serrés (épingles, chicanes) à temps, plus près
+       à vitesse réduite pour bien suivre la trajectoire dans le virage. */
+    var lookDist = u.clamp(10 + c.v * 0.5, 12, 55);
+    var look = pointAhead(R.track, c.seg, lookDist);
     var want = Math.atan2(look.y - c.y, look.x - c.x);
     var diff = normAngle(want - c.angle);
-    c.angle += u.clamp(diff, -1, 1) * dt * 2.4;
+    c.angle += u.clamp(diff, -1, 1) * dt * 3.0;
 
     var corner = Math.abs(diff);
-    var target = maxSpeed(R, c) * (1 - Math.min(0.5, corner * 0.7));
+    var target = maxSpeed(R, c) * (1 - Math.min(0.78, corner * 1.0));
     c.v = u.lerp(c.v, target, Math.min(1, dt * 0.8));
     c.wear += dt * 0.7;
 
@@ -331,11 +464,15 @@ G.drive = (function () {
     }
     c.prog = c.lap * R.track.length + c.seg + near.t;
 
-    /* Abandon mécanique. */
+    /* Abandon mécanique. Si c'est la voiture du joueur qui abandonne, la
+       course ne peut plus jamais atteindre sa condition de victoire
+       normale (le nombre de tours du pilote) : sans ce cas particulier,
+       elle resterait figée à l'écran indéfiniment, sans explication. */
     var reliab = c.isYou ? R.club.car.fiabilite : 62;
     if (u.chance(dt * (1 - reliab / 130) * 0.004)) {
       c.out = true;
       push(R, c.driver + ' abandonne', c.user ? 'bad' : 'info');
+      if (c.user) finish(R);
     }
   }
 

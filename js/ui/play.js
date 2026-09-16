@@ -15,6 +15,7 @@ G.play = (function () {
   var el = {};
   var raf = null;
   var last = 0;
+  var activeElapsed = 0;
   var mode = null;         // 'match' | 'race'
   var M = null;            // état courant
   var joy = { active: false, id: null, cx: 0, cy: 0, dx: 0, dy: 0 };
@@ -193,6 +194,25 @@ G.play = (function () {
     if (!M) return;
     var dt = last ? Math.min(0.05, (ts - last) / 1000) : 0.016;
     last = ts;
+    /* Le temps passé sur le panneau coach (checkpoint) ne compte pas : ce
+       filet de sécurité ne doit se déclencher que si l'ANIMATION tourne
+       trop longtemps, pas si le joueur prend son temps pour ses consignes. */
+    if (!checkpointOpen) activeElapsed += dt;
+
+    /* Filet de sécurité ultime : quelle qu'en soit la cause (même une que
+       les autres garde-fous n'auraient pas prévue), une rencontre ne doit
+       jamais rester à l'écran plus de quelques minutes sans se conclure. */
+    if (!M.done && activeElapsed > 300) {
+      console.error('Rencontre trop longue, conclusion forcée après 5 minutes d\'animation.');
+      try {
+        if (mode === 'match') G.action.skipToEnd(M); else G.drive.skipToEnd(M);
+      } catch (errWatchdog) {
+        M.done = true;
+      }
+      if (G.ui) G.ui.toast('⚠️ Incident technique', 'La rencontre a été terminée automatiquement', 'bad');
+      showEnd();
+      return;
+    }
 
     try {
       if (mode === 'match') {
@@ -399,8 +419,8 @@ G.play = (function () {
       }
     } else {
       var c = M.user;
-      win = c && c.pos <= 3;
-      title = '🏁 Arrivée · P' + (c ? c.pos : '-');
+      win = c && !c.out && c.pos <= 3;
+      title = (c && c.out) ? '🔧 Abandon' : '🏁 Arrivée · P' + (c ? c.pos : '-');
     }
 
     var srcKey = 'manager:' + M.club.sport;
@@ -464,6 +484,7 @@ G.play = (function () {
     el.root.classList.remove('hidden');
     el.end.style.display = 'none';
     hideCheckpoint();
+    activeElapsed = 0;
     var quit0 = document.querySelector('.play-quit');
     var skip0 = document.querySelector('.play-skip');
     if (quit0) quit0.style.display = '';
