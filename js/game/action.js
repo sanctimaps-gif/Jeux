@@ -75,15 +75,20 @@ G.action = (function () {
        chaque discipline (dimensions réelles), échange simulé point par
        point plutôt que ballon disputé au contact. */
     tennis: { w: 8.23, h: 23.77, surface: '#2f8f4e', line: '#ffffff',
-      racket: true, net: true, speed: 1.0, ballSpeed: 30, clock: 90, realSeconds: 210, view: 8.23 },
+      racket: true, net: true, speed: 1.0, ballSpeed: 30, clock: 90, realSeconds: 210, view: 8.23,
+      scoring: { style: 'tennis', setsToWin: 2, gamesToWinSet: 6 } },
     badminton: { w: 5.18, h: 13.4, surface: '#1a6e3c', line: '#ffffff',
-      racket: true, net: true, speed: 1.3, ballSpeed: 34, clock: 60, realSeconds: 170, view: 5.18 },
+      racket: true, net: true, speed: 1.3, ballSpeed: 34, clock: 60, realSeconds: 170, view: 5.18,
+      scoring: { style: 'points', setsToWin: 2, pointsToWinSet: 21, capAt: 30 } },
     squash: { w: 6.4, h: 9.75, surface: '#2c4f70', line: '#ffe9a8',
-      racket: true, net: false, speed: 1.15, ballSpeed: 26, clock: 45, realSeconds: 150, view: 6.4 },
+      racket: true, net: false, speed: 1.15, ballSpeed: 26, clock: 45, realSeconds: 150, view: 6.4,
+      scoring: { style: 'points', setsToWin: 3, pointsToWinSet: 11, capAt: 15 } },
     tennisdetable: { w: 1.525, h: 2.74, surface: '#0d4f8b', line: '#ffffff',
-      racket: true, net: true, speed: 2.4, ballSpeed: 10, clock: 30, realSeconds: 140, view: 1.525 },
+      racket: true, net: true, speed: 2.4, ballSpeed: 10, clock: 30, realSeconds: 140, view: 1.525,
+      scoring: { style: 'points', setsToWin: 3, pointsToWinSet: 11, capAt: 21 } },
     padel: { w: 10, h: 20, surface: '#2373a6', line: '#ffffff',
-      racket: true, net: true, speed: 1.0, ballSpeed: 26, clock: 90, realSeconds: 200, view: 10 },
+      racket: true, net: true, speed: 1.0, ballSpeed: 26, clock: 90, realSeconds: 200, view: 10,
+      scoring: { style: 'tennis', setsToWin: 2, gamesToWinSet: 6 } },
 
     /* Baseball et softball : pas de ballon disputé en continu, mais une
        succession de face-à-face lanceur/frappeur sur un losange (voir
@@ -146,9 +151,19 @@ G.action = (function () {
       cards: {},                     // cartons par joueur {playerId: {type, time}}
       subs: { you: [], opp: [] },    // remplacements effectués
       coach: { att: 0, def: 0 },     // effet temporaire des consignes du banc
+      tactics: club.tactics,         // référence live : suit les consignes données en cours de match
+      tacticalMod: { att: 0, def: 0 },
+      checkpointsSeen: [], checkpoint: null,
       commentsDone: {},
-      sinceIncident: 0
+      sinceIncident: 0,
+      /* Sports de raquette en conditions réelles : points d'un jeu (style
+         tennis), jeux/points du set en cours, et historique des sets joués
+         (voir F.scoring et setWonBy). */
+      points: { you: 0, opp: 0 },
+      games: { you: 0, opp: 0 },
+      setsHistory: []
     };
+    setMentality(M, club.tactics.mentality);
 
     if (F.racket) {
       buildRacketMatch(M, club, sport, mine, oppStr, fx.opp.name);
@@ -315,6 +330,27 @@ G.action = (function () {
   /* ============================================================ LOGIQUE === */
 
   /** Avance la simulation de `dt` secondes réelles. */
+  var CHECKPOINT_FRACS = [0.25, 0.5, 0.75];
+
+  /** Vérifie si la rencontre vient de franchir un quart, la mi-match ou les
+   * trois-quarts : elle se met alors en pause et le joueur peut intervenir
+   * comme un coach (consignes, changements) avant de relancer jusqu'à
+   * l'étape suivante — jamais plus d'une fois pour la même étape. */
+  function checkMatchCheckpoint(M) {
+    if (M.done || M.checkpoint) return;
+    var frac = M.F.clock > 0 ? M.clock / M.F.clock : 0;
+    M.checkpointsSeen = M.checkpointsSeen || [];
+    for (var i = 0; i < CHECKPOINT_FRACS.length; i++) {
+      var cp = CHECKPOINT_FRACS[i];
+      if (frac >= cp && M.checkpointsSeen.indexOf(cp) < 0) {
+        M.checkpointsSeen.push(cp);
+        M.paused = true;
+        M.checkpoint = cp;
+        return;
+      }
+    }
+  }
+
   function update(M, dt) {
     if (M.done || M.paused) return;
     var F = M.F;
@@ -326,26 +362,30 @@ G.action = (function () {
       pickUserPlayer(M);
       updateDiamond(M, dt);
       updateCamera(M, dt);
+      checkMatchCheckpoint(M);
       return;
     }
     if (F.cricket) {
       pickUserPlayer(M);
       updateCricket(M, dt);
       updateCamera(M, dt);
+      checkMatchCheckpoint(M);
       return;
     }
     if (F.archery) {
       pickUserPlayer(M);
       updateArchery(M, dt);
       updateCamera(M, dt);
+      checkMatchCheckpoint(M);
       return;
     }
 
-    /* Appliquer les tactiques si changement. */
-    if (M.tactics && M.tactics.style) {
+    /* Appliquer les tactiques si changement (style de jeu : 0 = prudent,
+       1 = équilibré, 2 = offensif — voir sport.tactics.style). */
+    if (M.tactics && M.tactics.style !== undefined) {
       var style = M.tactics.style;
-      M.F.aiShootMult = style === 'att' ? 1.4 : style === 'def' ? 0.6 : 1.0;
-      M.F.tackleMult = style === 'def' ? 1.3 : style === 'att' ? 0.8 : 1.0;
+      M.F.aiShootMult = style === 2 ? 1.4 : style === 0 ? 0.6 : 1.0;
+      M.F.tackleMult = style === 0 ? 1.3 : style === 2 ? 0.8 : 1.0;
     }
 
     /* Horloge : le match complet tient en quelques minutes réelles. */
@@ -356,16 +396,23 @@ G.action = (function () {
       M.clock += minutesPerSecond * dt;
     }
 
-    /* Mi-temps (pause entre les manches pour les sports de raquette ou de
-       filet). */
-    if (!M.halfDone && M.clock >= F.clock / 2) {
-      M.halfDone = true;
-      push(M, 'Mi-temps — ' + M.score.you + ' - ' + M.score.opp, 'info');
-      if (F.racket) startRally(M, u.chance(0.5) ? 0 : 1);
-      else if (F.netTeam) startNetRally(M, u.chance(0.5) ? 0 : 1);
-      else kickoff(M, -1);
+    /* Les sports de raquette se jouent en conditions réelles (points, jeux,
+       sets) : la rencontre se termine dès qu'un camp a gagné le nombre de
+       sets requis (voir setWonBy), jamais par une horloge qui s'écoule —
+       seul un filet de sécurité empêche une partie trop indécise de durer
+       indéfiniment. */
+    if (F.racket) {
+      if (M.clock >= F.clock * 2) { finishRacketNow(M); return; }
+    } else {
+      /* Mi-temps (pause entre les manches pour les sports de filet). */
+      if (!M.halfDone && M.clock >= F.clock / 2) {
+        M.halfDone = true;
+        push(M, 'Mi-temps — ' + M.score.you + ' - ' + M.score.opp, 'info');
+        if (F.netTeam) startNetRally(M, u.chance(0.5) ? 0 : 1);
+        else kickoff(M, -1);
+      }
+      if (M.clock >= F.clock) { finish(M); return; }
     }
-    if (M.clock >= F.clock) { finish(M); return; }
 
     /* Consignes du banc : les mêmes causeries qu'en mode texte, qui restent
        possibles à la mi-temps ou lors d'un temps mort même si le joueur ne
@@ -395,6 +442,7 @@ G.action = (function () {
       if (M.ball.owner && M.ball.owner.team === 0) M.stats.possYou += dt;
       M.stats.poss = Math.round(M.stats.possYou / Math.max(0.1, M.stats.possTot) * 100);
     }
+    checkMatchCheckpoint(M);
   }
 
   /** Choisit un commentaire dans une banque de M.club, sans le répéter avant
@@ -407,6 +455,17 @@ G.action = (function () {
   function applyCoachEffect(M, e) {
     M.coach.att = u.clamp(M.coach.att + e.att, -12, 12);
     M.coach.def = u.clamp(M.coach.def + e.def, -12, 12);
+  }
+
+  /** Consigne de mentalité (0 = ultra défensif … 4 = tout va, 2 = équilibré) :
+   * contrairement au petit coup de fouet passager de applyCoachEffect(),
+   * cet effet ne se dissipe pas — c'est un vrai choix tactique, pas une
+   * simple causerie, tant qu'on ne le change pas. */
+  function setMentality(M, idx) {
+    M.club.tactics.mentality = idx;
+    var delta = idx - 2;
+    M.tacticalMod.att = delta * 2;
+    M.tacticalMod.def = -delta * 2;
   }
 
   /** Reprend les mêmes prises de parole du banc qu'en mode texte (en tout
@@ -493,6 +552,14 @@ G.action = (function () {
     if (p.team === 0 && M.coach) {
       if (p.role === 'att' || p.role === 'mid') speed *= u.clamp(1 + M.coach.att * 0.02, 0.6, 1.5);
       if (p.role === 'def' || p.role === 'mid') speed *= u.clamp(1 + M.coach.def * 0.02, 0.6, 1.5);
+    }
+
+    /* Mentalité choisie par le joueur-coach à une étape de la rencontre (voir
+       setMentality) : contrairement à M.coach, ne se dissipe pas tant que la
+       consigne n'est pas changée. */
+    if (p.team === 0 && M.tacticalMod) {
+      if (p.role === 'att' || p.role === 'mid') speed *= u.clamp(1 + M.tacticalMod.att * 0.02, 0.6, 1.5);
+      if (p.role === 'def' || p.role === 'mid') speed *= u.clamp(1 + M.tacticalMod.def * 0.02, 0.6, 1.5);
     }
 
     /* Simple spectateur : les deux équipes sont pilotées par l'IA, y compris
@@ -910,25 +977,126 @@ G.action = (function () {
   function scoreRally(M, team, winner) {
     var sport = M.sport;
     var verb = (G.match.pools.SCORE_VERBS[sport.id] && u.pick(G.match.pools.SCORE_VERBS[sport.id])) || 'marque le point';
-    if (team === 0) {
-      M.score.you += 1;
-      M.stats.youShots++;
-      push(M, '🟢 ' + winner.name + ' ' + verb + ' — ' + M.score.you + '-' + M.score.opp, 'good');
-      if (winner.ref) {
-        winner.ref.seasonScored = (winner.ref.seasonScored || 0) + 1;
-        winner.ref.scored = (winner.ref.scored || 0) + 1;
-      }
-    } else {
-      M.score.opp += 1;
-      M.stats.oppShots++;
-      push(M, '🔴 ' + M.oppName + ' ' + verb + ' — ' + M.score.you + '-' + M.score.opp, 'bad');
+    var name = team === 0 ? winner.name : M.oppName;
+    if (team === 0 && winner.ref) {
+      winner.ref.seasonScored = (winner.ref.seasonScored || 0) + 1;
+      winner.ref.scored = (winner.ref.scored || 0) + 1;
     }
-    if (u.chance(0.35)) {
+    if (team === 0) M.stats.youShots++; else M.stats.oppShots++;
+
+    racketPointWon(M, team);
+
+    push(M, (team === 0 ? '🟢 ' : '🔴 ') + name + ' ' + verb + ' — ' + pointScoreText(M),
+      team === 0 ? 'good' : 'bad');
+
+    if (!M.done && u.chance(0.25)) {
       var loser = team === 0 ? M.players[1] : M.players[0];
       push(M, loser.name + ' ' + u.pick(RACKET_MISS), 'info');
     }
     M.rally = null;
-    startRally(M, team);
+    if (!M.done) startRally(M, team);
+  }
+
+  /** Sports de raquette en conditions réelles : chaque point remonte la
+   * hiérarchie point → jeu (tennis/padel, avec avantages) ou point → manche
+   * (badminton/squash/tennis de table, à 21/11 points) → set du match,
+   * jusqu'à la victoire finale (voir F.scoring dans FIELDS). */
+  function racketPointWon(M, team) {
+    var sc = M.F.scoring;
+    if (sc.style === 'tennis') tennisPointWon(M, team);
+    else pointsStyleWon(M, team);
+  }
+
+  var TENNIS_POINT_LABELS = ['0', '15', '30', '40'];
+
+  function pointScoreText(M) {
+    var sc = M.F.scoring;
+    if (sc.style === 'tennis') {
+      var you = M.points.you, opp = M.points.opp;
+      if (you >= 3 && opp >= 3) {
+        if (you === opp) return '40-40';
+        return you > opp ? 'Av.-40' : '40-Av.';
+      }
+      return TENNIS_POINT_LABELS[Math.min(you, 3)] + '-' + TENNIS_POINT_LABELS[Math.min(opp, 3)];
+    }
+    return M.games.you + '-' + M.games.opp;
+  }
+
+  function tennisPointWon(M, team) {
+    var key = team === 0 ? 'you' : 'opp';
+    M.points[key]++;
+    var you = M.points.you, opp = M.points.opp, gameWinner = null;
+    if (you >= 4 && you - opp >= 2) gameWinner = 'you';
+    else if (opp >= 4 && opp - you >= 2) gameWinner = 'opp';
+    if (gameWinner) {
+      M.points.you = 0; M.points.opp = 0;
+      gameWon(M, gameWinner);
+    }
+  }
+
+  function gameWon(M, who) {
+    M.games[who]++;
+    push(M, '🎾 Jeu ' + (who === 'you' ? M.club.name : M.oppName) +
+      ' — ' + M.games.you + '-' + M.games.opp, who === 'you' ? 'good' : 'bad');
+
+    var you = M.games.you, opp = M.games.opp, sc = M.F.scoring, setWinner = null;
+    if (you >= sc.gamesToWinSet && you - opp >= 2) setWinner = 'you';
+    else if (opp >= sc.gamesToWinSet && opp - you >= 2) setWinner = 'opp';
+    /* Jeu décisif simplifié à 6 partout : le prochain jeu gagné tranche le
+       set (7-6), plutôt qu'un tie-break détaillé point par point. */
+    else if (you >= sc.gamesToWinSet && opp >= sc.gamesToWinSet && you !== opp) {
+      setWinner = you > opp ? 'you' : 'opp';
+    }
+    if (setWinner) setWonBy(M, setWinner);
+  }
+
+  function pointsStyleWon(M, team) {
+    var key = team === 0 ? 'you' : 'opp';
+    M.games[key]++;
+    var you = M.games.you, opp = M.games.opp, sc = M.F.scoring, setWinner = null;
+    if (you >= sc.pointsToWinSet && you - opp >= 2) setWinner = 'you';
+    else if (opp >= sc.pointsToWinSet && opp - you >= 2) setWinner = 'opp';
+    else if (you >= sc.capAt) setWinner = 'you';
+    else if (opp >= sc.capAt) setWinner = 'opp';
+    if (setWinner) setWonBy(M, setWinner);
+  }
+
+  /** Un set (ou une manche) vient d'être décidé : on l'archive, le score du
+   * match (M.score = sets gagnés) avance d'un cran, puis on vérifie la
+   * victoire finale du match. */
+  function setWonBy(M, who) {
+    M.setsHistory.push({ you: M.games.you, opp: M.games.opp });
+    M.games.you = 0; M.games.opp = 0;
+    M.points.you = 0; M.points.opp = 0;
+    M.score[who]++;
+    var setLabel = M.F.scoring.style === 'tennis' ? 'le set' : 'la manche';
+    push(M, '🏆 ' + (who === 'you' ? M.club.name : M.oppName) + ' remporte ' + setLabel +
+      ' — ' + M.score.you + '-' + M.score.opp, who === 'you' ? 'good' : 'bad');
+    if (M.score[who] >= M.F.scoring.setsToWin) finish(M);
+  }
+
+  /** Filet de sécurité si un match de raquette ne se conclut pas assez vite
+   * (adversaires très proches en niveau) : on tranche en faveur du camp en
+   * tête dans la manche en cours, puis on referme la rencontre normalement. */
+  function finishRacketNow(M) {
+    var who = M.games.you === M.games.opp
+      ? (u.chance(0.5) ? 'you' : 'opp')
+      : (M.games.you > M.games.opp ? 'you' : 'opp');
+    while (!M.done && M.score.you < M.F.scoring.setsToWin && M.score.opp < M.F.scoring.setsToWin) {
+      setWonBy(M, who);
+    }
+  }
+
+  /** Score à afficher dans l'interface : les sports de raquette montrent les
+   * sets gagnés comme score principal, avec le détail du jeu/manche en cours
+   * en sous-titre — les autres disciplines n'ont rien à ajouter ici. */
+  function formatScore(M) {
+    if (!M.F.racket) return { you: M.score.you, opp: M.score.opp, detail: '' };
+    var sc = M.F.scoring;
+    var detail = sc.style === 'tennis'
+      ? ('Jeu ' + pointScoreText(M) + ' · Set ' + M.games.you + '-' + M.games.opp)
+      : ('Manche ' + M.games.you + '-' + M.games.opp);
+    return { you: M.score.you, opp: M.score.opp, detail: detail };
   }
 
   /* ======================================= SPORTS COLLECTIFS AU FILET ===== */
@@ -1521,6 +1689,16 @@ G.action = (function () {
   function skipToEnd(M) {
     if (M.done) return M;
     var F = M.F;
+    if (F.racket) {
+      /* Les sets restants se jouent au prorata du niveau des deux joueurs,
+         plutôt que d'ajouter des points bruts qui n'auraient pas de sens
+         une fois le score exprimé en sets. */
+      var me = M.players[0], opp = M.players[1];
+      var pYou = u.clamp(0.5 + (me.ovr - opp.ovr) / 100, 0.1, 0.9);
+      while (!M.done) setWonBy(M, u.chance(pYou) ? 'you' : 'opp');
+      M.clock = F.clock;
+      return finish(M);
+    }
     var remaining = Math.max(0, F.clock - M.clock);
     var sport = M.sport;
     /* Le temps restant est joué par l'ordinateur, au prorata. */
@@ -2206,6 +2384,43 @@ G.action = (function () {
     }
   }
 
+  /** Remplacement décidé par le joueur-coach à une étape de la rencontre
+   * (quart, mi-match, trois-quarts) : contrairement à substitute() (cartons,
+   * qui échange deux joueurs déjà sur le terrain), celui-ci fait entrer un
+   * remplaçant du banc — qui n'a jamais été placé sur M.players. Le
+   * changement de titulaire est aussi enregistré sur le club pour la suite
+   * de la saison. */
+  function substituteFromBench(M, outId, inId) {
+    var club = M.club;
+    var onField = null;
+    for (var i = 0; i < M.players.length; i++) {
+      if (M.players[i].id === outId) { onField = M.players[i]; break; }
+    }
+    if (!onField) return false;
+    var incoming = null;
+    for (i = 0; i < club.players.length; i++) {
+      if (club.players[i].id === inId) { incoming = club.players[i]; break; }
+    }
+    if (!incoming || incoming.injury) return false;
+
+    var outgoingRef = onField.ref;
+    onField.id = incoming.id;
+    onField.name = incoming.name;
+    onField.ovr = G.manager.effOvr(incoming, M.sport);
+    onField.speed = (3.2 + onField.ovr / 22) * M.F.speed;
+    onField.ref = incoming;
+
+    if (outgoingRef) outgoingRef.starter = false;
+    incoming.starter = true;
+
+    M.subs.you.push({
+      out: outgoingRef ? outgoingRef.name : onField.name, in: incoming.name,
+      time: Math.floor(M.clock)
+    });
+    push(M, '🔄 ' + (outgoingRef ? outgoingRef.name : '') + ' remplacé par ' + incoming.name, 'event');
+    return true;
+  }
+
   /** Remplacer un joueur. */
   function substitute(M, playerId, replacementId, team) {
     var player = null, replacement = null;
@@ -2239,6 +2454,7 @@ G.action = (function () {
     create: create, update: update, draw: draw,
     shoot: shoot, passTo: passTo,
     finish: finish, skipToEnd: skipToEnd, push: push,
-    giveCard: giveCard, substitute: substitute
+    giveCard: giveCard, substitute: substitute, substituteFromBench: substituteFromBench,
+    setMentality: setMentality, formatScore: formatScore
   };
 })();

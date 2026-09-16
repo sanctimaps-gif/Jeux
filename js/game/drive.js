@@ -97,6 +97,34 @@ G.drive = (function () {
     return dense;
   }
 
+  /** Courbure locale en chaque point du tracé (angle de virage, en radians,
+   * mesuré sur une petite fenêtre) : sert à placer les vibreurs et l'échappatoire
+   * de gravier davantage dans les virages que sur les lignes droites. */
+  function trackCurvature(track) {
+    var n = track.length, win = 3, curv = new Array(n);
+    for (var i = 0; i < n; i++) {
+      var p0 = track[(i - win + n) % n], p1 = track[i], p2 = track[(i + win) % n];
+      var a1 = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+      var a2 = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+      curv[i] = Math.abs(Math.atan2(Math.sin(a2 - a1), Math.cos(a2 - a1)));
+    }
+    return curv;
+  }
+
+  /** Normale unitaire au tracé en chaque point (perpendiculaire à la
+   * tangente), pour dessiner vibreurs, gravier et stands de part et d'autre
+   * de la piste. */
+  function trackNormals(track) {
+    var n = track.length, norm = new Array(n);
+    for (var i = 0; i < n; i++) {
+      var p0 = track[(i - 1 + n) % n], p2 = track[(i + 1) % n];
+      var dx = p2.x - p0.x, dy = p2.y - p0.y;
+      var len = Math.hypot(dx, dy) || 1;
+      norm[i] = { x: -dy / len, y: dx / len };
+    }
+    return norm;
+  }
+
   function trackLength(track) {
     var L = 0;
     for (var i = 0; i < track.length; i++) {
@@ -178,10 +206,15 @@ G.drive = (function () {
       cars[i].pos = i + 1;
     }
 
+    var centroid = { x: 0, y: 0 };
+    for (i = 0; i < track.length; i++) { centroid.x += track[i].x; centroid.y += track[i].y; }
+    centroid.x /= track.length; centroid.y /= track.length;
+
     var R = {
       club: club, sport: sport, circuit: evt.circuit,
       round: evt.round, total: evt.total,
       track: track, trackLen: trackLength(track),
+      curv: trackCurvature(track), norms: trackNormals(track), centroid: centroid,
       laps: laps || LAPS_DEFAULT,
       cars: cars,
       user: cars.filter(function (c) { return c.user; })[0],
@@ -376,6 +409,119 @@ G.drive = (function () {
 
   /* ============================================================= RENDU ==== */
 
+  /** Échappatoires de gravier sablonneux : une bande de largeur variable de
+   * part et d'autre du ruban de piste, plus large dans les virages serrés
+   * que sur les lignes droites, comme sur un vrai circuit. */
+  function drawGravelRunoff(ctx, track, curv, norms, rain) {
+    var n = track.length;
+    ctx.fillStyle = rain ? '#8d7c58' : '#d9c48f';
+    ctx.beginPath();
+    var i, idx, w, px, py;
+    for (i = 0; i <= n; i++) {
+      idx = i % n;
+      w = TRACK_W / 2 + TRACK_W * (0.55 + 2.1 * u.clamp(curv[idx] / 0.3, 0, 1));
+      px = track[idx].x + norms[idx].x * w;
+      py = track[idx].y + norms[idx].y * w;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    for (i = n; i >= 0; i--) {
+      idx = i % n;
+      w = TRACK_W / 2 + TRACK_W * (0.55 + 2.1 * u.clamp(curv[idx] / 0.3, 0, 1));
+      px = track[idx].x - norms[idx].x * w;
+      py = track[idx].y - norms[idx].y * w;
+      ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  /** Vibreurs à damier rouge et blanc : posés des deux côtés de la piste
+   * dans les portions les plus courbes (les virages), jamais sur les
+   * lignes droites. */
+  function drawKerbs(ctx, track, curv, norms) {
+    var n = track.length, threshold = 0.1;
+    for (var i = 0; i < n; i++) {
+      if (curv[i] < threshold) continue;
+      var p0 = track[(i - 1 + n) % n], p2 = track[(i + 1) % n];
+      var tangAngle = Math.atan2(p2.y - p0.y, p2.x - p0.x);
+      var color = (i % 2 === 0) ? '#d9362b' : '#f4f4f4';
+      for (var side = -1; side <= 1; side += 2) {
+        var kx = track[i].x + norms[i].x * (TRACK_W / 2 + 0.5) * side;
+        var ky = track[i].y + norms[i].y * (TRACK_W / 2 + 0.5) * side;
+        ctx.save();
+        ctx.translate(kx, ky);
+        ctx.rotate(tangAngle);
+        ctx.fillStyle = color;
+        ctx.fillRect(-0.9, -1.15, 1.8, 2.3);
+        ctx.restore();
+      }
+    }
+  }
+
+  var PIT_TRUCK_COLORS = ['#e8622c', '#3d7fd6', '#3ddc97', '#e0c02c', '#c94fd6'];
+  var PARK_CAR_COLORS = ['#e05263', '#4dabf7', '#3ddc97', '#ffd166', '#b197fc', '#ff9f43'];
+
+  /** Voie des stands et parking des transporteurs, décor statique placé le
+   * long de la ligne droite de départ/arrivée (toujours du même côté que la
+   * tribune principale), avec camions garés et quelques voitures colorées
+   * sur le parking attenant. */
+  function drawPitLane(ctx, track, norms, startAngle, centroid) {
+    var n = track.length, span = Math.min(9, n - 1);
+    /* Toujours du côté extérieur de la boucle, quel que soit son sens de
+       parcours (horaire ou antihoraire selon le tracé généré). */
+    var out = { x: track[0].x - centroid.x, y: track[0].y - centroid.y };
+    var side = (norms[0].x * out.x + norms[0].y * out.y) >= 0 ? 1 : -1;
+    var laneOff = TRACK_W * 1.55, parkOff = TRACK_W * 2.25;
+
+    /* Voie des stands : bande claire parallèle à la piste. */
+    ctx.fillStyle = '#8b8f96';
+    ctx.beginPath();
+    for (var i = 0; i <= span; i++) {
+      var p = track[i], nr = norms[i];
+      var px = p.x + nr.x * (laneOff - TRACK_W * 0.5) * side;
+      var py = p.y + nr.y * (laneOff - TRACK_W * 0.5) * side;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    for (i = span; i >= 0; i--) {
+      var p2 = track[i], nr2 = norms[i];
+      var px2 = p2.x + nr2.x * (laneOff + TRACK_W * 0.5) * side;
+      var py2 = p2.y + nr2.y * (laneOff + TRACK_W * 0.5) * side;
+      ctx.lineTo(px2, py2);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    /* Camions et remorques garés le long des stands. */
+    for (i = 1; i < span; i += 2) {
+      var pc = track[i], nc = norms[i];
+      var tx = pc.x + nc.x * laneOff * side;
+      var ty = pc.y + nc.y * laneOff * side;
+      ctx.save();
+      ctx.translate(tx, ty);
+      ctx.rotate(startAngle);
+      ctx.fillStyle = 'rgba(0,0,0,.25)';
+      ctx.fillRect(-3.2, -1.6, 6.6, 3.4);
+      ctx.fillStyle = PIT_TRUCK_COLORS[(i >> 1) % PIT_TRUCK_COLORS.length];
+      ctx.fillRect(-3.4, -1.8, 6.6, 3.4);
+      ctx.fillStyle = '#eef2f6';
+      ctx.fillRect(-3.4, -1.8, 1.6, 3.4);
+      ctx.restore();
+    }
+
+    /* Parking coloré, un cran plus loin. */
+    for (i = 1; i < span; i++) {
+      var pp = track[i], np = norms[i];
+      var cx = pp.x + np.x * parkOff * side;
+      var cy = pp.y + np.y * parkOff * side;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(startAngle + Math.PI / 2);
+      ctx.fillStyle = PARK_CAR_COLORS[i % PARK_CAR_COLORS.length];
+      ctx.fillRect(-1.1, -2.0, 2.2, 4.0);
+      ctx.restore();
+    }
+  }
+
   function draw(R, ctx, cw, ch) {
     var user = R.user;
     /* Vue rapprochée : on doit sentir la vitesse et voir les virages arriver. */
@@ -395,14 +541,17 @@ G.drive = (function () {
     ctx.translate(-camX, -camY);
 
     /* --- ruban de piste --- */
-    var track = R.track;
+    var track = R.track, curv = R.curv, norms = R.norms, n = track.length, i;
+
+    drawGravelRunoff(ctx, track, curv, norms, R.rain);
+
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     ctx.strokeStyle = '#3b3f46';
     ctx.lineWidth = TRACK_W;
     ctx.beginPath();
     ctx.moveTo(track[0].x, track[0].y);
-    for (var i = 1; i < track.length; i++) ctx.lineTo(track[i].x, track[i].y);
+    for (i = 1; i < track.length; i++) ctx.lineTo(track[i].x, track[i].y);
     ctx.closePath();
     ctx.stroke();
 
@@ -412,6 +561,8 @@ G.drive = (function () {
     ctx.setLineDash([6, 6]);
     ctx.stroke();
     ctx.setLineDash([]);
+
+    drawKerbs(ctx, track, curv, norms);
 
     /* Ligne de départ. */
     var a = track[0], b = track[1];
@@ -424,6 +575,8 @@ G.drive = (function () {
       ctx.fillRect(-1, k * 2.2, 2, 1.1);
     }
     ctx.restore();
+
+    drawPitLane(ctx, track, norms, ang, R.centroid);
 
     /* --- voitures --- */
     for (i = 0; i < R.cars.length; i++) {

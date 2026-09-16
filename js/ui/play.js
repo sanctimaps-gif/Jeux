@@ -19,6 +19,8 @@ G.play = (function () {
   var M = null;            // état courant
   var joy = { active: false, id: null, cx: 0, cy: 0, dx: 0, dy: 0 };
   var shootHold = 0;
+  var checkpointOpen = false;
+  var pendingSubOut = null;
 
   function q(id) { return document.getElementById(id); }
 
@@ -33,6 +35,7 @@ G.play = (function () {
     el.knob = q('play-knob');
     el.btns = q('play-btns');
     el.end = q('play-end');
+    el.checkpoint = q('play-checkpoint');
     bindInput();
   }
 
@@ -148,6 +151,7 @@ G.play = (function () {
   });
   ui.act('pl.skip', function () {
     if (!M || M.done) return;
+    hideCheckpoint();
     if (mode === 'match') G.action.skipToEnd(M);
     else G.drive.skipToEnd(M);
     showEnd();
@@ -190,33 +194,52 @@ G.play = (function () {
     var dt = last ? Math.min(0.05, (ts - last) / 1000) : 0.016;
     last = ts;
 
-    if (mode === 'match') {
-      G.action.update(M, dt);
-      G.action.draw(M, el.ctx, el.canvas.clientWidth, el.canvas.clientHeight);
-    } else {
-      G.drive.update(M, dt);
-      G.drive.draw(M, el.ctx, el.canvas.clientWidth, el.canvas.clientHeight);
-      if (M.input.boost) M.input.boost = false;   // impulsion ponctuelle
+    try {
+      if (mode === 'match') {
+        G.action.update(M, dt);
+        G.action.draw(M, el.ctx, el.canvas.clientWidth, el.canvas.clientHeight);
+      } else {
+        G.drive.update(M, dt);
+        G.drive.draw(M, el.ctx, el.canvas.clientWidth, el.canvas.clientHeight);
+        if (M.input.boost) M.input.boost = false;   // impulsion ponctuelle
+      }
+
+      renderTop();
+      /* Pas de commentaires écrits pendant un match regardé : l'animation
+         parle d'elle-même. Le détail des événements reste consultable via le
+         bouton ℹ️. La course pilotée garde ses messages radio. */
+      if (mode !== 'match') renderFeed();
+    } catch (err) {
+      /* Une rencontre ne doit jamais rester figée à l'écran sans
+         explication : un incident imprévu la termine proprement plutôt que
+         de bloquer l'animation indéfiniment. */
+      console.error('Erreur pendant la simulation, rencontre écourtée :', err);
+      if (M && !M.done) {
+        try {
+          if (mode === 'match') G.action.skipToEnd(M); else G.drive.skipToEnd(M);
+        } catch (err2) {
+          M.done = true;
+        }
+      }
+      if (G.ui) G.ui.toast('⚠️ Incident technique', 'La rencontre a été terminée automatiquement', 'bad');
     }
 
-    renderTop();
-    /* Pas de commentaires écrits pendant un match regardé : l'animation
-       parle d'elle-même. Le détail des événements reste consultable via le
-       bouton ℹ️. La course pilotée garde ses messages radio. */
-    if (mode !== 'match') renderFeed();
-
     if (M.done) { showEnd(); return; }
+    if (mode === 'match' && M.checkpoint && !checkpointOpen) showCheckpoint();
     raf = requestAnimationFrame(frame);
   }
 
   function renderTop() {
     if (mode === 'match') {
       var icon = (M.sport && M.sport.icon) ? M.sport.icon + ' ' : '';
+      var fs = G.action.formatScore ? G.action.formatScore(M) : { you: M.score.you, opp: M.score.opp, detail: '' };
       var sub;
       if (M.F.diamond) {
         var half = M.diamond.half % 2 === 0 ? 'haut' : 'bas';
         sub = half + ' de la ' + M.diamond.inning + 'e manche · ' + M.diamond.outs + ' retrait(s) · ' +
           'coups sûrs ' + M.stats.youShots + '-' + M.stats.oppShots;
+      } else if (fs.detail) {
+        sub = fs.detail;
       } else {
         var mins = Math.floor(M.clock);
         sub = mins + "' / " + M.F.clock + "' · possession " +
@@ -224,7 +247,7 @@ G.play = (function () {
       }
       el.top.innerHTML =
         '<div class="pl-score"><span class="pl-team">' + u.esc(shortName(M.club.name)) +
-        '</span><b>' + icon + M.score.you + ' - ' + M.score.opp + '</b><span class="pl-team">' +
+        '</span><b>' + icon + fs.you + ' - ' + fs.opp + '</b><span class="pl-team">' +
         u.esc(shortName(M.oppName)) + '</span></div>' +
         '<div class="pl-sub">' + sub + '</div>';
     } else {
@@ -259,6 +282,105 @@ G.play = (function () {
     }
   }
 
+  /* ==================================================== ÉTAPES / COACH === */
+
+  function checkpointLabel(cp) {
+    return cp === 0.25 ? '¼ de la rencontre' : cp === 0.5 ? 'Mi-match' : '¾ de la rencontre';
+  }
+
+  /** Panneau de coach à chaque étape (¼, mi-match, ¾) : consignes tactiques
+   * toujours possibles, changements de titulaires quand le moteur de la
+   * rencontre le permet (pas au base-ball/cricket/tir à l'arc, dont les
+   * intervenants ne sont pas suivis un par un de la même façon). */
+  function checkpointHtml() {
+    var club = M.club, sp = M.sport;
+    var fs = G.action.formatScore ? G.action.formatScore(M) : { you: M.score.you, opp: M.score.opp, detail: '' };
+    var h = '<div class="play-card"><div class="pc-title">⏸️ ' + checkpointLabel(M.checkpoint) + '</div>' +
+      '<div class="mute2" style="text-align:center;margin:4px 0 10px">' +
+      u.esc(shortName(club.name)) + ' ' + fs.you + ' - ' + fs.opp + ' ' +
+      u.esc(shortName(M.oppName)) + (fs.detail ? '<br>' + fs.detail : '') + '</div>';
+
+    if (sp.tactics) {
+      [['mentality', 'Approche'], ['pressing', 'Organisation'], ['style', 'Style de jeu']].forEach(function (g) {
+        var key = g[0], opts = sp.tactics[key];
+        h += '<div class="mute2" style="margin:8px 0 4px">' + g[1] + '</div>' +
+          '<div class="pl-tactics" style="flex-wrap:wrap">';
+        opts.forEach(function (o, idx) {
+          h += '<button class="pl-tac-btn' + (club.tactics[key] === idx ? ' active' : '') +
+            '" data-act="pl.tac" data-k="' + key + '" data-v="' + idx + '">' + u.esc(o) + '</button>';
+        });
+        h += '</div>';
+      });
+    }
+
+    if (!M.F.diamond && !M.F.cricket && !M.F.archery) {
+      var bench = G.manager.bench(club).filter(function (p) { return !p.injury; });
+      var starters = G.manager.starters(club);
+      if (bench.length && starters.length > 1) {
+        h += '<div class="mute2" style="margin:10px 0 4px">🔄 Changement — ' +
+          (pendingSubOut ? 'qui fait entrer ?' : 'qui sort ?') + '</div>';
+        if (!pendingSubOut) {
+          starters.forEach(function (p) {
+            h += '<button class="btn sm full" style="margin-bottom:4px" data-act="pl.subout" data-id="' +
+              p.id + '">' + u.esc(p.name) + ' <span class="mute2">(forme ' +
+              Math.round(p.energy) + '%)</span></button>';
+          });
+        } else {
+          h += '<button class="btn xs" style="margin-bottom:6px" data-act="pl.subcancel">← Annuler</button>';
+          bench.forEach(function (p) {
+            h += '<button class="btn sm full" style="margin-bottom:4px" data-act="pl.subin" data-id="' +
+              p.id + '">' + u.esc(p.name) + ' <span class="mute2">(forme ' +
+              Math.round(p.energy) + '%)</span></button>';
+          });
+        }
+      }
+    }
+
+    h += '<button class="btn primary full" style="margin-top:12px" data-act="pl.contcheck">▶️ Continuer</button></div>';
+    return h;
+  }
+
+  function showCheckpoint() {
+    checkpointOpen = true;
+    pendingSubOut = null;
+    el.checkpoint.innerHTML = checkpointHtml();
+    el.checkpoint.style.display = 'flex';
+  }
+
+  function refreshCheckpoint() {
+    if (!checkpointOpen) return;
+    el.checkpoint.innerHTML = checkpointHtml();
+  }
+
+  function hideCheckpoint() {
+    checkpointOpen = false;
+    pendingSubOut = null;
+    el.checkpoint.style.display = 'none';
+    el.checkpoint.innerHTML = '';
+  }
+
+  ui.act('pl.tac', function (d) {
+    if (!M || !M.club) return;
+    var v = parseInt(d.v, 10);
+    if (d.k === 'mentality' && G.action.setMentality) G.action.setMentality(M, v);
+    else M.club.tactics[d.k] = v;
+    refreshCheckpoint();
+  });
+  ui.act('pl.subout', function (d) { pendingSubOut = d.id; refreshCheckpoint(); });
+  ui.act('pl.subcancel', function () { pendingSubOut = null; refreshCheckpoint(); });
+  ui.act('pl.subin', function (d) {
+    if (!pendingSubOut || !M) return;
+    G.action.substituteFromBench(M, pendingSubOut, d.id);
+    pendingSubOut = null;
+    refreshCheckpoint();
+  });
+  ui.act('pl.contcheck', function () {
+    if (!M) return;
+    M.checkpoint = null;
+    M.paused = false;
+    hideCheckpoint();
+  });
+
   /* ============================================================== FIN ==== */
 
   function showEnd() {
@@ -268,9 +390,13 @@ G.play = (function () {
     var win, title;
 
     if (mode === 'match') {
+      var fsEnd = G.action.formatScore ? G.action.formatScore(M) : { you: M.score.you, opp: M.score.opp };
       win = M.score.you > M.score.opp;
       title = win ? '🎉 Victoire' : M.score.you === M.score.opp ? '🤝 Match nul' : '😞 Défaite';
-      title += ' · ' + M.score.you + ' - ' + M.score.opp;
+      title += ' · ' + fsEnd.you + ' - ' + fsEnd.opp;
+      if (M.setsHistory && M.setsHistory.length) {
+        title += ' (' + M.setsHistory.map(function (s) { return s.you + '-' + s.opp; }).join(', ') + ')';
+      }
     } else {
       var c = M.user;
       win = c && c.pos <= 3;
@@ -337,6 +463,7 @@ G.play = (function () {
     ensureDom();
     el.root.classList.remove('hidden');
     el.end.style.display = 'none';
+    hideCheckpoint();
     var quit0 = document.querySelector('.play-quit');
     var skip0 = document.querySelector('.play-skip');
     if (quit0) quit0.style.display = '';
@@ -368,6 +495,7 @@ G.play = (function () {
 
   function close() {
     if (raf) { cancelAnimationFrame(raf); raf = null; }
+    hideCheckpoint();
     /* Une rencontre quittée en cours de route est terminée par l'adjoint. */
     if (M && !M.done) {
       if (mode === 'match') G.action.skipToEnd(M);
