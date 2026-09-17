@@ -1769,15 +1769,28 @@ G.action = (function () {
     if (F.diamond) { drawDiamond(M, ctx, cw, ch); return; }
     if (F.cricket) { drawCricket(M, ctx, cw, ch); return; }
     if (F.archery) { drawArchery(M, ctx, cw, ch); return; }
-    /* Caméra rapprochée : on suit l'action de près, comme dans un jeu de
-       sport mobile, plutôt que de regarder tout le terrain de loin. */
-    var visibleW = Math.min(F.w, F.view || F.w * 0.5);
-    var scale = cw / visibleW;
-    var visibleH = ch / scale;
 
-    var camX = u.clamp(M.cam.x, visibleW / 2, F.w - visibleW / 2);
-    var camY = u.clamp(M.cam.y, visibleH / 2, F.h - visibleH / 2);
-    if (visibleH >= F.h) camY = F.h / 2;
+    var scale, camX, camY;
+    if (F.racket) {
+      /* Sports de raquette : seulement deux joueurs, plantés chacun près
+         d'une extrémité du terrain. Une caméra resserrée qui suit le ballon
+         les fait sortir du cadre en permanence (aucun des deux n'est visible
+         au coup d'envoi, par exemple) : on affiche tout le terrain d'un
+         coup, comme une retransmission télé, plutôt que de zoomer. */
+      scale = Math.min(cw / F.w, ch / F.h);
+      camX = F.w / 2;
+      camY = F.h / 2;
+    } else {
+      /* Caméra rapprochée : on suit l'action de près, comme dans un jeu de
+         sport mobile, plutôt que de regarder tout le terrain de loin. */
+      var visibleW = Math.min(F.w, F.view || F.w * 0.5);
+      scale = cw / visibleW;
+      var visibleH = ch / scale;
+
+      camX = u.clamp(M.cam.x, visibleW / 2, F.w - visibleW / 2);
+      camY = u.clamp(M.cam.y, visibleH / 2, F.h - visibleH / 2);
+      if (visibleH >= F.h) camY = F.h / 2;
+    }
 
     function sx(x) { return (x - camX) * scale + cw / 2; }
     function sy(y) { return ch / 2 - (y - camY) * scale; }   // y croît vers le haut
