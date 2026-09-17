@@ -238,6 +238,14 @@ G.market = (function () {
     return { abs: abs, pct: cost > 0 ? (abs / cost) * 100 : 0, cost: cost };
   }
 
+  /** Valeur totale du portefeuille (toutes les lignes détenues, au cours
+   * actuel) — utilisée notamment pour déterminer le régime fiscal. */
+  function totalValue() {
+    var total = 0;
+    for (var id in G.state.market.stocks) total += positionValue(id);
+    return total;
+  }
+
   /** Sparkline SVG du cours (utilisée par l'interface). */
   function sparkline(id, w, hgt) {
     var h = hold(id);
@@ -265,6 +273,6 @@ G.market = (function () {
     dayChange: dayChange, trend: trend, positionValue: positionValue,
     positionPnl: positionPnl, totalPnl: totalPnl, sparkline: sparkline,
     addBoost: addBoost, pushNews: pushNews, sectorSupport: sectorSupport,
-    payDividends: payDividends
+    payDividends: payDividends, totalValue: totalValue
   };
 })();

@@ -64,12 +64,22 @@ window.G = window.G || {};
   function taxCard() {
     var t = G.state.tax;
     if (!t) return '';
+    var reg = G.tax.regime();
+
+    if (reg.simplified) {
+      return '<div class="card tight" style="margin-bottom:10px" data-act="tx.detail">' +
+        '<div class="row between"><span class="mute2">🧾 Régime fiscal simplifié</span>' +
+        '<b class="good">' + u.dec(reg.rate * 100, 0) + ' %</b></div>' +
+        '<div class="mute2" style="margin-top:2px;color:var(--green)">Impôts payés automatiquement — ' +
+        'aucune action requise.</div></div>';
+    }
+
     if (t.due <= 0) {
       var payable = G.tax.payableNow();
-      return '<div class="card tight" style="margin-bottom:10px">' +
-        '<div class="row between"><span class="mute2">🧾 Prochains impôts</span>' +
+      return '<div class="card tight" style="margin-bottom:10px" data-act="tx.detail">' +
+        '<div class="row between"><span class="mute2">🧾 Prochains impôts · régime de base</span>' +
         '<b>' + u.fmtDuration(Math.max(0, t.dueIn) * 1000) + '</b></div>' +
-        '<div class="mute2" style="margin-top:2px">' + u.dec(G.tax.RATE * 100, 0) +
+        '<div class="mute2" style="margin-top:2px">' + u.dec(reg.rate * 100, 0) +
         ' % des revenus accumulés depuis la dernière échéance' +
         (payable > 0 ? ' · ' + u.fmtMoney(payable) + ' pour l\'instant' : '') + '.</div>' +
         (payable > 0
@@ -80,7 +90,8 @@ window.G = window.G || {};
     }
     var cls = t.overdue ? 'bad' : '';
     return '<div class="card tight" style="margin-bottom:10px;' +
-      (t.overdue ? 'border-color:rgba(255,107,107,.5)' : 'border-color:rgba(240,180,41,.4)') + '">' +
+      (t.overdue ? 'border-color:rgba(255,107,107,.5)' : 'border-color:rgba(240,180,41,.4)') +
+      '" data-act="tx.detail">' +
       '<div class="row between"><b class="' + cls + '">🧾 Impôts dus : ' +
       u.fmtMoney(t.due) + '</b></div>' +
       '<div class="mute2" style="margin-top:2px">' +
@@ -91,6 +102,51 @@ window.G = window.G || {};
       '<button class="btn sm full ' + (t.overdue ? 'danger' : 'primary') +
       '" style="margin-top:6px" data-act="tx.pay">Payer maintenant</button></div>';
   }
+
+  /** Ligne d'actif de la fiche détaillée du régime fiscal (voir tx.detail) :
+   * la même valeur qui fait basculer le régime dès qu'un seul des trois
+   * dépasse son seuil. */
+  function taxAssetRow(icon, label, value, threshold) {
+    var over = value >= threshold;
+    return '<div class="item"><div class="item-icon">' + icon + '</div>' +
+      '<div class="item-main"><div class="t">' + label + '</div>' +
+      '<div class="s">' + u.fmtMoney(value) + ' · seuil ' + u.fmtMoney(threshold) + '</div></div>' +
+      '<div class="item-side ' + (over ? 'bad' : 'good') + '">' + (over ? '⚠️' : '✓') + '</div></div>';
+  }
+
+  function taxDetailHtml() {
+    var reg = G.tax.regime();
+    var th = G.tax.THRESHOLDS;
+    var h = '<div style="text-align:center;margin-bottom:4px">' +
+      '<div class="mute2">Régime fiscal</div>' +
+      '<div style="font-size:19px;font-weight:800">' +
+      (reg.simplified ? 'simplifié (STS)' : 'de base (BTS)') + '</div></div>';
+
+    h += '<div class="' + (reg.simplified ? 'good' : '') + '" style="font-weight:700;margin-top:10px">' +
+      (reg.simplified ? 'Les impôts sont payés automatiquement'
+        : 'Vous devez payer les impôts vous-même') + '</div>' +
+      '<div class="mute2" style="margin-top:2px">' +
+      (reg.simplified
+        ? 'Aucune action n\'est requise de votre part pour payer les impôts.'
+        : 'Vous payez l\'impôt sur vos revenus vous-même, à chaque échéance.') + '</div>';
+
+    h += '<div class="card tight" style="text-align:center;margin-top:12px">' +
+      '<div style="font-size:30px;font-weight:900">' + u.dec(reg.rate * 100, 0) + ' %</div>' +
+      '<div class="mute2">Montant de l\'impôt</div></div>';
+
+    h += '<div class="card-head" style="margin-top:14px">Patrimoine</div>' +
+      '<div class="mute2" style="margin-bottom:4px">Repassez sous les trois seuils pour ' +
+      'revenir (ou rester) au régime simplifié.</div>';
+    h += taxAssetRow('🏭', 'Entreprises', reg.business, th.business);
+    h += taxAssetRow('📈', 'Actions', reg.stocks, th.stocks);
+    h += taxAssetRow('🏠', 'Immobilier', reg.realestate, th.realestate);
+
+    return h;
+  }
+
+  ui.act('tx.detail', function () {
+    ui.modal('🧾 Impôts', taxDetailHtml(), {});
+  });
 
   ui.act('tx.open', function () {
     var t = G.state.tax;

@@ -1,6 +1,13 @@
 /* Impôts personnels — un prélèvement récurrent sur tout ce que gagne le
- * joueur, à régler tous les 3 à 4 jours. Non payé dans le délai de grâce, les
- * revenus passifs (entreprises et loyers) s'arrêtent jusqu'au paiement.
+ * joueur, à régler tous les 3 à 4 jours.
+ *
+ * Deux régimes, déterminés automatiquement par la taille du patrimoine :
+ *  - simplifié (STS) : tant que les entreprises, le portefeuille boursier et
+ *    l'immobilier restent sous leurs seuils, l'impôt est prélevé tout seul,
+ *    à taux réduit — aucune action, jamais de blocage.
+ *  - de base (BTS) : au-delà d'un seul de ces seuils, on repasse au régime
+ *    historique — taux plein, paiement manuel, revenus bloqués si le délai
+ *    de grâce expire.
  */
 window.G = window.G || {};
 
@@ -8,12 +15,31 @@ G.tax = (function () {
   'use strict';
   var u = G.util;
 
-  var RATE = 0.15;                     // 15 % des revenus du cycle
+  var RATE = 0.15;                     // 15 % des revenus du cycle, régime de base
+  var SIMPLIFIED_RATE = 0.05;          // 5 % en régime simplifié
   var MIN_PERIOD = 3 * 86400;          // 3 jours
   var MAX_PERIOD = 4 * 86400;          // 4 jours
   var GRACE_SECONDS = 24 * 3600;       // 24 h de sursis avant blocage des revenus
 
+  /* Franchir un seul de ces seuils bascule au régime de base. */
+  var THRESHOLDS = { business: 1e6, stocks: 2e6, realestate: 3e6 };
+
   function newPeriod() { return MIN_PERIOD + u.rnd() * (MAX_PERIOD - MIN_PERIOD); }
+
+  /** Régime fiscal actuel, déterminé par la taille du patrimoine plutôt que
+   * choisi par le joueur — voir THRESHOLDS. */
+  function regime() {
+    var business = G.business ? G.business.totalValue() : 0;
+    var stocks = G.market ? G.market.totalValue() : 0;
+    var realestate = G.realestate ? G.realestate.totalValue() : 0;
+    var simplified = business < THRESHOLDS.business &&
+      stocks < THRESHOLDS.stocks && realestate < THRESHOLDS.realestate;
+    return {
+      simplified: simplified,
+      rate: simplified ? SIMPLIFIED_RATE : RATE,
+      business: business, stocks: stocks, realestate: realestate
+    };
+  }
 
   /** Structure par défaut (fusionnée dans l'état de sauvegarde par u.defaults). */
   function defaults() {
@@ -70,7 +96,8 @@ G.tax = (function () {
 
   function issueBill(silent) {
     var t = state();
-    var amount = Math.round(t.cycleIncome * RATE);
+    var rate = regime().rate;
+    var amount = Math.round(t.cycleIncome * rate);
     t.cycleIncome = 0;
     t.dueIn = 0;
     if (amount <= 0) {
@@ -78,6 +105,25 @@ G.tax = (function () {
       t.dueIn = newPeriod();
       return;
     }
+
+    if (regime().simplified) {
+      /* Prélèvement automatique : si l'argent manque exceptionnellement (tout
+         dépensé entretemps), on reporte simplement le montant au cycle
+         suivant plutôt que de bloquer quoi que ce soit — le principe même du
+         régime simplifié est de n'exiger aucune action du joueur. */
+      if (G.eco.spend(amount, 'impots', 'Impôts (régime simplifié)', true)) {
+        t.totalPaid += amount;
+        t.lastAmount = amount;
+        if (!silent && G.ui) {
+          G.ui.toast('🧾 Impôts prélevés', u.fmtMoney(amount) + ' · régime simplifié', 'info');
+        }
+      } else {
+        t.cycleIncome += amount;
+      }
+      t.dueIn = newPeriod();
+      return;
+    }
+
     t.due = amount;
     t.graceLeft = GRACE_SECONDS;
     t.overdue = false;
@@ -94,7 +140,7 @@ G.tax = (function () {
     var t = state();
     if (!t) return 0;
     if (t.due > 0) return t.due;
-    return Math.round(t.cycleIncome * RATE);
+    return Math.round(t.cycleIncome * regime().rate);
   }
 
   /** Règle l'impôt avec l'argent personnel du joueur : l'échéance en attente
@@ -119,7 +165,7 @@ G.tax = (function () {
       return true;
     }
 
-    var amount = Math.round(t.cycleIncome * RATE);
+    var amount = Math.round(t.cycleIncome * regime().rate);
     if (amount <= 0) return true;
     if (!G.eco.spend(amount, 'impots', 'Paiement anticipé des impôts')) return false;
     t.totalPaid += amount;
@@ -134,7 +180,8 @@ G.tax = (function () {
   }
 
   return {
-    RATE: RATE, GRACE_SECONDS: GRACE_SECONDS,
+    RATE: RATE, SIMPLIFIED_RATE: SIMPLIFIED_RATE, GRACE_SECONDS: GRACE_SECONDS,
+    THRESHOLDS: THRESHOLDS, regime: regime,
     defaults: defaults, recordIncome: recordIncome,
     isBlocked: isBlocked, isDue: isDue, tick: tick, pay: pay, payableNow: payableNow
   };
