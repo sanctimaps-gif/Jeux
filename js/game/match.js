@@ -115,7 +115,7 @@ G.match = (function () {
 
   /** Fait avancer le match d'une séquence. */
   function step(M) {
-    if (M.done) return M;
+    if (M.done || M.decision) return M;
 
     var sport = M.sport;
     var minPerSeg = segmentMinutes(M);
@@ -338,65 +338,120 @@ G.match = (function () {
     return diff > 0 ? 'ahead' : diff < 0 ? 'behind' : 'level';
   }
 
-  function earlyComment(M) {
+  /** Raccourci pour construire une option de décision (voir G.race.decide,
+   * même forme). */
+  function opt(label, hint, apply) { return { label: label, hint: hint, apply: apply }; }
+
+  /** Consignes de début de match : la main revient au joueur-entraîneur, qui
+   * choisit vraiment l'approche plutôt que de la voir appliquée d'office. */
+  function earlyDecision(M) {
     var diff = M.score.you - M.score.opp;
     var sit = situationBank(diff);
     var pools = { ahead: EARLY_AHEAD, behind: EARLY_BEHIND, level: EARLY_LEVEL };
-    var effects = {
-      ahead: function (m) { m.mods.def += 2; m.mods.att -= 0.8; },
-      behind: function (m) { m.mods.att += 2; m.mods.def -= 0.8; },
-      level: function (m) { m.mods.energy += 0.6; m.mods.att += 0.6; m.mods.def += 0.6; }
+    var text = u.pick(pools[sit]).replace(/\{u\}/g, unitWord(M.sport, false));
+    return {
+      title: '🗣️ Consignes de début de match',
+      text: text,
+      options: [
+        opt('Presser plus haut', 'Plus tranchant, moins solide derrière', function (m) {
+          m.mods.att += 3; m.mods.def -= 1.5;
+          push(m, m.minute, '🗣️ Consigne : presser plus haut', 'info');
+        }),
+        opt('Resserrer les lignes', 'Plus solide, moins dangereux devant', function (m) {
+          m.mods.def += 3; m.mods.att -= 1.5;
+          push(m, m.minute, '🗣️ Consigne : resserrer les lignes', 'info');
+        }),
+        opt('Garder le plan de jeu', 'Petit regain d\'énergie collectif', function (m) {
+          m.mods.energy += 1.5; m.mods.att += 0.6; m.mods.def += 0.6;
+          push(m, m.minute, '🗣️ Consigne : garder le plan de jeu', 'info');
+        })
+      ]
     };
-    comment(M, 'early:' + sit, pools[sit], effects[sit]);
   }
 
-  function halfTimeComment(M) {
+  /** Consignes de mi-temps : idem, choix réel du joueur au vestiaire. */
+  function halfDecision(M) {
     var diff = M.score.you - M.score.opp;
     var sit = situationBank(diff);
     var pools = { ahead: HALF_WINNING, behind: HALF_LOSING, level: HALF_LEVEL };
-    var effects = {
-      ahead: function (m) { m.mods.def += 3.5; m.mods.att -= 2; m.postMoraleBoost = true; },
-      behind: function (m) {
-        m.mods.att += 3.5; m.mods.def -= 2.5;
-        m.mom = u.clamp(m.mom + 0.3, -1, 1);
-        if (u.chance(0.4)) m.postMoraleRisk = true; else m.postMoraleBoost = true;
-      },
-      level: function (m) { m.mods.att += 1; m.mods.def += 1; m.postMoraleBoost = true; }
+    var text = u.pick(pools[sit]);
+    return {
+      title: '🏟️ Vestiaire — mi-temps',
+      text: text,
+      options: [
+        opt('Tout miser sur l\'attaque', 'Plus de buts, plus de risques derrière', function (m) {
+          m.mods.att += 4; m.mods.def -= 2.5; m.mom = u.clamp(m.mom + 0.25, -1, 1);
+          if (u.chance(0.4)) m.postMoraleRisk = true; else m.postMoraleBoost = true;
+          push(m, m.minute, '🗣️ Consigne de mi-temps : tout miser sur l\'attaque', 'info');
+        }),
+        opt('Verrouiller la défense', 'Plus solide, moins dangereux devant', function (m) {
+          m.mods.def += 4; m.mods.att -= 2;
+          m.postMoraleBoost = true;
+          push(m, m.minute, '🗣️ Consigne de mi-temps : verrouiller la défense', 'info');
+        }),
+        opt('Rester sur le plan initial', 'Petits ajustements, sans tout bouleverser', function (m) {
+          m.mods.att += 1; m.mods.def += 1;
+          m.postMoraleBoost = true;
+          push(m, m.minute, '🗣️ Consigne de mi-temps : rester sur le plan initial', 'info');
+        })
+      ]
     };
-    comment(M, 'half:' + sit, pools[sit], effects[sit]);
   }
 
-  function lateComment(M) {
+  /** Dernières consignes, avec en plus le choix d'un changement si le banc
+   * le permet — auparavant décidé automatiquement sans le joueur. */
+  function lateDecision(M) {
     var diff = M.score.you - M.score.opp;
     var sit = situationBank(diff);
     var pools = { ahead: LATE_AHEAD, behind: LATE_BEHIND, level: LATE_LEVEL };
+    var text = u.pick(pools[sit]).replace(/\{u\}/g, unitWord(M.sport, false));
 
-    /* L'encadrement fait parfois entrer un remplaçant de sa propre initiative :
-       le joueur n'est ici que spectateur, il ne choisit rien. */
-    var benchList = G.manager.bench(M.club);
+    var options = [
+      opt('Pousser jusqu\'au bout', 'Tous les risques pour aller chercher le résultat', function (m) {
+        m.mods.att += 4.5; m.mods.def -= 3.5;
+        push(m, m.minute, '🗣️ Dernière consigne : pousser jusqu\'au bout', 'info');
+      }),
+      opt('Gérer la fin de match', 'On sécurise ce qui peut l\'être', function (m) {
+        m.mods.def += 3; m.mods.att -= 2;
+        push(m, m.minute, '🗣️ Dernière consigne : gérer la fin de match', 'info');
+      })
+    ];
+
     var sport = M.sport;
-    if (M.subsLeft > 0 && benchList.length && u.chance(0.55)) {
+    var benchList = G.manager.bench(M.club).filter(function (p) { return !p.injury; });
+    if (M.subsLeft > 0 && benchList.length) {
       var best = u.sortBy(benchList, function (p) { return G.manager.effOvr(p, sport); }, true)[0];
       var tired = u.sortBy(G.manager.starters(M.club), function (p) { return p.energy; })[0];
-      if (best && tired && tired.energy < 70) {
-        M.subsLeft--;
-        tired.starter = false;
-        best.starter = true;
-        tired.energy = u.clamp(tired.energy + 12, 0, 100);
-        var delta = (G.manager.effOvr(best, sport) - G.manager.effOvr(tired, sport)) * 0.10;
-        M.mods.att += delta;
-        M.mods.def += delta * 0.8;
-        push(M, M.minute, '🔁 Changement à l\'initiative du banc : ' + best.name +
-          ' remplace ' + tired.name, 'info');
+      if (best && tired) {
+        options.push(opt('Faire entrer ' + best.name,
+          best.name + ' remplace ' + tired.name + ' (forme ' + Math.round(tired.energy) + ' %)',
+          function (m) {
+            m.subsLeft--;
+            tired.starter = false; best.starter = true;
+            tired.energy = u.clamp(tired.energy + 12, 0, 100);
+            var delta = (G.manager.effOvr(best, sport) - G.manager.effOvr(tired, sport)) * 0.10;
+            m.mods.att += delta; m.mods.def += delta * 0.8;
+            push(m, m.minute, '🔁 ' + best.name + ' remplace ' + tired.name, 'info');
+          }));
       }
     }
 
-    var effects = {
-      ahead: function (m) { m.mods.def += 3; m.mods.att -= 2; },
-      behind: function (m) { m.mods.att += 4.5; m.mods.def -= 3.5; },
-      level: function (m) { m.mods.att += 0.8; m.mods.def += 0.8; }
+    return { title: '⏱️ Dernières consignes', text: text, options: options };
+  }
+
+  /** Incident propre au sport (penalty, exclusion, pénalité...) : quand la
+   * discipline propose plusieurs approches différentes (voir INCIDENT_BANKS),
+   * c'est un vrai choix, pas un tirage au sort dans le dos du joueur. */
+  function incidentDecision(M) {
+    var bank = INCIDENT_BANKS[M.sport.id];
+    if (!bank || bank.length < 2) return null;
+    return {
+      title: '🗣️ Décision à prendre',
+      text: 'Un temps fort de la rencontre réclame une consigne immédiate.',
+      options: bank.map(function (entry) {
+        return opt(entry.text, '', entry.effect || function () {});
+      })
     };
-    comment(M, 'late:' + sit, pools[sit], effects[sit]);
   }
 
   var INCIDENT_BANKS = {
@@ -461,14 +516,10 @@ G.match = (function () {
     ]
   };
 
-  function incidentComment(M) {
-    var bank = INCIDENT_BANKS[M.sport.id];
-    if (bank) {
-      var entry = pickComment(M.club, 'incident:' + M.sport.id, bank);
-      push(M, M.minute, '🗣️ ' + entry.text, 'info');
-      if (entry.effect) entry.effect(M);
-      return;
-    }
+  /** Utilisée seulement quand la discipline n'a pas de banque d'incidents à
+   * choix multiples (voir incidentDecision) : pure ambiance, sans choix
+   * possible puisqu'il n'y a rien de réel à départager. */
+  function incidentFlavor(M) {
     comment(M, 'incident:generic', INCIDENT_GENERIC, null);
   }
 
@@ -484,8 +535,9 @@ G.match = (function () {
   }
 
   /**
-   * Places clés du match où l'encadrement technique commente et ajuste
-   * légèrement les organismes — le joueur n'intervient jamais : il regarde.
+   * Places clés du match où la main revient vraiment au joueur-entraîneur
+   * (consignes, remplacement) : le match se met en pause sur M.decision
+   * jusqu'à ce qu'il choisisse une option (voir decide()).
    */
   function maybeDecision(M) {
     var seg = M.seg, total = M.segments;
@@ -493,28 +545,31 @@ G.match = (function () {
 
     if (seg === Math.floor(total * 0.28) && !M.decisionsDone.early) {
       M.decisionsDone.early = true;
-      earlyComment(M);
+      M.decision = earlyDecision(M);
       return;
     }
     if (seg === half && !M.decisionsDone.half) {
       M.decisionsDone.half = true;
-      halfTimeComment(M);
+      M.decision = halfDecision(M);
       return;
     }
     if (seg === Math.floor(total * 0.78) && !M.decisionsDone.late) {
       M.decisionsDone.late = true;
-      lateComment(M);
+      M.decision = lateDecision(M);
       return;
     }
-    /* Incident aléatoire propre au sport. */
+    /* Incident aléatoire propre au sport : un vrai choix si la discipline a
+       plusieurs approches possibles, sinon une simple touche d'ambiance. */
     if (seg > 2 && seg < total - 1 && !M.decisionsDone['inc' + seg] && u.chance(0.10)) {
       M.decisionsDone['inc' + seg] = true;
-      incidentComment(M);
+      var dec = incidentDecision(M);
+      if (dec) M.decision = dec;
+      else incidentFlavor(M);
     }
   }
 
-  /** Conservée pour compatibilité (matchs joués en direct) : n'a plus jamais
-   * de choix à appliquer puisque M.decision n'est plus jamais renseigné. */
+  /** Applique l'option choisie par le joueur à une étape clé (voir
+   * maybeDecision) et relance le déroulement du match. */
   function decide(M, index) {
     if (!M.decision) return M;
     var o = M.decision.options && M.decision.options[index];
@@ -556,7 +611,14 @@ G.match = (function () {
     var M = create(club);
     if (!M) return null;
     var guard = 0;
-    while (!M.done && guard < 500) { step(M); guard++; }
+    while (!M.done && guard < 500) {
+      /* Personne ne regarde une simulation rapide : on tranche nous-mêmes
+         avec une option raisonnable plutôt que de rester bloqué sur la
+         décision (voir G.race.quickSim, même logique). */
+      if (M.decision) decide(M, Math.min(1, M.decision.options.length - 1));
+      else step(M);
+      guard++;
+    }
     if (!M.done) finish(M);
     return M;
   }
