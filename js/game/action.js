@@ -318,6 +318,20 @@ G.action = (function () {
     return best;
   }
 
+  /** Adversaire de champ (jamais le gardien, qu'on ne va pas marquer) le
+   * plus proche d'un point donné : sert au marquage individuel des
+   * défenseurs (voir aiTarget). */
+  function nearestOpponentOutfield(M, x, y, myTeam) {
+    var best = null, bd = 1e9;
+    for (var i = 0; i < M.players.length; i++) {
+      var p = M.players[i];
+      if (p.team === myTeam || p.role === 'gk') continue;
+      var d = Math.hypot(p.x - x, p.y - y);
+      if (d < bd) { bd = d; best = p; }
+    }
+    return best;
+  }
+
   /** But visé par une équipe (l'équipe 0 attaque vers le haut du terrain). */
   function goalOf(M, team) {
     return { x: M.F.w / 2, y: team === 0 ? M.F.h : 0 };
@@ -714,12 +728,32 @@ G.action = (function () {
       };
     }
 
-    /* Phase défensive : le plus proche presse, les autres tiennent le bloc. */
+    /* Phase défensive : le plus proche presse le porteur. */
     var chaser = nearestPlayer(M, b.x, b.y, p.team);
     if (chaser === p) {
       var t = b.owner || b;
       return { x: t.x, y: t.y, sprint: true };
     }
+
+    /* Les défenseurs ne se contentent pas de dériver vers le ballon : ils
+       marquent l'adversaire le plus proche d'eux, en se plaçant côté but
+       (entre lui et leur propre cage) pour vraiment gêner sa progression.
+       Si c'est justement lui qui porte le ballon, on le presse directement
+       au lieu de rester à distance. */
+    if (p.role === 'def') {
+      var mark = nearestOpponentOutfield(M, p.x, p.y, p.team);
+      if (mark) {
+        if (mark === b.owner) return { x: mark.x, y: mark.y, sprint: true };
+        /* Plus près du corps quand le danger se rapproche de la cage. */
+        var danger = 1 - u.clamp(Math.abs(mark.y - own.y) / (F.h * 0.4), 0, 1);
+        var markTight = u.lerp(0.7, 0.92, danger);
+        return {
+          x: u.clamp(u.lerp(own.x, mark.x, markTight), 1, F.w - 1),
+          y: u.clamp(u.lerp(own.y, mark.y, markTight), 1, F.h - 1)
+        };
+      }
+    }
+
     return {
       x: u.clamp(p.home.x * 0.6 + b.x * 0.4, 1, F.w - 1),
       y: u.clamp(p.home.y * 0.55 + b.y * 0.45, 1, F.h - 1)

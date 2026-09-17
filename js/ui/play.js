@@ -243,25 +243,14 @@ G.play = (function () {
 
   function renderTop() {
     if (mode === 'match') {
+      /* Juste le score, sans bandeau ni ligne de détail : le reste
+         (chrono, possession, tirs...) reste consultable via le ℹ️. */
       var icon = (M.sport && M.sport.icon) ? M.sport.icon + ' ' : '';
       var fs = G.action.formatScore ? G.action.formatScore(M) : { you: M.score.you, opp: M.score.opp, detail: '' };
-      var sub;
-      if (M.F.diamond) {
-        var half = M.diamond.half % 2 === 0 ? 'haut' : 'bas';
-        sub = half + ' de la ' + M.diamond.inning + 'e manche · ' + M.diamond.outs + ' retrait(s) · ' +
-          'coups sûrs ' + M.stats.youShots + '-' + M.stats.oppShots;
-      } else if (fs.detail) {
-        sub = fs.detail;
-      } else {
-        var mins = Math.floor(M.clock);
-        sub = mins + "' / " + M.F.clock + "' · possession " +
-          M.stats.poss + ' % · tirs ' + M.stats.youShots + '-' + M.stats.oppShots;
-      }
       el.top.innerHTML =
         '<div class="pl-score"><span class="pl-team">' + u.esc(shortName(M.club.name)) +
         '</span><b>' + icon + fs.you + ' - ' + fs.opp + '</b><span class="pl-team">' +
-        u.esc(shortName(M.oppName)) + '</span></div>' +
-        '<div class="pl-sub">' + sub + '</div>';
+        u.esc(shortName(M.oppName)) + '</span></div>';
     } else {
       var c = M.user;
       el.top.innerHTML =
@@ -484,6 +473,10 @@ G.play = (function () {
     el.btns.style.display = mode === 'race' ? 'flex' : 'none';
     el.btns.innerHTML = controlsHtml(sportId);
     el.pad.style.display = 'none';
+    /* Plus de bandeau opaque en match : le score flotte seul au-dessus de
+       l'animation, comme demandé — la course garde son bandeau (tours,
+       vitesse, gommes). */
+    el.top.classList.toggle('pl-top-bare', mode === 'match');
     /* Pas de commentaires écrits pendant un match regardé (voir frame()) :
        on repart d'un bandeau vide, jamais du résidu d'une course précédente. */
     el.feed.textContent = '';

@@ -35,15 +35,16 @@ window.G = window.G || {};
       'compétitions internationales. Plusieurs clubs sont possibles, même dans le ' +
       'même sport et le même pays.</div></div>';
 
-    /* Étape 1 : la discipline. */
-    h += '<div class="card-head">1 · Discipline</div><div class="sub-tabs">';
+    /* Étape 1 : la discipline — en liste, comme les pays juste après, plutôt
+       qu'une rangée de pastilles à faire défiler. */
+    h += '<div class="card-head">1 · Discipline</div>';
     for (var i = 0; i < G.DATA.sports.length; i++) {
       var sp = G.DATA.sports[i];
-      h += '<button class="sub' + (shop.sport === sp.id ? ' active' : '') +
-        '" data-act="mg.shopsport" data-id="' + sp.id + '">' + sp.icon + ' ' +
-        sp.name + '</button>';
+      h += '<div class="item' + (shop.sport === sp.id ? ' sel' : '') +
+        '" data-act="mg.shopsport" data-id="' + sp.id + '">' +
+        '<div class="item-icon">' + sp.icon + '</div>' +
+        '<div class="item-main"><div class="t">' + u.esc(sp.name) + '</div></div></div>';
     }
-    h += '</div>';
 
     if (!shop.sport) return h;
 

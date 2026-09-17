@@ -653,6 +653,10 @@ body.playing #hud, body.playing #tabs { display: none; }
   text-align: center; pointer-events: none;
   text-shadow: 0 1px 3px rgba(0,0,0,.9);
 }
+/* Match regardé : plus de bandeau opaque, juste le score qui flotte. */
+.play-top.pl-top-bare {
+  background: none; padding-bottom: 0;
+}
 .pl-score {
   display: flex; align-items: center; justify-content: center; gap: 12px;
   font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums;
