@@ -15,7 +15,8 @@ G.play = (function () {
   var el = {};
   var raf = null;
   var last = 0;
-  var activeElapsed = 0;
+  var stuckSince = 0;
+  var lastProgressKey = null;
   var mode = null;         // 'match' | 'race'
   var M = null;            // état courant
   var joy = { active: false, id: null, cx: 0, cy: 0, dx: 0, dy: 0 };
@@ -182,28 +183,47 @@ G.play = (function () {
     el.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
+  /** Instantané très bon marché de « est-ce que la rencontre progresse
+   * vraiment ? » — la balle, le score, le chrono et le fil d'événements
+   * changent tous en permanence pendant une rencontre saine, quel que soit
+   * le sport (continue, par manches ou tour par tour). */
+  function progressKey() {
+    if (mode === 'match') {
+      var b = M.ball;
+      return M.clock.toFixed(3) + '|' + (b ? b.x.toFixed(2) + ',' + b.y.toFixed(2) : '') +
+        '|' + M.score.you + ',' + M.score.opp + '|' + M.feed.length;
+    }
+    var c = M.user;
+    return M.time.toFixed(3) + '|' + (c ? c.x.toFixed(2) + ',' + c.y.toFixed(2) : '') + '|' + M.feed.length;
+  }
+
   function frame(ts) {
     if (!M) return;
     var dt = last ? Math.min(0.05, (ts - last) / 1000) : 0.016;
     last = ts;
-    /* Le temps passé sur le panneau coach (checkpoint) ne compte pas : ce
-       filet de sécurité ne doit se déclencher que si l'ANIMATION tourne
-       trop longtemps, pas si le joueur prend son temps pour ses consignes. */
-    if (!checkpointOpen) activeElapsed += dt;
 
-    /* Filet de sécurité ultime : quelle qu'en soit la cause (même une que
-       les autres garde-fous n'auraient pas prévue), une rencontre ne doit
-       jamais rester à l'écran plus de quelques minutes sans se conclure. */
-    if (!M.done && activeElapsed > 300) {
-      console.error('Rencontre trop longue, conclusion forcée après 5 minutes d\'animation.');
-      try {
-        if (mode === 'match') G.action.skipToEnd(M); else G.drive.skipToEnd(M);
-      } catch (errWatchdog) {
-        M.done = true;
+    /* Détecteur de blocage générique : si rien n'a changé dans l'état de la
+       rencontre pendant plus de 12 secondes réelles alors qu'elle n'est ni
+       terminée ni en pause (panneau coach), c'est qu'elle est bloquée —
+       quelle qu'en soit la cause, même une qu'aucun autre garde-fou
+       n'aurait prévue — et on la termine proprement plutôt que de laisser
+       les joueurs figés à l'écran sans explication. */
+    if (M.done || M.paused) {
+      stuckSince = 0;
+    } else {
+      var key = progressKey();
+      if (key !== lastProgressKey) { lastProgressKey = key; stuckSince = ts; }
+      if (stuckSince && ts - stuckSince > 12000) {
+        console.error('Rencontre bloquée (aucune progression depuis 12 s), conclusion forcée.');
+        try {
+          if (mode === 'match') G.action.skipToEnd(M); else G.drive.skipToEnd(M);
+        } catch (errWatchdog) {
+          M.done = true;
+        }
+        if (G.ui) G.ui.toast('⚠️ Incident technique', 'La rencontre a été terminée automatiquement', 'bad');
+        showEnd();
+        return;
       }
-      if (G.ui) G.ui.toast('⚠️ Incident technique', 'La rencontre a été terminée automatiquement', 'bad');
-      showEnd();
-      return;
     }
 
     try {
@@ -465,7 +485,8 @@ G.play = (function () {
     el.root.classList.remove('hidden');
     el.end.style.display = 'none';
     hideCheckpoint();
-    activeElapsed = 0;
+    stuckSince = 0;
+    lastProgressKey = null;
     var quit0 = document.querySelector('.play-quit');
     var skip0 = document.querySelector('.play-skip');
     if (quit0) quit0.style.display = '';
