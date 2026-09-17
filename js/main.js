@@ -20,10 +20,12 @@ window.G = window.G || {};
       'réseau de métro) fonctionnent autrement : on y achète des véhicules un par un, ' +
       'dans la limite de la capacité du garage, qui s\'agrandit contre paiement.'],
     ['🧾', 'Payer ses impôts',
-      '15 % de tout ce que vous gagnez, prélevés tous les 3 à 4 jours avec 24h de ' +
-      'sursis avant blocage des revenus. Vous pouvez aussi régler la note par ' +
-      'anticipation à tout moment depuis l\'onglet Entreprise : les impôts ne se ' +
-      'paient jamais tout seuls, c\'est toujours vous qui décidez.'],
+      'Deux régimes, selon la taille du patrimoine. En dessous des seuils ' +
+      '(entreprises, Bourse, immobilier), régime simplifié : 5 % prélevés tout seuls, ' +
+      'sans aucune action de votre part. Au-delà d\'un seul de ces seuils, régime de ' +
+      'base : 9 % à régler vous-même tous les 3 à 4 jours, avec 24h de sursis avant ' +
+      'blocage des revenus — vous pouvez aussi payer par anticipation depuis l\'onglet ' +
+      'Entreprise, ou regarder une publicité pour effacer la note en attente.'],
     ['🏛️', 'Fusionner ses entreprises',
       'Une douzaine de grands conglomérats ne s\'achètent pas directement : chacun naît ' +
       'd\'une combinaison différente de vos entreprises et flottes existantes (niveaux ' +

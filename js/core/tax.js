@@ -15,7 +15,7 @@ G.tax = (function () {
   'use strict';
   var u = G.util;
 
-  var RATE = 0.15;                     // 15 % des revenus du cycle, régime de base
+  var RATE = 0.09;                     // 9 % des revenus du cycle, régime de base
   var SIMPLIFIED_RATE = 0.05;          // 5 % en régime simplifié
   var MIN_PERIOD = 3 * 86400;          // 3 jours
   var MAX_PERIOD = 4 * 86400;          // 4 jours
