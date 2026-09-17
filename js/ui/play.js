@@ -137,14 +137,6 @@ G.play = (function () {
 
   ui.act('pl.primary', function () { primary(); });
   ui.act('pl.secondary', function () { secondary(); });
-  ui.act('pl.sprintOn', function () {
-    if (!M || mode !== 'race') return;
-    M.input.brake = true;
-  });
-  ui.act('pl.sprintOff', function () {
-    if (!M || mode !== 'race') return;
-    M.input.brake = false;
-  });
   ui.act('pl.pause', function () {
     if (!M) return;
     M.paused = !M.paused;
@@ -476,7 +468,7 @@ G.play = (function () {
     if (mode !== 'race') return '';
     return '<button class="pl-btn big" data-act="pl.primary">🚀 DRS</button>' +
       '<button class="pl-btn" data-act="pl.secondary">🔧 STAND</button>' +
-      '<button class="pl-btn hold" data-act="pl.sprintOn">🛑 FREIN</button>';
+      '<button class="pl-btn hold">🛑 FREIN</button>';
   }
 
   function open(sportId) {
@@ -502,10 +494,15 @@ G.play = (function () {
     resize();
     window.addEventListener('resize', resize);
 
-    /* Le bouton maintenu (frein) doit se relâcher au doigt levé. */
+    /* Bouton maintenu (frein) : câblé uniquement en pointerdown/up, jamais
+       en data-act « click » — le clic se déclenche après le relâchement, ce
+       qui réactiverait le frein juste après l'avoir coupé et empêcherait de
+       repartir. */
     var hold = el.btns.querySelector('.hold');
     if (hold) {
+      var on = function (ev) { if (mode === 'race' && M) M.input.brake = true; ev.preventDefault(); };
       var off = function () { if (mode === 'race' && M) M.input.brake = false; };
+      hold.addEventListener('pointerdown', on);
       hold.addEventListener('pointerup', off);
       hold.addEventListener('pointerleave', off);
       hold.addEventListener('pointercancel', off);

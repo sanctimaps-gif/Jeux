@@ -15,6 +15,37 @@ G.drive = (function () {
     '#7fdbda', '#cfd8e3'];
   var LAPS_DEFAULT = 3;
 
+  /** Ambiance visuelle propre à chaque discipline : un circuit automobile
+   * n'a pas le même décor qu'une course d'aviron en mer ou un relais sur
+   * piste d'athlétisme. `paved` donne le traitement route (gravier,
+   * vibreurs), `water` le traitement mer/rivière (bouées, pas de gravier ni
+   * de stands), et l'absence des deux donne l'ambiance stade (athlétisme). */
+  var ENVIRONMENTS = {
+    motorsport: {
+      bg: '#2f6b34', bgRain: '#25402c', surface: '#3b3f46',
+      runoff: '#d9c48f', runoffRain: '#8d7c58', paved: true, pitLane: true
+    },
+    motorsportUrbain: {
+      bg: '#5b6470', bgRain: '#3c4550', surface: '#33363c',
+      runoff: '#8a909a', runoffRain: '#5b6067', paved: true, pitLane: true
+    },
+    cyclisme: {
+      bg: '#4a8f3c', bgRain: '#2f5c2b', surface: '#54595e',
+      runoff: '#7bb15c', runoffRain: '#4d7a3f', paved: true, pitLane: false
+    },
+    relais: { bg: '#3f9142', bgRain: '#2c6b30', surface: '#b5451f', paved: false, water: false },
+    aviron: { bg: '#1f6f9c', bgRain: '#154a68', surface: '#3f92c2', paved: false, water: true },
+    canoekayak: { bg: '#1c7a8c', bgRain: '#154f5c', surface: '#3fa0b0', paved: false, water: true },
+    voile: { bg: '#0f4c75', bgRain: '#0a3550', surface: '#1c6fa8', paved: false, water: true }
+  };
+  /** Une même discipline peut changer d'ambiance selon le type de course :
+   * un Grand Prix urbain se déroule en ville (immeubles, bitume gris), pas
+   * au milieu de l'herbe comme un circuit classique. */
+  function envOf(sportId, raceType) {
+    if (sportId === 'motorsport' && raceType === 'urbain') return ENVIRONMENTS.motorsportUrbain;
+    return ENVIRONMENTS[sportId] || ENVIRONMENTS.motorsport;
+  }
+
   /* ======================================================== CIRCUIT ======= */
 
   /** Petit générateur pseudo-aléatoire déterministe (mulberry32), pour tirer
@@ -326,7 +357,7 @@ G.drive = (function () {
     centroid.x /= track.length; centroid.y /= track.length;
 
     var R = {
-      club: club, sport: sport, circuit: evt.circuit,
+      club: club, sport: sport, circuit: evt.circuit, raceType: evt.type,
       round: evt.round, total: evt.total,
       track: track, trackLen: trackLength(track),
       curv: trackCurvature(track), norms: trackNormals(track), centroid: centroid,
@@ -386,9 +417,10 @@ G.drive = (function () {
     } else {
       c.v = u.lerp(c.v, vmax, Math.min(1, dt * 0.9));
     }
-    /* Le volant mord moins à haute vitesse. */
+    /* Le volant mord moins à haute vitesse, mais répond fort et vite dès
+       qu'on braque, y compris à faible allure. */
     var grip = 1 - Math.min(0.45, c.v / 140);
-    c.angle += R.input.steer * dt * 2.6 * grip * Math.min(1, c.v / 12);
+    c.angle += R.input.steer * dt * 4.2 * grip * Math.min(1, c.v / 5);
     c.wear += dt * (0.6 + Math.abs(R.input.steer) * 1.4) * (R.input.boost ? 1.5 : 1);
   }
 
@@ -549,9 +581,9 @@ G.drive = (function () {
   /** Échappatoires de gravier sablonneux : une bande de largeur variable de
    * part et d'autre du ruban de piste, plus large dans les virages serrés
    * que sur les lignes droites, comme sur un vrai circuit. */
-  function drawGravelRunoff(ctx, track, curv, norms, rain) {
+  function drawGravelRunoff(ctx, track, curv, norms, color) {
     var n = track.length;
-    ctx.fillStyle = rain ? '#8d7c58' : '#d9c48f';
+    ctx.fillStyle = color;
     ctx.beginPath();
     var i, idx, w, px, py;
     for (i = 0; i <= n; i++) {
@@ -659,6 +691,90 @@ G.drive = (function () {
     }
   }
 
+  var BUOY_COLORS = ['#e0392b', '#f4c53a'];
+
+  /** Décor pour les courses en mer, rivière ou bassin (aviron, canoë-kayak,
+   * voile) : des bouées balisent le couloir, sans gravier ni vibreurs (qui
+   * n'ont pas de sens sur l'eau) — juste un léger clapot en surface. */
+  function drawWaterDecor(ctx, track, norms, time) {
+    var n = track.length;
+    ctx.strokeStyle = 'rgba(255,255,255,.12)';
+    ctx.lineWidth = 0.5;
+    for (var w = 0; w < n; w += 5) {
+      var p = track[w];
+      var wobble = Math.sin(p.x * 0.05 + p.y * 0.05 + time * 0.6) * 2;
+      ctx.beginPath();
+      ctx.moveTo(p.x - 4, p.y + wobble);
+      ctx.lineTo(p.x + 4, p.y - wobble);
+      ctx.stroke();
+    }
+    for (var i = 0; i < n; i += 7) {
+      var side = -1;
+      for (side = -1; side <= 1; side += 2) {
+        var bx = track[i].x + norms[i].x * (TRACK_W / 2 + 2.5) * side;
+        var by = track[i].y + norms[i].y * (TRACK_W / 2 + 2.5) * side;
+        ctx.fillStyle = BUOY_COLORS[(i / 7) % BUOY_COLORS.length | 0];
+        ctx.beginPath();
+        ctx.arc(bx, by, 1.1, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,.5)';
+        ctx.beginPath();
+        ctx.arc(bx - 0.3, by - 0.3, 0.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  /** Décor pour le relais en athlétisme : couloirs blancs sur la piste
+   * plutôt que des vibreurs de circuit, pas de gravier ni de stands. */
+  function drawStadiumLanes(ctx, track, norms) {
+    ctx.strokeStyle = 'rgba(255,255,255,.35)';
+    ctx.lineWidth = 0.35;
+    for (var lane = 1; lane <= 2; lane++) {
+      var off = (TRACK_W / 4) * lane - TRACK_W / 2;
+      ctx.beginPath();
+      for (var i = 0; i <= track.length; i++) {
+        var idx = i % track.length;
+        var px = track[idx].x + norms[idx].x * off;
+        var py = track[idx].y + norms[idx].y * off;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+  }
+
+  /** Icône du pilote/équipage selon la discipline (voiture, vélo, coureur,
+   * bateau d'aviron, kayak, voilier) : bien plus parlant qu'un simple
+   * rectangle générique, et cohérent avec les icônes utilisées ailleurs
+   * dans l'interface pour chaque sport. */
+  function drawVehicle(ctx, c, icon) {
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.fillStyle = 'rgba(0,0,0,.28)';
+    ctx.beginPath();
+    ctx.arc(0.3, 0.4, 2.7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = c.user ? '#f0b429'
+      : (c.isYou ? '#ffd166' : TEAM_COLORS[c.teamIdx % TEAM_COLORS.length]);
+    ctx.beginPath();
+    ctx.arc(0, 0, 2.7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.font = '3.6px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(icon, 0, 0.15);
+    ctx.restore();
+
+    if (c.user) {
+      ctx.strokeStyle = 'rgba(255,209,102,.9)';
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, 4.5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
   function draw(R, ctx, cw, ch) {
     var user = R.user;
     /* Vue rapprochée : on doit sentir la vitesse et voir les virages arriver. */
@@ -667,8 +783,11 @@ G.drive = (function () {
     var camY = user ? user.y : 0;
     var rot = user ? -user.angle - Math.PI / 2 : 0;
 
+    var env = envOf(R.sport.id, R.raceType);
+    var icon = R.sport.icon || '🏎️';
+
     ctx.clearRect(0, 0, cw, ch);
-    ctx.fillStyle = R.rain ? '#25402c' : '#2f6b34';
+    ctx.fillStyle = R.rain ? env.bgRain : env.bg;
     ctx.fillRect(0, 0, cw, ch);
 
     ctx.save();
@@ -680,11 +799,13 @@ G.drive = (function () {
     /* --- ruban de piste --- */
     var track = R.track, curv = R.curv, norms = R.norms, n = track.length, i;
 
-    drawGravelRunoff(ctx, track, curv, norms, R.rain);
+    if (env.paved) drawGravelRunoff(ctx, track, curv, norms, R.rain ? env.runoffRain : env.runoff);
+    else if (env.water) drawWaterDecor(ctx, track, norms, R.time);
+    else drawStadiumLanes(ctx, track, norms);
 
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
-    ctx.strokeStyle = '#3b3f46';
+    ctx.strokeStyle = env.surface;
     ctx.lineWidth = TRACK_W;
     ctx.beginPath();
     ctx.moveTo(track[0].x, track[0].y);
@@ -699,7 +820,7 @@ G.drive = (function () {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    drawKerbs(ctx, track, curv, norms);
+    if (env.paved) drawKerbs(ctx, track, curv, norms);
 
     /* Ligne de départ. */
     var a = track[0], b = track[1];
@@ -713,31 +834,13 @@ G.drive = (function () {
     }
     ctx.restore();
 
-    drawPitLane(ctx, track, norms, ang, R.centroid);
+    if (env.pitLane) drawPitLane(ctx, track, norms, ang, R.centroid);
 
-    /* --- voitures --- */
+    /* --- concurrents --- */
     for (i = 0; i < R.cars.length; i++) {
       var c = R.cars[i];
       if (c.out) continue;
-      ctx.save();
-      ctx.translate(c.x, c.y);
-      ctx.rotate(c.angle);
-      ctx.fillStyle = 'rgba(0,0,0,.35)';
-      ctx.fillRect(-2.2, -1.5, 5.4, 3.2);
-      ctx.fillStyle = c.user ? '#f0b429'
-        : (c.isYou ? '#ffd166' : TEAM_COLORS[c.teamIdx % TEAM_COLORS.length]);
-      ctx.fillRect(-2.6, -1.7, 5.4, 3.2);
-      ctx.fillStyle = '#1b2433';
-      ctx.fillRect(-0.4, -1.1, 1.8, 2.2);
-      ctx.restore();
-
-      if (c.user) {
-        ctx.strokeStyle = 'rgba(255,209,102,.9)';
-        ctx.lineWidth = 0.6;
-        ctx.beginPath();
-        ctx.arc(c.x, c.y, 4.5, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      drawVehicle(ctx, c, icon);
     }
     ctx.restore();
 
