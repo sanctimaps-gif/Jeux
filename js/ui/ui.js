@@ -209,10 +209,14 @@ G.ui = (function () {
   function isModalOpen() { return modalStack > 0; }
 
   /**
-   * Publicité interne, affichée périodiquement (voir G.loop). N'interrompt
-   * jamais un écran de jeu ou une modale déjà ouverte : réessayée plus tard.
-   * Diaporama de captures d'écran façon bande-annonce, avec légendes qui
-   * défilent en même temps que les images.
+   * Publicité interne, affichée périodiquement (voir G.loop) ou à la demande
+   * du joueur contre une récompense (voir par ex. tx.watchad). Dans le
+   * premier cas elle n'interrompt jamais un écran de jeu ou une modale déjà
+   * ouverte : réessayée plus tard. Diaporama de captures d'écran façon
+   * bande-annonce, avec légendes qui défilent en même temps que les images.
+   * @param {function} [onDone] appelé à la fermeture ; par défaut enchaîne
+   *   sur la prière du moment (comportement historique de l'interstitiel
+   *   périodique).
    */
   var AD_SLIDES = [
     { img: 'assets/ads/sm-5.jpg', cap: '🌍 4 628 saints recensés dans 91 pays' },
@@ -221,9 +225,14 @@ G.ui = (function () {
     { img: 'assets/ads/sm-2.jpg', cap: '📍 523 lieux, jusqu\'à la ville de naissance' },
     { img: 'assets/ads/sm-1.jpg', cap: '📖 La biographie de chaque saint, en un clic' }
   ];
+  var AD_SLIDE_MS = 2400;
 
-  function showAd() {
-    if (modalStack > 0) return false;
+  function showAd(onDone) {
+    /* Une pub demandée par le joueur (onDone fourni) ferme d'abord la modale
+       en cours au lieu d'être reportée : c'est un geste volontaire, pas un
+       interstitiel qui ne doit jamais interrompre. */
+    if (onDone) { if (modalStack > 0) closeModal(true); }
+    else if (modalStack > 0) return false;
     if (document.body.classList.contains('playing')) return false;
 
     var reel = '<div class="ad-reel">' +
@@ -249,19 +258,39 @@ G.ui = (function () {
       '<a href="https://sanctimaps.fr/" target="_blank" rel="noopener noreferrer" ' +
       'class="btn primary full" style="text-decoration:none;margin-top:10px">' +
       '🌐 Visiter sanctimaps.fr</a>' +
-      '<button class="btn full" style="margin-top:8px" data-act="ui.close">Fermer</button>';
+      (onDone
+        ? '<div class="mute2" id="ad-wait" style="text-align:center;margin-top:8px">' +
+          'Récompense dans ' + Math.ceil((AD_SLIDES.length - 1) * AD_SLIDE_MS / 1000) + ' s…</div>' +
+          '<button class="btn full" id="ad-close" style="margin-top:8px;display:none" ' +
+          'data-act="ui.close">Fermer et recevoir la récompense</button>'
+        : '<button class="btn full" style="margin-top:8px" data-act="ui.close">Fermer</button>');
 
-    var timer = null;
+    var timer = null, countdown = null, completed = false;
     modal('📢 Publicité', html, {
       after: function (root) {
         var idx = 0;
         var slides = root.querySelectorAll('.ad-slide');
         var dots = root.querySelectorAll('.ad-dot');
         var cap = root.querySelector('#ad-cap');
+        var wait = root.querySelector('#ad-wait');
+        if (onDone && wait) {
+          var left = Math.ceil((AD_SLIDES.length - 1) * AD_SLIDE_MS / 1000);
+          countdown = setInterval(function () {
+            left--;
+            if (left > 0) wait.textContent = 'Récompense dans ' + left + ' s…';
+          }, 1000);
+        }
         timer = setInterval(function () {
           if (idx >= AD_SLIDES.length - 1) {
             clearInterval(timer);
             timer = null;
+            if (countdown) { clearInterval(countdown); countdown = null; }
+            completed = true;
+            if (onDone) {
+              var close = root.querySelector('#ad-close');
+              if (wait) wait.style.display = 'none';
+              if (close) close.style.display = '';
+            }
             return;
           }
           slides[idx].classList.remove('active');
@@ -270,9 +299,15 @@ G.ui = (function () {
           slides[idx].classList.add('active');
           dots[idx].classList.add('on');
           cap.textContent = AD_SLIDES[idx].cap;
-        }, 2400);
+        }, AD_SLIDE_MS);
       },
-      onClose: function () { if (timer) clearInterval(timer); showPrayer(); }
+      onClose: function () {
+        if (timer) clearInterval(timer);
+        if (countdown) clearInterval(countdown);
+        /* Une pub fermée avant la fin (croix du bandeau, geste rapide) ne
+           donne pas la récompense : il faut l'avoir vue jusqu'au bout. */
+        if (onDone) { if (completed) onDone(); } else showPrayer();
+      }
     });
     return true;
   }

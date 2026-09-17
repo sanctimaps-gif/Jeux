@@ -99,8 +99,11 @@ window.G = window.G || {};
         ? 'Revenus bloqués : entreprises et loyers sont à l\'arrêt.'
         : 'Sursis : ' + u.fmtDuration(Math.max(0, t.graceLeft) * 1000) + ' restants.') +
       '</div>' +
-      '<button class="btn sm full ' + (t.overdue ? 'danger' : 'primary') +
-      '" style="margin-top:6px" data-act="tx.pay">Payer maintenant</button></div>';
+      '<div class="grid2" style="margin-top:6px">' +
+      '<button class="btn sm ' + (t.overdue ? 'danger' : 'primary') +
+      '" data-act="tx.pay">Payer maintenant</button>' +
+      '<button class="btn sm" data-act="tx.watchad">🎬 Pub → gratuit</button>' +
+      '</div></div>';
   }
 
   /** Ligne d'actif de la fiche détaillée du régime fiscal (voir tx.detail) :
@@ -161,6 +164,17 @@ window.G = window.G || {};
   });
   ui.act('tx.pay', function () {
     if (G.tax.pay()) ui.refresh();
+  });
+  ui.act('tx.watchad', function () {
+    var t = G.state.tax;
+    if (!t || t.due <= 0) return;
+    var amount = t.due;
+    G.ui.showAd(function () {
+      if (G.tax.payAsAdReward()) {
+        ui.toast('✅ Impôts payés', u.fmtMoney(amount) + ' offerts contre la pub', 'good');
+        ui.refresh();
+      }
+    });
   });
 
   function fleetCard(c, t, sector) {

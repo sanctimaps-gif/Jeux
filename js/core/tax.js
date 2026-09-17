@@ -179,10 +179,27 @@ G.tax = (function () {
     return true;
   }
 
+  /** Règle l'échéance en attente sans débourser un centime, en récompense
+   * d'une publicité regardée jusqu'au bout (voir tx.watchad) — uniquement
+   * quand il y a réellement une échéance : le régime simplifié n'a rien à
+   * régler de cette façon, il paie déjà tout seul. */
+  function payAsAdReward() {
+    var t = state();
+    if (!t || t.due <= 0) return false;
+    t.totalPaid += t.due;
+    t.lastAmount = t.due;
+    t.due = 0;
+    t.graceLeft = 0;
+    t.overdue = false;
+    t.dueIn = newPeriod();
+    return true;
+  }
+
   return {
     RATE: RATE, SIMPLIFIED_RATE: SIMPLIFIED_RATE, GRACE_SECONDS: GRACE_SECONDS,
     THRESHOLDS: THRESHOLDS, regime: regime,
     defaults: defaults, recordIncome: recordIncome,
-    isBlocked: isBlocked, isDue: isDue, tick: tick, pay: pay, payableNow: payableNow
+    isBlocked: isBlocked, isDue: isDue, tick: tick, pay: pay, payableNow: payableNow,
+    payAsAdReward: payAsAdReward
   };
 })();
