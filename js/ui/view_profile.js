@@ -1,21 +1,32 @@
-/* Onglet Profil : patrimoine, flux d'argent, classement mondial, réglages. */
+/* Onglet Fortune : patrimoine et classement mondial.
+ * Onglet Compte : journal des mouvements et réglages. */
 window.G = window.G || {};
 
 (function () {
   'use strict';
   var u = G.util, ui = G.ui;
 
-  var sub = 'patrimoine';
+  var fortuneSub = 'patrimoine';
+  var compteSub = 'journal';
 
-  function subTabs() {
-    var tabs = [['patrimoine', '💎 Patrimoine'], ['fortune', '🌍 Fortunes mondiales'],
-    ['journal', '🧾 Journal'], ['reglages', '⚙️ Réglages']];
+  function fortuneTabs() {
+    var tabs = [['patrimoine', '💎 Patrimoine'], ['monde', '🌍 Fortunes mondiales']];
     return '<div class="sub-tabs">' + tabs.map(function (t) {
-      return '<button class="sub' + (sub === t[0] ? ' active' : '') +
-        '" data-act="pf.sub" data-sub="' + t[0] + '">' + t[1] + '</button>';
+      return '<button class="sub' + (fortuneSub === t[0] ? ' active' : '') +
+        '" data-act="ft.sub" data-sub="' + t[0] + '">' + t[1] + '</button>';
     }).join('') + '</div>';
   }
-  ui.act('pf.sub', function (d) { sub = d.sub; ui.refresh(); });
+  ui.act('ft.sub', function (d) { fortuneSub = d.sub; ui.refresh(); });
+
+  function compteTabs() {
+    var tabs = [['journal', '🧾 Journal'], ['reglages', '⚙️ Réglages']];
+    return '<div class="sub-tabs">' + tabs.map(function (t) {
+      return '<button class="sub' + (compteSub === t[0] ? ' active' : '') +
+        '" data-act="ac.sub" data-sub="' + t[0] + '">' + t[1] + '</button>';
+    }).join('') + '</div>';
+  }
+  ui.act('ac.sub', function (d) { compteSub = d.sub; ui.refresh(); });
+  ui.act('ac.gofortune', function () { ui.setTab('fortune'); });
 
   /* ======================================================= PATRIMOINE ==== */
 
@@ -193,7 +204,7 @@ window.G = window.G || {};
 
   function renderSettings() {
     var s = G.state;
-    var h = '<div class="card hero" data-act="pf.sub" data-sub="patrimoine" ' +
+    var h = '<div class="card hero" data-act="ac.gofortune" ' +
       'style="cursor:pointer">' +
       '<div class="hero-v">' + u.fmtMoney(G.eco.netWorth()) + '</div>' +
       '<div class="hero-l">💎 Patrimoine total</div>' +
@@ -253,7 +264,7 @@ window.G = window.G || {};
     if (ta && G.save.importSave(ta.value)) {
       ui.closeModal();
       ui.toast('📥 Partie chargée', 'Bon retour', 'good');
-      ui.setTab('empire');
+      ui.setTab('fortune');
     } else {
       ui.toast('❌ Code invalide', 'Vérifiez le texte collé', 'bad');
     }
@@ -266,20 +277,26 @@ window.G = window.G || {};
         G.save.wipe();
         G.state = G.newState();
         G.save.write();
-        ui.setTab('empire');
+        ui.setTab('fortune');
         ui.toast('🗑️ Nouvelle partie', 'Tout repart de zéro');
       }, 'Effacer');
   });
   ui.act('pf.help', function () { G.ui.showGuide(); });
 
-  G.ui.register('profil', {
-    icon: '👤', label: 'Profil',
+  G.ui.register('fortune', {
+    icon: '💎', label: 'Fortune',
     render: function () {
-      var h = '<div class="view-title">Profil</div>' + subTabs();
-      if (sub === 'patrimoine') h += renderWealth();
-      else if (sub === 'fortune') h += renderRich();
-      else if (sub === 'journal') h += renderJournal();
-      else h += renderSettings();
+      var h = '<div class="view-title">Fortune</div>' + fortuneTabs();
+      h += fortuneSub === 'patrimoine' ? renderWealth() : renderRich();
+      return h;
+    }
+  });
+
+  G.ui.register('compte', {
+    icon: '👤', label: 'Compte',
+    render: function () {
+      var h = '<div class="view-title">Compte</div>' + compteTabs();
+      h += compteSub === 'journal' ? renderJournal() : renderSettings();
       return h;
     }
   });

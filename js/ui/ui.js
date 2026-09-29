@@ -10,11 +10,15 @@ G.ui = (function () {
   'use strict';
   var u = G.util;
 
+  /* Ordre d'affichage des onglets, fixe : Fortune (patrimoine) doit rester
+     l'onglet central, avec Investir/Casino/Entreprise à sa gauche et
+     Manager/Pays/Compte à sa droite. */
+  var NAV_ORDER = ['invest', 'casino', 'empire', 'fortune', 'manager', 'pays', 'compte'];
+
   var views = {};
-  var order = [];
   var actions = {};
   var el = {};
-  var current = 'empire';
+  var current = 'fortune';
   var modalStack = 0;
   var sinceRefresh = 0;
   var headerNeedsUpdate = true;
@@ -25,7 +29,6 @@ G.ui = (function () {
 
   function register(id, def) {
     views[id] = def;
-    if (order.indexOf(id) < 0) order.push(id);
   }
 
   function act(name, fn) { actions[name] = fn; }
@@ -72,7 +75,6 @@ G.ui = (function () {
   function setTab(id) {
     if (!views[id]) return;
     current = id;
-    G.state.settings.tab = id;
     el.app.scrollTop = 0;
     render();
   }
@@ -459,18 +461,21 @@ G.ui = (function () {
     el.modalTitle = u.$('#modal-title');
     el.modalBody = u.$('#modal-body');
 
-    /* Construction de la barre d'onglets à partir des vues déclarées. */
+    /* Construction de la barre d'onglets dans l'ordre fixe (voir NAV_ORDER). */
     var html = '';
-    for (var i = 0; i < order.length; i++) {
-      var v = views[order[i]];
-      html += '<button class="tab" data-tab="' + order[i] + '">' +
+    for (var i = 0; i < NAV_ORDER.length; i++) {
+      var v = views[NAV_ORDER[i]];
+      if (!v) continue;
+      html += '<button class="tab" data-tab="' + NAV_ORDER[i] + '">' +
         '<span class="i">' + v.icon + '</span><span>' + v.label + '</span>' +
         '<span class="dot" style="display:none"></span></button>';
     }
     el.tabs.innerHTML = html;
 
     bind();
-    current = views[G.state.settings.tab] ? G.state.settings.tab : 'empire';
+    /* On démarre toujours sur Fortune, quel que soit l'onglet quitté la
+       dernière fois : c'est ce qu'on doit voir en ouvrant le jeu. */
+    current = 'fortune';
     render();
   }
 

@@ -86,7 +86,6 @@ G.newState = function () {
 
     /* ------------------------------------------------------------ réglages */
     settings: {
-      tab: 'empire',
       sub: 'entreprises',
       matchSpeed: 700,
       controls: 'action',  // 'action' = on joue le match, 'coach' = décisions

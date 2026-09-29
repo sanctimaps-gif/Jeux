@@ -517,10 +517,10 @@ label.field { display: block; font-size: 12px; color: var(--txt-dim); margin-bot
 
 /* ======================================================== AJOUTS V2 ===== */
 
-/* Barre d'onglets à six entrées. */
-#tabs { grid-template-columns: repeat(6, 1fr); }
-.tab { font-size: 9px; }
-.tab .i { font-size: 18px; }
+/* Barre d'onglets à sept entrées. */
+#tabs { grid-template-columns: repeat(7, 1fr); }
+.tab { font-size: 8.5px; padding: 4px 1px; }
+.tab .i { font-size: 16px; }
 
 /* ------------------------------------------------------------- héros --- */
 
